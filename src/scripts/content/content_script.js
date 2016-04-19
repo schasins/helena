@@ -24,6 +24,7 @@ utilities.sendMessage("content", "background", "requestTabID", {});
 
  var stored_background_colors = {};
  var stored_outlines = {};
+ var texts_to_nodes = {};
 
  function off(){
   return !currentlyScraping();
@@ -47,18 +48,18 @@ function outline(event){
     //$node.tipr();
   }
   if (off()){return;}
-  outlineTarget(node);
+  outlineTarget(targetFromEvent(event));
 }
 
 current_target = null;
 function outlineTarget(target){
-  current_target = target;
   $target = $(target);
-  targetString = $target.html(); // todo: is this actually an ok identifier?
+  targetString = $target.text(); // todo: is this actually an ok identifier?
   // stored_background_colors[$target.html()] = $target.css('background-color');
   stored_background_colors[targetString] = window.getComputedStyle(target, null).getPropertyValue('background-color');
   // stored_outlines[$target.html()] = $target.css('outline');
   stored_outlines[targetString] = window.getComputedStyle(target, null).getPropertyValue('outline');
+  texts_to_nodes[targetString] = target;
   $target.css('background-color', '#FFA245');
   $target.css('outline', '#FFA245 1px solid');
   // todo: see about maybe having a timeout to unoutline also
@@ -71,9 +72,16 @@ function unoutline(event){
 
 function unoutlineTarget(target){
   $target = $(target);
-  targetString = $target.html(); // is this actually an ok identifier?
+  targetString = $target.text(); // is this actually an ok identifier?
   $target.css('background-color', stored_background_colors[targetString]);
   $target.css('outline', stored_outlines[targetString]);
+  delete texts_to_nodes[targetString];
+}
+
+function unoutlineRemaining(){
+  for (var text in texts_to_nodes){
+    unoutlineTarget(texts_to_nodes[text]);
+  }
 }
 
 /**********************************************************************
@@ -157,15 +165,21 @@ function getElementTextHelper(el) {
   };
 }); //run once page loaded, because else runs before r+r content script
 
+var mostRecentMousemoveTarget = null;
+document.addEventListener('mousemove', updateMousemoveTarget, true);
+function updateMousemoveTarget(event){
+  mostRecentMousemoveTarget = event.target;
+}
 
 // functions for letting the record and replay layer know whether to run the additional handler above
 function startProcessingScrape(){
   additional_recording_handlers_on.scrape = true;
+  outlineTarget(mostRecentMousemoveTarget);
 }
 
 function stopProcessingScrape(){
   additional_recording_handlers_on.scrape = false;
-  unoutline();
+  unoutlineRemaining();
 }
 
 function scrapingClick(event){

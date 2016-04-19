@@ -41,15 +41,16 @@ function outline(event){
   if (nodeText == null){
     return; // scraping empty text doesn't make sense
   }
-  $node.attr('data-tip', "CTRL+SHIFT+click to scrape:\n"+nodeText);
+  $node.attr('data-tip', "CTRL+ALT+click to scrape:\n"+nodeText);
   if (!$node.hasClass("tip")){
-    $node.addClass("tip");
-    $node.tipr();
+    //$node.addClass("tip");
+    //$node.tipr();
   }
   if (off()){return;}
   outlineTarget(node);
 }
 
+current_target = null;
 function outlineTarget(target){
   current_target = target;
   $target = $(target);
@@ -164,6 +165,7 @@ function startProcessingScrape(){
 
 function stopProcessingScrape(){
   additional_recording_handlers_on.scrape = false;
+  unoutline();
 }
 
 function scrapingClick(event){
@@ -178,13 +180,13 @@ function currentlyScraping(){
 }
 
 function checkScrapingOn(event){
-  if (event.ctrlKey && event.keyCode == 67){ // convention is we need ctrl+c+click to scrape
+  if (event.ctrlKey && event.altKey){ // convention is we need ctrl+alt+click to scrape
     startProcessingScrape();
   }
 }
 
 function checkScrapingOff(event){
-  if (currentlyScraping() && event.keyCode == 67){ // this is for keyup, so user is exiting the scraping mode
+  if (currentlyScraping() && !(event.ctrlKey && event.altKey)){ // this is for keyup, so user is exiting the scraping mode
     stopProcessingScrape();
   }
 }

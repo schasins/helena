@@ -22,10 +22,6 @@ utilities.sendMessage("content", "background", "requestTabID", {});
  * Color guide to show users the node they're about to select
  **********************************************************************/
 
- var stored_background_colors = {};
- var stored_outlines = {};
- var texts_to_nodes = {};
-
  function off(){
   return !currentlyScraping();
  }
@@ -38,31 +34,30 @@ utilities.sendMessage("content", "background", "requestTabID", {});
 function outline(event){
   var node = targetFromEvent(event);
   var $node = $(node);
+  // uncomment the below if we want to bring back the bad tooltips
+  /*
   var nodeText = nodeToText(node);
   if (nodeText == null){
     return; // scraping empty text doesn't make sense
   }
   $node.attr('data-tip', "CTRL+ALT+click to scrape:\n"+nodeText);
   if (!$node.hasClass("tip")){
-    //$node.addClass("tip");
-    //$node.tipr();
+    $node.addClass("tip");
+    $node.tipr();
   }
+  */
   if (off()){return;}
   outlineTarget(targetFromEvent(event));
 }
 
-current_target = null;
+var outlinedNodes = [];
 function outlineTarget(target){
   $target = $(target);
-  targetString = $target.text(); // todo: is this actually an ok identifier?
-  // stored_background_colors[$target.html()] = $target.css('background-color');
-  stored_background_colors[targetString] = window.getComputedStyle(target, null).getPropertyValue('background-color');
-  // stored_outlines[$target.html()] = $target.css('outline');
-  stored_outlines[targetString] = window.getComputedStyle(target, null).getPropertyValue('outline');
-  texts_to_nodes[targetString] = target;
+  $target.data("stored_background_color", window.getComputedStyle(target, null).getPropertyValue('background-color'));
+  $target.data("stored_outline", window.getComputedStyle(target, null).getPropertyValue('outline'));
+  outlinedNodes.push(target);
   $target.css('background-color', '#FFA245');
   $target.css('outline', '#FFA245 1px solid');
-  // todo: see about maybe having a timeout to unoutline also
 }
 
 function unoutline(event){
@@ -73,14 +68,15 @@ function unoutline(event){
 function unoutlineTarget(target){
   $target = $(target);
   targetString = $target.text(); // is this actually an ok identifier?
-  $target.css('background-color', stored_background_colors[targetString]);
-  $target.css('outline', stored_outlines[targetString]);
-  delete texts_to_nodes[targetString];
+  $target.css('background-color', $target.data("stored_background_color"));
+  $target.css('outline', $target.data("stored_outline"));
+  var index = outlinedNodes.indexOf(target);
+  outlinedNodes.splice(index, 1);
 }
 
 function unoutlineRemaining(){
-  for (var text in texts_to_nodes){
-    unoutlineTarget(texts_to_nodes[text]);
+  for (var i = 0; i < outlinedNodes.length; i++){
+    unoutlineTarget(outlinedNodes[i]);
   }
 }
 

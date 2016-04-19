@@ -1,0 +1,81 @@
+<html>
+
+<head>
+	<script type="text/javascript" src="../scripts/lib/jquery.js"></script>
+	<script type="text/javascript" src="../scripts/lib/jquery_csv.js"></script>
+	<script type="text/javascript" src="../scripts/lib/jquery-ui.js"></script>
+	<script type="text/javascript" src="../scripts/lib/utilities.js"></script>
+	<script type="text/javascript" src="../scripts/lib/underscore-min.js"></script>
+	<script type="text/javascript" src="../scripts/lib/json2.js"></script>
+	<script type="text/javascript" src="../scripts/lib/FileSaver.js"></script>
+	<script type="text/javascript" src="../scripts/lib/Blob.js"></script>
+	<script type="text/javascript" src="../scripts/lib/record-replay/common_common.js"></script>
+	<script type="text/javascript" src="../scripts/lib/record-replay/common_params.js"></script>
+	<script type="text/javascript" src="../scripts/lib/record-replay/common_logging.js"></script>
+	<script type="text/javascript" src="../scripts/lib/record-replay/mainpanel_port.js"></script>
+	<script type="text/javascript" src="../scripts/lib/record-replay/mainpanel_url.js"></script>
+	<script type="text/javascript" src="../scripts/lib/record-replay/mainpanel_main.js"></script>
+	<script type="text/javascript" src="../scripts/lib/record-replay/mainpanel_simple_record.js"></script>
+	<script type="text/javascript" src="../scripts/lib/record-replay/mainpanel_trace_parameterization.js"></script>
+	<script type="text/javascript" src="../scripts/background/mainpanel_script.js"></script>
+	
+	<link href='https://fonts.googleapis.com/css?family=Montserrat' rel='stylesheet' type='text/css'>
+
+	<link rel="stylesheet" type="text/css" href="../style/style.css" />
+	<link rel="stylesheet" type="text/css" href="../style/jquery-ui-1.11.0.custom/jquery-ui.min.css" />
+	<link rel="stylesheet" type="text/css" href="../style/jquery-ui-1.11.0.custom/jquery-ui.structure.min.css" />
+	<link rel="stylesheet" type="text/css" href="../style/jquery-ui-1.11.0.custom/jquery-ui.theme.min.css" />
+
+	
+</head>
+<body>
+	<div id="tabs">
+		
+		<ul>
+			<li><a href="#tabs-1" id="new_script">New Script</a></li>
+			<li><a href="#tabs-2" id="saved_scripts">Saved Scripts</a></li>
+		</ul>
+
+		<div id="tabs-1">
+		<div id="new_script_content">
+		</div>
+		</div>
+
+		<div id="new_script_content_panes" style="display: none">
+			<div id="about_to_record" class="new_script_message_stage">
+				<div id="welcome">
+					Hi!  We're going to ask you to record how to scrape the first row of your dataset.  When you're ready to start recording, hit the "Start Recording" button below.
+				</div>
+				<div id="start_recording">
+					<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" class="recording_circle">
+						<circle cx="30" cy="30" r="30"/>
+					</svg>
+					<div class="nav">Start Recording</div>
+				</div>
+			</div>
+
+
+			<div id="recording" class="new_script_message_stage">
+				<div id="instructions">
+					Awesome.  We're recording.  When you're ready to add a new cell to the first row of your dataset, just hover over the text you want to add, then press "CTRL+SHIFT+click".  We'll show the data you've collected right here:
+				</div>
+				<div id="scraped_items_preview"></div>
+				<div id="stop_recording">
+					<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" class="recording_circle">
+						<circle cx="30" cy="30" r="30"/>
+						<rect x="15" y="15" rx="5" ry="5" width="30" height="30" fill="#f6f6f6" />
+					</svg>
+					<div class="nav">Stop Recording</div>
+				</div>
+			</div>
+
+
+			<div id="done_recording" class="new_script_message_stage"></div>
+		</div>
+
+		<div id="tabs-2">
+		</div>
+
+	</div>
+</body>
+</html>

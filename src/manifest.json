@@ -23,12 +23,8 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
-      "css": [
-      "style/tipr.css"
-      ],
       "js": [		"scripts/lib/utilities.js", 
 			"scripts/lib/jquery.js", 
-      "scripts/lib/tipr.min.js",
 			"scripts/lib/underscore-min.js", 
 			"scripts/content/content_script.js",
 			"scripts/lib/record-replay/common_common.js",

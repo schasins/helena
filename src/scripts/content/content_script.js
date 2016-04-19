@@ -35,18 +35,6 @@ function outline(event){
   var node = targetFromEvent(event);
   var $node = $(node);
   scrapingTooltip(node);
-  // uncomment the below if we want to bring back the bad tooltips
-  /*
-  var nodeText = nodeToText(node);
-  if (nodeText == null){
-    return; // scraping empty text doesn't make sense
-  }
-  $node.attr('data-tip', "CTRL+ALT+click to scrape:\n"+nodeText);
-  if (!$node.hasClass("tip")){
-    $node.addClass("tip");
-    $node.tipr();
-  }
-  */
   if (off()){return;}
   outlineTarget(targetFromEvent(event));
 }

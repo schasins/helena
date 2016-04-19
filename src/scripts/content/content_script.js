@@ -34,6 +34,7 @@ utilities.sendMessage("content", "background", "requestTabID", {});
 function outline(event){
   var node = targetFromEvent(event);
   var $node = $(node);
+  scrapingTooltip(node);
   // uncomment the below if we want to bring back the bad tooltips
   /*
   var nodeText = nodeToText(node);
@@ -50,17 +51,47 @@ function outline(event){
   outlineTarget(targetFromEvent(event));
 }
 
+var highlightColor = "#E04343";
+var tooltipColor = "#DBDBDB";
+var tooltipBorderColor = "#B0B0B0";
+
 var outlinedNodes = [];
 function outlineTarget(target){
   $target = $(target);
   $target.data("stored_background_color", window.getComputedStyle(target, null).getPropertyValue('background-color'));
   $target.data("stored_outline", window.getComputedStyle(target, null).getPropertyValue('outline'));
   outlinedNodes.push(target);
-  $target.css('background-color', '#FFA245');
-  $target.css('outline', '#FFA245 1px solid');
+  $target.css('background-color', highlightColor);
+  $target.css('outline', highlightColor+' 1px solid');
+}
+
+function scrapingTooltip(node){
+  var $node = $(node);
+  var nodeText = "CTRL + ALT + click to scrape:<br>"+nodeToText(node);
+
+  var offset = $node.offset();
+  var boundingBox = node.getBoundingClientRect();
+  var newDiv = $('<div>'+nodeText+'<div/>');
+
+  var width = boundingBox.width;
+  if (width < 40){
+    width = 40;
+  }
+
+  newDiv.attr('id', 'vpbd-hightlight');
+  newDiv.css('width', width);
+  newDiv.css('top', offset.top+boundingBox.height);
+  newDiv.css('left', offset.left);
+  newDiv.css('position', 'absolute');
+  newDiv.css('z-index', 1000);
+  newDiv.css('background-color', tooltipColor);
+  newDiv.css('border', 'solid 1px '+tooltipBorderColor);
+  newDiv.css('opacity', .9);
+  $(document.body).append(newDiv);
 }
 
 function unoutline(event){
+  removeScrapingTooltip();
   if (off()){return;}
   unoutlineTarget(targetFromEvent(event));
 }
@@ -78,6 +109,10 @@ function unoutlineRemaining(){
   for (var i = 0; i < outlinedNodes.length; i++){
     unoutlineTarget(outlinedNodes[i]);
   }
+}
+
+function removeScrapingTooltip(){
+  $('#vpbd-hightlight').remove();
 }
 
 /**********************************************************************

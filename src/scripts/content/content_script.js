@@ -178,13 +178,13 @@ function currentlyScraping(){
 }
 
 function checkScrapingOn(event){
-  if (event.ctrlKey && event.shiftKey){ // convention is we need ctrl+shift+click to scrape
+  if (event.ctrlKey && event.keyCode == 67){ // convention is we need ctrl+c+click to scrape
     startProcessingScrape();
   }
 }
 
 function checkScrapingOff(event){
-  if (currentlyScraping() && !(event.ctrlKey && event.shiftKey)){ // this is for keyup, so user is exiting the scraping mode
+  if (currentlyScraping() && event.keyCode == 67){ // this is for keyup, so user is exiting the scraping mode
     stopProcessingScrape();
   }
 }

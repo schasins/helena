@@ -18,30 +18,34 @@ document.addEventListener('keyup', checkScrapingOff, true);
 utilities.listenForMessage("background", "content", "tabID", function(msg){tabID = msg; console.log("tab id: ", msg);});
 utilities.sendMessage("content", "background", "requestTabID", {});
 
+function currentlyRecording(){
+  return recording == RecordState.RECORDING; // recording variable is defined in scripts/lib/record-replay/content_script.js
+}
+
 /**********************************************************************
  * Color guide to show users the node they're about to select
  **********************************************************************/
 
- function off(){
-  return !currentlyScraping();
- }
-
- function targetFromEvent(event){
+function targetFromEvent(event){
   var $target = $(event.target);
   return $target.get(0);
-}
-
-function outline(event){
-  var node = targetFromEvent(event);
-  var $node = $(node);
-  scrapingTooltip(node);
-  if (off()){return;}
-  outlineTarget(targetFromEvent(event));
 }
 
 var highlightColor = "#E04343";
 var tooltipColor = "#DBDBDB";
 var tooltipBorderColor = "#B0B0B0";
+
+function outline(event){
+  node, $node = null;
+  if (currentlyRecording()){
+    var node = targetFromEvent(event);
+    var $node = $(node);
+    scrapingTooltip(node);
+  }
+  if (currentlyScraping()){
+    outlineTarget(targetFromEvent(event));
+  }
+}
 
 var outlinedNodes = [];
 function outlineTarget(target){
@@ -79,9 +83,12 @@ function scrapingTooltip(node){
 }
 
 function unoutline(event){
-  removeScrapingTooltip();
-  if (off()){return;}
-  unoutlineTarget(targetFromEvent(event));
+  if (currentlyRecording()){
+    removeScrapingTooltip();
+  }
+  if (currentlyScraping()){
+    unoutlineTarget(targetFromEvent(event));
+  }
 }
 
 function unoutlineTarget(target){
@@ -174,7 +181,11 @@ function getElementTextHelper(el) {
  * Handle scraping interaction
  **********************************************************************/
 
- $(function(){
+function currentlyScraping(){
+  return additional_recording_handlers_on.scrape;
+}
+
+$(function(){
   additional_recording_handlers.scrape = function(node, eventData){
     if (eventData.type !== "click") {return null;} //only care about clicks
     var data = nodeToMainpanelNodeRepresentation(node,false);
@@ -206,10 +217,6 @@ function scrapingClick(event){
     event.stopPropagation();
     event.preventDefault();
   }
-}
-
-function currentlyScraping(){
-  return additional_recording_handlers_on.scrape;
 }
 
 function checkScrapingOn(event){

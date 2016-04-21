@@ -45,7 +45,8 @@ var RecorderUI = (function() {
 
   pub.stopRecording = function(){
     var trace = SimpleRecord.stopRecording();
-    ReplayScript.setCurrentTrace(trace);
+    var scriptString = ReplayScript.setCurrentTrace(trace);
+    utilities.replaceContent($("#new_script_content"), $("<div>"+scriptString+"</div>"));
   }
 
   // during recording, when user scrapes, show the text so user gets feedback on what's happening
@@ -143,10 +144,11 @@ var ReplayScript = (function() {
 
     segmentedTrace = segment(trace);
     statements = segmentedTraceToStatements(segmentedTrace);
-    console.log(statements);
-    _.each(statements, function(statement){console.log(statement); console.log(statement.toString());});
-
-    console.log(segmentedTrace);
+    pub.statements = statements; // the actual useful representation
+    var scriptString = "";
+    _.each(statements, function(statement){console.log(statement.toString()); scriptString += statement.toString() + "<br>";});
+    pub.scriptString = scriptString;
+    return scriptString;
   }
 
   function processTrace(trace){
@@ -271,7 +273,6 @@ var ReplayScript = (function() {
   }
 
   function segment(trace){
-    console.log("trace", trace);
     var allSegments = [];
     var currentSegment = [];
     var currentSegmentVisibleEvent = null; // an event that should be shown to the user and thus determines the type of the statement
@@ -365,14 +366,12 @@ var ReplayScript = (function() {
           invisible = false;
           sType = st;
           if (sType === StatementTypes.LOAD){
-            console.log(ev);
             var url = ev.data.url;
             var outputPageVar = EventM.getLoadOutputPageVar(ev);
             statements.push(new LoadStatement(url, outputPageVar, seg));
             break;
           }
           else if (sType === StatementTypes.MOUSE){
-            console.log(ev);
             var pageVar = EventM.getDOMInputPageVar(ev);
             var node = ev.target.xpath;
             var domEvents = _.filter(seg, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
@@ -383,14 +382,12 @@ var ReplayScript = (function() {
             break;
           }
           else if (sType === StatementTypes.SCRAPE){
-            console.log(ev);
             var pageVar = EventM.getDOMInputPageVar(ev);
             var node = ev.target.xpath;
             statements.push(new ScrapeStatement(pageVar, node, seg));
             break;
           }
           else if (sType === StatementTypes.KEYBOARD){
-            console.log(ev);
             var pageVar = EventM.getDOMInputPageVar(ev);
             var node = ev.target.xpath;
             var textEntryEvents = _.filter(seg, function(ev){statementToEventMapping.keyboard.indexOf(statementType(ev)) > -1;});

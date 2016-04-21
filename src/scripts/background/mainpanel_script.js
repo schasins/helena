@@ -180,6 +180,7 @@ var ReplayScript = (function() {
   }
 
   function segment(trace){
+    console.log("trace", trace);
     var allSegments = [];
     var currentSegment = [];
     var currentDOMEventStatementType = null;
@@ -262,10 +263,12 @@ var ReplayScript = (function() {
     var statements = [];
     _.each(segmentedTrace, function(seg){
       sType = null;
+      var invisible = true;
       for (var i = 0; i < seg.length; i++){
         var ev = seg[i];
         var st = statementType(ev);
         if (st !== null){
+          invisible = false;
           sType = st;
           if (sType === StatementTypes.LOAD){
             console.log(ev);
@@ -304,8 +307,10 @@ var ReplayScript = (function() {
           }
         }
       }
-      // we've gone through all the events in the segment and none were things we wanted to show the user
-      statements.push(new InvisibleStatement(seg));
+      if (invisible){
+        // we've gone through all the events in the segment and none were things we wanted to show the user
+        statements.push(new InvisibleStatement(seg));
+      }
     });
     return statements;
   }

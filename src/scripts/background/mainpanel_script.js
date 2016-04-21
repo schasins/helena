@@ -191,9 +191,11 @@ var ReplayScript = (function() {
         lastDOMEvent = ev;
         EventM.setDOMOutputLoadEvents(ev, []);
       }
-      else if (ev.typ === "completed" && EventM.getVisible(ev)) {
+      else if (lastDOMEvent !== null && ev.type === "completed" && EventM.getVisible(ev)) {
         EventM.setLoadCausedBy(ev, lastDOMEvent);
         EventM.addDOMOutputLoadEvent(lastDOMEvent, ev);
+        // now that we have a cause for the load event, we can make it invisible
+        EventM.setVisible(ev);
       }
     });
     return trace;
@@ -306,7 +308,11 @@ var ReplayScript = (function() {
     this.trace = trace;
 
     this.toString = function(){
-      return this.outputPageVars.join(", ")+" = click("+this.pageVar+", '"+this.node+"')";
+      prefix = "";
+      if (this.outputPageVars.length > 0){
+        prefix = this.outputPageVars.join(", ")+" = ";
+      }
+      return prefix+"click("+this.pageVar+", '"+this.node+"')";
     };
   }
   function ScrapeStatement(pageVar, node, trace){
@@ -326,7 +332,11 @@ var ReplayScript = (function() {
     this.trace = trace;
 
     this.toString = function(){
-      return this.outputPageVars.join(", ")+" = type("+this.pageVar+", '"+this.node+"', '"+this.typedString+"')";
+      prefix = "";
+      if (this.outputPageVars.length > 0){
+        prefix = this.outputPageVars.join(", ")+" = ";
+      }
+      return prefix+"type("+this.pageVar+", '"+this.node+"', '"+this.typedString+"')";
     };
   }
   function InvisibleStatement(trace){
@@ -365,8 +375,10 @@ var ReplayScript = (function() {
             console.log(ev);
             var pageVar = EventM.getDOMInputPageVar(ev);
             var node = ev.target.xpath;
-            var outputLoads = EventM.getDOMOutputLoadEvents(ev);
+            var domEvents = _.filter(seg, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
+            var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
             var outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
+
             statements.push(new ClickStatement(pageVar, node, outputPageVars, seg));
             break;
           }
@@ -384,7 +396,8 @@ var ReplayScript = (function() {
             var textEntryEvents = _.filter(seg, function(ev){statementToEventMapping.keyboard.indexOf(statementType(ev)) > -1;});
             var lastTextEntryEvent = textEntryEvents[-1];
             var finalTypedValue = ev.meta.deltas.value;
-            var outputLoads = EventM.getDOMOutputLoadEvents(ev);
+            var domEvents = _.filter(seg, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
+            var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
             var outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
             statements.push(new TypeStatement(pageVar, node, finalTypedValue, outputPageVars, seg));
             break;

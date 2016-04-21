@@ -118,7 +118,7 @@ var ReplayScript = (function() {
   var frameToPageVarId = {};
   function associateNecessaryLoadsWithIDs(trace){
     var idCounter = 1; // blockly says not to count from 0
-    _.each(trace, function(ev){if (ev.type === "completed" && ev.additional.display.visible){ console.log(ev.data.url); ev.additional.display.pageVarId = idCounter; frameToPageVarId[ev.data.url] = idCounter; idCounter += 1;}});
+    _.each(trace, function(ev){if (ev.type === "completed" && ev.additional.display.visible){ var p = "p"+idCounter; ev.additional.display.pageVarId = p; frameToPageVarId[ev.data.url] = p; idCounter += 1;}});
     return trace;
   }
 
@@ -211,7 +211,7 @@ var ReplayScript = (function() {
     this.trace = trace;
 
     this.toString = function(){
-      return this.outputPageVar+" = load("+this.url+")";
+      return this.outputPageVar+" = load('"+this.url+"')";
     };
   }
   function ClickStatement(pageVar, node, outputPageVars, trace){
@@ -221,7 +221,7 @@ var ReplayScript = (function() {
     this.trace = trace;
 
     this.toString = function(){
-      return this.outputPageVars.join(", ")+" = click("+this.pageVar+", "+this.node+")";
+      return this.outputPageVars.join(", ")+" = click("+this.pageVar+", '"+this.node+"')";
     };
   }
   function ScrapeStatement(pageVar, node, trace){
@@ -230,7 +230,7 @@ var ReplayScript = (function() {
     this.trace = trace;
 
     this.toString = function(){
-      return "scrape("+this.pageVar+", "+this.node+")";
+      return "scrape("+this.pageVar+", '"+this.node+"')";
     };
   }
   function TypeStatement(pageVar, node, typedString, outputPageVars, trace){
@@ -241,7 +241,7 @@ var ReplayScript = (function() {
     this.trace = trace;
 
     this.toString = function(){
-      return this.outputPageVars.join(", ")+" = type("+this.pageVar+", "+this.node+", "+this.typedString+")";
+      return this.outputPageVars.join(", ")+" = type("+this.pageVar+", '"+this.node+"', '"+this.typedString+"')";
     };
   }
   function InvisibleStatement(trace){
@@ -305,7 +305,6 @@ var ReplayScript = (function() {
         }
       }
       // we've gone through all the events in the segment and none were things we wanted to show the user
-      console.log("weird segment: ", seg);
       statements.push(new InvisibleStatement(seg));
     });
     return statements;

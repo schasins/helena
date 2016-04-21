@@ -84,7 +84,8 @@ var ReplayScript = (function() {
 
     segmentedTrace = segment(trace);
     statements = segmentedTraceToStatements(segmentedTrace);
-    _.each(statements, function(statement){console.log(statement.toString());});
+    console.log(statements);
+    _.each(statements, function(statement){console.log(statement); console.log(statement.toString());});
 
     console.log(segmentedTrace);
   }
@@ -117,12 +118,12 @@ var ReplayScript = (function() {
   var frameToPageVarId = {};
   function associateNecessaryLoadsWithIDs(trace){
     var idCounter = 1; // blockly says not to count from 0
-    _.each(trace, function(ev){if (ev.type === "completed" && ev.additional.display.visible){ ev.additional.display.pageVarId = idCounter; frameToPageVarId[ev.data.topURL] = idCounter; idCounter += 1;}});
+    _.each(trace, function(ev){if (ev.type === "completed" && ev.additional.display.visible){ console.log(ev.data.url); ev.additional.display.pageVarId = idCounter; frameToPageVarId[ev.data.url] = idCounter; idCounter += 1;}});
     return trace;
   }
 
   function parameterizePages(trace){
-    _.each(trace, function(ev){if (ev.type === "dom"){ ev.additional.display.inputPageVar = frameToPageVarId[ev.frame.topURL]; }});
+    _.each(trace, function(ev){if (ev.type === "dom"){ if (!(ev.frame.topURL in frameToPageVarId)){console.log(ev.frame.topURL, frameToPageVarId);} ev.additional.display.inputPageVar = frameToPageVarId[ev.frame.topURL]; }});
     return trace;
   }
 
@@ -168,6 +169,10 @@ var ReplayScript = (function() {
         return StatementTypes.MOUSE;
       }
       else if (statementToEventMapping.keyboard.indexOf(ev.data.type) > -1){
+        if ([16, 17, 18].indexOf(ev.data.keyCode) > -1){
+          // this is just shift, ctrl, or alt key.  don't need to show these to the user
+          return null;
+        }
         return StatementTypes.KEYBOARD;
       }
     }
@@ -236,7 +241,13 @@ var ReplayScript = (function() {
     this.trace = trace;
 
     this.toString = function(){
-      return this.outputPageVars.join(", ")+" = click("+this.pageVar+", "+this.node+", "+this.typedString+")";
+      return this.outputPageVars.join(", ")+" = type("+this.pageVar+", "+this.node+", "+this.typedString+")";
+    };
+  }
+  function InvisibleStatement(trace){
+    this.trace = trace;
+    this.toString = function(){
+      return "";
     };
   }
 
@@ -257,35 +268,45 @@ var ReplayScript = (function() {
         if (st !== null){
           sType = st;
           if (sType === StatementTypes.LOAD){
+            console.log(ev);
             var url = ev.data.url;
             var outputPageVar = ev.additional.display.pageVarId;
-            statements.push(LoadStatement(url, outputPageVar, seg));
+            statements.push(new LoadStatement(url, outputPageVar, seg));
+            break;
           }
           else if (sType === StatementTypes.MOUSE){
             console.log(ev);
-            var pageVar = ev.display.inputPageVar;
+            var pageVar = ev.additional.display.inputPageVar;
             var node = ev.target.xpath;
             var outputLoads = ev.additional.display.causesLoads;
             var outputPageVars = _.map(outputLoads, function(ev){return ev.additional.display.pageVarId;});
-            statements.push(ClickStatement(pageVar, node, outputPageVars, seg));
+            statements.push(new ClickStatement(pageVar, node, outputPageVars, seg));
+            break;
           }
           else if (sType === StatementTypes.SCRAPE){
-            var pageVar = ev.display.inputPageVar;
+            console.log(ev);
+            var pageVar = ev.additional.display.inputPageVar;
             var node = ev.target.xpath;
-            statements.push(ClickStatement(pageVar, node, seg));
+            statements.push(new ScrapeStatement(pageVar, node, seg));
+            break;
           }
           else if (sType === StatementTypes.KEYBOARD){
-            var pageVar = ev.display.inputPageVar;
+            console.log(ev);
+            var pageVar = ev.additional.display.inputPageVar;
             var node = ev.target.xpath;
             var textEntryEvents = _.filter(seg, function(ev){statementToEventMapping.keyboard.indexOf(statementType(ev)) > -1;});
             var lastTextEntryEvent = textEntryEvents[-1];
             var finalTypedValue = ev.meta.deltas.value;
             var outputLoads = ev.additional.display.causesLoads;
             var outputPageVars = _.map(outputLoads, function(ev){return ev.additional.display.pageVarId;});
-            statements.push(TypeStatement(pageVar, node, finalTypedValue, outputPageVars, seg));
+            statements.push(new TypeStatement(pageVar, node, finalTypedValue, outputPageVars, seg));
+            break;
           }
         }
       }
+      // we've gone through all the events in the segment and none were things we wanted to show the user
+      console.log("weird segment: ", seg);
+      statements.push(new InvisibleStatement(seg));
     });
     return statements;
   }

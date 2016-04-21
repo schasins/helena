@@ -131,7 +131,7 @@ return pub;}());
 var Scraping = (function() { var pub = {};
   $(function(){
     additional_recording_handlers.scrape = function(node, eventData){
-      if (eventData.type !== "click") {return null;} //only care about clicks
+      if (eventData.type !== "click") {return true;} //only actually scrape on clicks, but still want to record that we're in scraping mode
       var data = NodeRep.nodeToMainpanelNodeRepresentation(node,false);
       utilities.sendMessage("content", "mainpanel", "scrapedData", data);
       console.log("scrape", data);

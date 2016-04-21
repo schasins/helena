@@ -68,6 +68,65 @@ var RecorderUI = (function() {
  * Wrangling the replay script once we have the raw trace
  **********************************************************************/
 
+var EventM = (function() {
+  var pub = {};
+
+  pub.prepareForDisplay = function(ev){
+    if (!ev.additional){
+      ev.additional = {};
+    } 
+    ev.additional.display = {};
+  };
+
+  pub.getLoadURL = function(ev){
+    return ev.data.url;
+  };
+
+  pub.getDOMURL = function(ev){
+    return ev.frame.topURL;
+  };
+
+  pub.getVisible = function(ev){
+    return ev.additional.display.visible;
+  };
+  pub.setVisible = function(ev, val){
+    ev.additional.display.visible = val;
+  };
+
+  pub.getLoadOutputPageVar = function(ev){
+    return ev.additional.display.pageVarId;
+  };
+  pub.setLoadOutputPageVar = function(ev, val){
+    ev.additional.display.pageVarId = val;
+  };
+
+  pub.getDOMInputPageVar = function(ev){
+    return ev.additional.display.inputPageVar;
+  };
+  pub.setDOMInputPageVar = function(ev, val){
+    ev.additional.display.inputPageVar = val;
+  };
+
+  pub.getDOMOutputLoadEvents = function(ev){
+    return ev.additional.display.causesLoads;
+  };
+  pub.setDOMOutputLoadEvents = function(ev, val){
+    ev.additional.display.causesLoads = val;
+  };
+  pub.addDOMOutputLoadEvent = function(ev, val){
+    ev.additional.display.causesLoads.push(val);
+  };
+
+  pub.getLoadCausedBy = function(ev){
+    return ev.additional.display.causedBy;
+  };
+  pub.setLoadCausedBy = function(ev, val){
+    ev.additional.display.causedBy = val;
+  };
+
+  return pub;
+}());
+
 var ReplayScript = (function() {
   var pub = {};
 
@@ -101,29 +160,27 @@ var ReplayScript = (function() {
   }
 
   function prepareForDisplay(trace){
-    _.each(trace, function(ev){
-      if (!ev.additional){ev.additional = {};} 
-      ev.additional.display = {};});
+    _.each(trace, function(ev){EventM.prepareForDisplay(ev);});
     return trace;
   }
 
   // user doesn't need to see load events for loads that load URLs whose associated DOM trees the user never actually uses
   function markUnnecessaryLoads(trace){
     var domEvents =  _.filter(trace, function(ev){return ev.type === "dom";});
-    var domEventURLs = _.unique(_.map(domEvents, function(ev){return ev.frame.topURL;}));
-    _.each(trace, function(ev){if (ev.type === "completed" && domEventURLs.indexOf(ev.data.url) > -1){ ev.additional.display.visible = true;}});
+    var domEventURLs = _.unique(_.map(domEvents, function(ev){return EventM.getDOMURL(ev);}));
+    _.each(trace, function(ev){if (ev.type === "completed" && domEventURLs.indexOf(EventM.getLoadURL(ev)) > -1){ EventM.setVisible(ev, true);}});
     return trace;
   }
 
   var frameToPageVarId = {};
   function associateNecessaryLoadsWithIDs(trace){
     var idCounter = 1; // blockly says not to count from 0
-    _.each(trace, function(ev){if (ev.type === "completed" && ev.additional.display.visible){ var p = "p"+idCounter; ev.additional.display.pageVarId = p; frameToPageVarId[ev.data.url] = p; idCounter += 1;}});
+    _.each(trace, function(ev){if (ev.type === "completed" && EventM.getVisible(ev)){ var p = "p"+idCounter; EventM.setLoadOutputPageVar(ev, p); frameToPageVarId[EventM.getLoadURL(ev)] = p; idCounter += 1;}});
     return trace;
   }
 
   function parameterizePages(trace){
-    _.each(trace, function(ev){if (ev.type === "dom"){ if (!(ev.frame.topURL in frameToPageVarId)){console.log(ev.frame.topURL, frameToPageVarId);} ev.additional.display.inputPageVar = frameToPageVarId[ev.frame.topURL]; }});
+    _.each(trace, function(ev){if (ev.type === "dom"){ EventM.setDOMInputPageVar(ev, frameToPageVarId[EventM.getDOMURL(ev)]); }});
     return trace;
   }
 
@@ -132,11 +189,11 @@ var ReplayScript = (function() {
     _.each(trace, function(ev){
       if (ev.type === "dom"){
         lastDOMEvent = ev;
-        ev.additional.display.causesLoads = [];
+        EventM.setDOMOutputLoadEvents(ev, []);
       }
-      else if (ev.typ === "completed" && ev.additional.display.visible) {
-        ev.additional.display.causedBy = lastDOMEvent;
-        lastDOMEvent.additional.display.causesLoads.append(ev);
+      else if (ev.typ === "completed" && EventM.getVisible(ev)) {
+        EventM.setLoadCausedBy(ev, lastDOMEvent);
+        EventM.addDOMOutputLoadEvent(lastDOMEvent, ev);
       }
     });
     return trace;
@@ -156,7 +213,7 @@ var ReplayScript = (function() {
 
   function statementType(ev){
     if (ev.type === "completed"){
-      if (!ev.additional.display.visible){
+      if (!EventM.getVisible(ev)){
         return null; // invisible, so we don't care where this goes
       }
       return StatementTypes.LOAD;
@@ -179,28 +236,55 @@ var ReplayScript = (function() {
     return null; // these events don't matter to the user, so we don't care where this goes
   }
 
+  function allowedInSameSegment(e1, e2){
+    // if either of them is null (as when we do not yet have a current visible event), anything goes
+    if (e1 === null || e2 === null){
+      return true;
+    }
+    var e1type = statementType(e1);
+    var e2type = statementType(e2);
+    // if either is invisible, can be together, because an invisible event allowed anywhere
+    if (e1type === null || e2type === null){
+      return true;
+    }
+    // now we know they're both visible
+    // visible load events aren't allowed to share with any other visible events
+    if (e1.type === "completed" || e2.type === "completed"){
+      return false;
+    }
+    // now we know they're both visible and both dom events
+    // if they're both visible, but have the same type and called on the same node, they're allowed together
+    if (e1type === e2type){
+      var e1page = EventM.getDOMInputPageVar(e1);
+      var e2page = EventM.getDOMInputPageVar(e2);
+      if (e1page === e2page){
+        var e1node = e1.target.xpath;
+        var e2node = e2.target.xpath;
+        if (e1node === e2node){
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   function segment(trace){
     console.log("trace", trace);
     var allSegments = [];
     var currentSegment = [];
-    var currentDOMEventStatementType = null;
-    var currentDOMEventTargetNode = null;
+    var currentSegmentVisibleEvent = null; // an event that should be shown to the user and thus determines the type of the statement
     _.each(trace, function(ev){
-      var sType = statementType(ev);
-      var xpath = null;
-      if (ev.target) {xpath = ev.target.xpath;} // load events don't have targets
-      if (currentDOMEventTargetNode === xpath && (currentDOMEventStatementType === null || sType === null || currentDOMEventStatementType == sType) ){
+      if (allowedInSameSegment(currentSegmentVisibleEvent, ev)){
         currentSegment.push(ev);
-        if (currentDOMEventStatementType === null){
-          currentDOMEventStatementType = sType; // current block didn't yet have a statement type.  maybe now it does.
+        if (currentSegmentVisibleEvent === null && statementType(ev) !== null ){ // only relevant to first segment
+          currentSegmentVisibleEvent = ev;
         }
       }
       else{
-        // either we're on a new node or doing a new kind of action.  need a new segment
+        // the current event isn't allowed in last segment -- maybe it's on a new node or a new type of action.  need a new segment
         allSegments.push(currentSegment);
         currentSegment = [ev];
-        currentDOMEventStatementType = sType;
-        currentDOMEventTargetNode = xpath;
+        currentSegmentVisibleEvent = ev; // if this were an invisible event, we wouldn't have needed to start a new block, so it's always ok to put this in for the current segment's visible event
       }});
     allSegments.push(currentSegment); // put in that last segment
     return allSegments;
@@ -273,35 +357,35 @@ var ReplayScript = (function() {
           if (sType === StatementTypes.LOAD){
             console.log(ev);
             var url = ev.data.url;
-            var outputPageVar = ev.additional.display.pageVarId;
+            var outputPageVar = EventM.getLoadOutputPageVar(ev);
             statements.push(new LoadStatement(url, outputPageVar, seg));
             break;
           }
           else if (sType === StatementTypes.MOUSE){
             console.log(ev);
-            var pageVar = ev.additional.display.inputPageVar;
+            var pageVar = EventM.getDOMInputPageVar(ev);
             var node = ev.target.xpath;
-            var outputLoads = ev.additional.display.causesLoads;
-            var outputPageVars = _.map(outputLoads, function(ev){return ev.additional.display.pageVarId;});
+            var outputLoads = EventM.getDOMOutputLoadEvents(ev);
+            var outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
             statements.push(new ClickStatement(pageVar, node, outputPageVars, seg));
             break;
           }
           else if (sType === StatementTypes.SCRAPE){
             console.log(ev);
-            var pageVar = ev.additional.display.inputPageVar;
+            var pageVar = EventM.getDOMInputPageVar(ev);
             var node = ev.target.xpath;
             statements.push(new ScrapeStatement(pageVar, node, seg));
             break;
           }
           else if (sType === StatementTypes.KEYBOARD){
             console.log(ev);
-            var pageVar = ev.additional.display.inputPageVar;
+            var pageVar = EventM.getDOMInputPageVar(ev);
             var node = ev.target.xpath;
             var textEntryEvents = _.filter(seg, function(ev){statementToEventMapping.keyboard.indexOf(statementType(ev)) > -1;});
             var lastTextEntryEvent = textEntryEvents[-1];
             var finalTypedValue = ev.meta.deltas.value;
-            var outputLoads = ev.additional.display.causesLoads;
-            var outputPageVars = _.map(outputLoads, function(ev){return ev.additional.display.pageVarId;});
+            var outputLoads = EventM.getDOMOutputLoadEvents(ev);
+            var outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
             statements.push(new TypeStatement(pageVar, node, finalTypedValue, outputPageVars, seg));
             break;
           }

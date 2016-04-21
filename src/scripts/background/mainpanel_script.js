@@ -32,13 +32,10 @@ var RecorderUI = (function() {
   pub.setUpRecordingUI = function(){
     var div = $("#new_script_content");
     utilities.replaceContent(div, $("#about_to_record"));
-    console.log(RecorderUI.startRecording);
-    console.log(div.find(".start_recording"));
     div.find("#start_recording").click(RecorderUI.startRecording);
   }
 
   pub.startRecording = function(){
-    console.log("start recording");
     var div = $("#new_script_content");
     utilities.replaceContent(div, $("#recording"));
     div.find("#stop_recording").click(RecorderUI.stopRecording);
@@ -55,10 +52,8 @@ var RecorderUI = (function() {
   var scraped = {};
   var xpaths = []; // want to show texts in the right order
   pub.processScrapedData = function(data){
-    console.log(data.text);
     scraped[data.xpath] = data.text; // dictionary based on xpath since we can get multiple DOM events that scrape same data from same node
     xpaths.push(data.xpath);
-    console.log(scraped);
     $div = $("#scraped_items_preview");
     $div.html("");
     for (var i = 0; i < xpaths.length; i++){
@@ -79,17 +74,128 @@ var ReplayScript = (function() {
   pub.trace = null;
 
   pub.setCurrentTrace = function(trace){
-    pub.trace = processTrace(trace);
-    console.log(pub.trace);
+    trace = processTrace(trace);
+    trace = prepareForDisplay(trace);
+    trace = markUnnecessaryLoads(trace);
+    trace = associateNecessaryLoadsWithIDs(trace);
+    trace = parameterizePages(trace);
+    trace = addCausalLinks(trace);
+    pub.trace = trace;
+
+    segmentedTrace = segment(trace);
+
+    console.log(segmentedTrace);
   }
 
   function processTrace(trace){
-    trace = sanitizeTrace(pub.trace);
+    trace = sanitizeTrace(trace);
+    return trace;
   }
 
-  // strip out the stopped events
+  // strip out the 'stopped' events
   function sanitizeTrace(trace){
     return _.filter(trace, function(obj){return obj.state !== "stopped";});
+  }
+
+  function prepareForDisplay(trace){
+    _.each(trace, function(ev){
+      if (!ev.additional){ev.additional = {};} 
+      ev.additional.display = {};});
+    return trace;
+  }
+
+  // user doesn't need to see load events for loads that load URLs whose associated DOM trees the user never actually uses
+  function markUnnecessaryLoads(trace){
+    var domEvents =  _.filter(trace, function(ev){return ev.type === "dom";});
+    var domEventURLs = _.unique(_.map(domEvents, function(ev){return ev.frame.topURL;}));
+    _.each(trace, function(ev){if (ev.type === "completed" && domEventURLs.indexOf(ev.data.url) > -1){ ev.additional.display.visible = true;}});
+    return trace;
+  }
+
+  var frameToPageVarId = {};
+  function associateNecessaryLoadsWithIDs(trace){
+    var idCounter = 1; // blockly says not to count from 0
+    _.each(trace, function(ev){if (ev.type === "completed" && ev.additional.display.visible){ ev.additional.display.pageVarId = idCounter; frameToPageVarId[ev.data.topURL] = idCounter; idCounter += 1;}});
+    return trace;
+  }
+
+  function parameterizePages(trace){
+    _.each(trace, function(ev){if (ev.type === "dom"){ ev.additional.display.inputPageVar = frameToPageVarId[ev.frame.topURL]; }});
+    return trace;
+  }
+
+  function addCausalLinks(trace){
+    lastDOMEvent = null;
+    _.each(trace, function(ev){
+      if (ev.type === "dom"){
+        lastDOMEvent = ev;
+        ev.additional.display.causesLoads = [];
+      }
+      else if (ev.typ === "completed" && ev.additional.display.visible) {
+        ev.additional.display.causedBy = lastDOMEvent;
+        lastDOMEvent.additional.display.causesLoads.append(ev);
+      }
+    });
+    return trace;
+  }
+
+  var StatementTypes = {
+    MOUSE: "click",
+    KEYBOARD: "type",
+    LOAD: "load",
+    SCRAPE: "extract"
+  };
+
+  var statementToEventMapping = {
+    mouse: ['click','dblclick','mousedown','mousemove','mouseout','mouseover','mouseup'],
+    keyboard: ['keydown','keyup','keypress','textinput','paste','input']
+  };
+
+  function statementType(ev){
+    if (ev.type === "completed"){
+      if (!ev.additional.display.visible){
+        return null; // invisible, so we don't care where this goes
+      }
+      return StatementTypes.LOAD;
+    }
+    else if (ev.type === "dom"){
+      if (statementToEventMapping.mouse.indexOf(ev.data.type) > -1){
+        if (ev.additional.scrape){
+          return StatementTypes.SCRAPE
+        }
+        return StatementTypes.MOUSE;
+      }
+      else if (statementToEventMapping.keyboard.indexOf(ev.data.type) > -1){
+        return StatementTypes.KEYBOARD;
+      }
+    }
+    return null; // these events don't matter to the user, so we don't care where this goes
+  }
+
+  function segment(trace){
+    var allSegments = [];
+    var currentSegment = [];
+    var currentDOMEventStatementType = null;
+    var currentDOMEventTargetNode = null;
+    _.each(trace, function(ev){
+      var sType = statementType(ev);
+      var xpath = null;
+      if (ev.target) {xpath = ev.target.xpath;} // load events don't have targets
+      if (currentDOMEventTargetNode === xpath && (currentDOMEventStatementType === null || sType === null || currentDOMEventStatementType == sType) ){
+        currentSegment.push(ev);
+        if (currentDOMEventStatementType === null){
+          currentDOMEventStatementType = sType; // current block didn't yet have a statement type.  maybe now it does.
+        }
+      }
+      else{
+        // either we're on a new node or doing a new kind of action.  need a new segment
+        allSegments.push(currentSegment);
+        currentSegment = [ev];
+        currentDOMEventStatementType = sType;
+        currentDOMEventTargetNode = xpath;
+      }});
+    allSegments.push(currentSegment); // put in that last segment
+    return allSegments;
   }
 
   // from output trace, extract the items that were scraped
@@ -99,8 +205,8 @@ var ReplayScript = (function() {
       var event = trace[i];
       if (event.type !== "dom"){continue;}
         var additional = event.additional;
-        if (additional["scrape"]){
-          var c = additional["scrape"];
+        if (additional.scrape){
+          var c = additional.scrape;
           //only want one text per node, even though click on same node, for instance, has 3 events
           scraped_nodes[c.xpath] = c;
         }

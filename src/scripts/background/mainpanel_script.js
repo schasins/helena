@@ -83,6 +83,8 @@ var ReplayScript = (function() {
     pub.trace = trace;
 
     segmentedTrace = segment(trace);
+    statements = segmentedTraceToStatements(segmentedTrace);
+    _.each(statements, function(statement){console.log(statement.toString());});
 
     console.log(segmentedTrace);
   }
@@ -196,6 +198,96 @@ var ReplayScript = (function() {
       }});
     allSegments.push(currentSegment); // put in that last segment
     return allSegments;
+  }
+
+  function LoadStatement(url, outputPageVar, trace){
+    this.url = url;
+    this.outputPageVar = outputPageVar;
+    this.trace = trace;
+
+    this.toString = function(){
+      return this.outputPageVar+" = load("+this.url+")";
+    };
+  }
+  function ClickStatement(pageVar, node, outputPageVars, trace){
+    this.pageVar = pageVar;
+    this.node = node;
+    this.outputPageVars = outputPageVars;
+    this.trace = trace;
+
+    this.toString = function(){
+      return this.outputPageVars.join(", ")+" = click("+this.pageVar+", "+this.node+")";
+    };
+  }
+  function ScrapeStatement(pageVar, node, trace){
+    this.pageVar = pageVar;
+    this.node = node;
+    this.trace = trace;
+
+    this.toString = function(){
+      return "scrape("+this.pageVar+", "+this.node+")";
+    };
+  }
+  function TypeStatement(pageVar, node, typedString, outputPageVars, trace){
+    this.pageVar = pageVar;
+    this.node = node;
+    this.typedString = typedString;
+    this.outputPageVars = outputPageVars;
+    this.trace = trace;
+
+    this.toString = function(){
+      return this.outputPageVars.join(", ")+" = click("+this.pageVar+", "+this.node+", "+this.typedString+")";
+    };
+  }
+
+    var StatementTypes = {
+    MOUSE: "click",
+    KEYBOARD: "type",
+    LOAD: "load",
+    SCRAPE: "extract"
+  };
+
+  function segmentedTraceToStatements(segmentedTrace){
+    var statements = [];
+    _.each(segmentedTrace, function(seg){
+      sType = null;
+      for (var i = 0; i < seg.length; i++){
+        var ev = seg[i];
+        var st = statementType(ev);
+        if (st !== null){
+          sType = st;
+          if (sType === StatementTypes.LOAD){
+            var url = ev.data.url;
+            var outputPageVar = ev.additional.display.pageVarId;
+            statements.push(LoadStatement(url, outputPageVar, seg));
+          }
+          else if (sType === StatementTypes.MOUSE){
+            console.log(ev);
+            var pageVar = ev.display.inputPageVar;
+            var node = ev.target.xpath;
+            var outputLoads = ev.additional.display.causesLoads;
+            var outputPageVars = _.map(outputLoads, function(ev){return ev.additional.display.pageVarId;});
+            statements.push(ClickStatement(pageVar, node, outputPageVars, seg));
+          }
+          else if (sType === StatementTypes.SCRAPE){
+            var pageVar = ev.display.inputPageVar;
+            var node = ev.target.xpath;
+            statements.push(ClickStatement(pageVar, node, seg));
+          }
+          else if (sType === StatementTypes.KEYBOARD){
+            var pageVar = ev.display.inputPageVar;
+            var node = ev.target.xpath;
+            var textEntryEvents = _.filter(seg, function(ev){statementToEventMapping.keyboard.indexOf(statementType(ev)) > -1;});
+            var lastTextEntryEvent = textEntryEvents[-1];
+            var finalTypedValue = ev.meta.deltas.value;
+            var outputLoads = ev.additional.display.causesLoads;
+            var outputPageVars = _.map(outputLoads, function(ev){return ev.additional.display.pageVarId;});
+            statements.push(TypeStatement(pageVar, node, finalTypedValue, outputPageVars, seg));
+          }
+        }
+      }
+    });
+    return statements;
   }
 
   // from output trace, extract the items that were scraped

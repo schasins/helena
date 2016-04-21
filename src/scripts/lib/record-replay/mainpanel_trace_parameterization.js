@@ -44,16 +44,16 @@ function ParameterizedTrace(trace){
 		for (var i = 0; i< trace.length; i++){
 			if (trace[i].type !== "dom"){ continue;} //ok to drop these from script, so ok to skip
 			var event_data = trace[i].data;
-			if (_.contains(["keydown", "keypress", "keyup", "input", "textInput"], event_data["type"])){
+			if (_.contains(["keydown", "keypress", "keyup", "input", "textInput"], event_data.type)){
 				//starting a new character
-				if (event_data["type"] === first_event_type && !started_char){
+				if (event_data.type === first_event_type && !started_char){
 					char_indexes.push(i);
 					started_char = true;
 				}
-				else if (event_data["type"] === data_carrier_type){
+				else if (event_data.type === data_carrier_type){
 					curr_string += event_data.data;
 				}
-				else if (event_data["type"] === last_event_type){
+				else if (event_data.type === last_event_type){
 					started_char = false;
 				}
 			}
@@ -99,8 +99,8 @@ function ParameterizedTrace(trace){
 	this.useTypedString = function(parameter_name, string){
 		for (var i=0; i< trace.length; i++){
 			var event = trace[i];
-			if (event["type"] === "string_parameterize" && event["parameter_name"] === parameter_name){
-				event["value"] = string;
+			if (event.type === "string_parameterize" && event.parameter_name === parameter_name){
+				event.value = string;
 			}
 		}
 	};
@@ -122,7 +122,7 @@ function ParameterizedTrace(trace){
 			console.log(parameter_name, value);
 			console.log(this);
 		}
-		frames[parameter_name]["value"] = value;
+		frames[parameter_name].value = value;
 	};
 	
 	//TODO tabs: create a parameterize on frame or tab.  not yet sure which
@@ -159,8 +159,8 @@ function ParameterizedTrace(trace){
 				//correct xpath if it's a parameterized xpath
 				var xpath = cloned_trace[i].target.xpath;
 				if (xpath["name"]){
-					console.log("Correcting xpath to ", xpath["value"]);
-					cloned_trace[i].target.xpath = xpath["value"];
+					console.log("Correcting xpath to ", xpath.value);
+					cloned_trace[i].target.xpath = xpath.value;
 					cloned_trace[i].target.useXpathOnly = true;
 				}
 			}
@@ -183,9 +183,9 @@ function ParameterizedTrace(trace){
 	this.getConfig = function(){
 		console.log("frames", frames);
 		var config = {};
-		config["frameMapping"] = {};
+		config.frameMapping = {};
 		for (var param in frames){
-			config["frameMapping"][frames[param]["original_value"]] = frames[param]["value"];
+			config.frameMapping[frames[param].original_value] = frames[param].value;
 		}
 		console.log("config", config);
 		return config;

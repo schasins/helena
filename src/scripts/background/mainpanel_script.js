@@ -5,7 +5,6 @@ function setUp(){
   //utilities.listenForMessage("content", "mainpanel", "nextButtonData", processNextButtonData);
   //utilities.listenForMessage("content", "mainpanel", "moreItems", moreItems);
   utilities.listenForMessage("content", "mainpanel", "scrapedData", RecorderUI.processScrapedData);
-  utilities.listenForMessage("content", "mainpanel", "nodeScreenshot", RecorderUI.processNodeScreenshot);
   
   //messages sent by this component
   //utilities.sendMessage("mainpanel", "content", "startProcessingList", "");
@@ -61,12 +60,6 @@ var RecorderUI = (function() {
     for (var i = 0; i < xpaths.length; i++){
       $div.append($('<div class="first_row_elem">'+scraped[xpaths[i]]+'</div>'));
     }
-  }
-
-  pub.processNodeScreenshot = function(data){
-    $div = $("#scraped_items_preview");
-    console.log(data.canvasDataURL);
-    $div.append($('<img src="'+data.canvasDataURL+'">'));
   }
 
   return pub;
@@ -320,7 +313,7 @@ var ReplayScript = (function() {
       if (this.outputPageVars.length > 0){
         prefix = this.outputPageVars.join(", ")+" = ";
       }
-      return prefix+"click("+this.pageVar+", '"+this.node+"')";
+      return prefix+"click("+this.pageVar+", '"+this.trace[0].additional.visualization+"')";
     };
   }
   function ScrapeStatement(pageVar, node, trace){
@@ -347,30 +340,15 @@ var ReplayScript = (function() {
       return prefix+"type("+this.pageVar+", '"+this.node+"', '"+this.typedString+"')";
     };
   }
-  function InvisibleStatement(trace){
-    this.trace = trace;
-    this.toString = function(){
-      return "";
-    };
-  }
-
-    var StatementTypes = {
-    MOUSE: "click",
-    KEYBOARD: "type",
-    LOAD: "load",
-    SCRAPE: "extract"
-  };
 
   function segmentedTraceToStatements(segmentedTrace){
     var statements = [];
     _.each(segmentedTrace, function(seg){
       sType = null;
-      var invisible = true;
       for (var i = 0; i < seg.length; i++){
         var ev = seg[i];
         var st = statementType(ev);
         if (st !== null){
-          invisible = false;
           sType = st;
           if (sType === StatementTypes.LOAD){
             var url = ev.data.url;
@@ -407,10 +385,6 @@ var ReplayScript = (function() {
             break;
           }
         }
-      }
-      if (invisible){
-        // we've gone through all the events in the segment and none were things we wanted to show the user
-        statements.push(new InvisibleStatement(seg));
       }
     });
     return statements;

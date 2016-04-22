@@ -130,8 +130,8 @@ return pub;}());
 
 var Scraping = (function() { var pub = {};
   $(function(){
-    additional_recording_handlers.scrape = function(node, eventData){
-      if (eventData.type !== "click") {return true;} //only actually scrape on clicks, but still want to record that we're in scraping mode
+    additional_recording_handlers.scrape = function(node, eventMessage){
+      if (eventMessage.data.type !== "click") {return true;} //only actually scrape on clicks, but still want to record that we're in scraping mode
       var data = NodeRep.nodeToMainpanelNodeRepresentation(node,false);
       utilities.sendMessage("content", "mainpanel", "scrapedData", data);
       console.log("scrape", data);
@@ -177,10 +177,11 @@ return pub;}());
 
 var Visualization = (function() { var pub = {};
   $(function(){
-    additional_recording_handlers.visualization = function(node, eventData){
+    additional_recording_handlers.visualization = function(node, eventMessage){
       html2canvas(node, {
         onrendered: function(canvas) {
-          utilities.sendMessage("content", "mainpanel", "nodeScreenshot", {canvasDataURL: canvas.toDataURL()});
+          updateExistingEvent(eventMessage, "additional.visualization", canvas.toDataURL());
+          //eventData.additional.visualization = canvas.toDataURL();
         }
       });
       return null;

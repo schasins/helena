@@ -223,9 +223,9 @@ function recordEvent(eventData) {
 	  if (!additional_recording_handlers_on[key]){continue;}
 	  console.log("record", key);
 	  var handler = additional_recording_handlers[key];
-	  var ret_val = handler(target,eventData);
+	  var ret_val = handler(target, eventMessage);
     if (ret_val !== null){
-      eventMessage["additional"][key] = ret_val;
+      eventMessage.additional[key] = ret_val;
     }
   }
 
@@ -253,6 +253,20 @@ function recordEvent(eventData) {
   // TODO: special case with mouseover, need to return false
   return true;
 };
+
+function updateExistingEvent(eventMessage, field, value) {
+    var update = {
+      type: 'updateEvent',
+      value: {
+        pageEventId: eventMessage.meta.pageEventId,
+        updates: [
+          {field: field, value: value}
+        ]
+      },
+      state: recording
+    };
+    port.postMessage(update);
+}
 
 /* Fix deltas that did not occur during replay */
 function replayUpdateDeltas(eventData, eventMessage) {

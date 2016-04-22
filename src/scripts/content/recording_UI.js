@@ -86,6 +86,15 @@ var Highlight = (function() { var pub = {};
     currNodes.splice(index, 1);
   }
 
+  pub.unhighlightIfHighlighted = function(target){
+    var index = currNodes.indexOf(target);
+    if (index > -1){
+      Highlight.unhighlight(target);
+      return true;
+    }
+    return false;
+  }
+
   pub.unhighlightRemaining = function(){
     for (var i = 0; i < currNodes.length; i++){
       Highlight.unhighlight(currNodes[i]);
@@ -178,8 +187,13 @@ return pub;}());
 var Visualization = (function() { var pub = {};
   $(function(){
     additional_recording_handlers.visualization = function(node, eventMessage){
+      var currentlyHighlighted = Highlight.unhighlightIfHighlighted(node);
+      console.log("currentlyHighlighted: ", currentlyHighlighted);
       html2canvas(node, {
-        onrendered: function(canvas) {
+        onrendered: function(canvas) { 
+          if (currentlyHighlighted){
+            Highlight.highlight(node);
+          }
           updateExistingEvent(eventMessage, "additional.visualization", canvas.toDataURL());
         }
       });

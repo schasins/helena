@@ -313,7 +313,7 @@ var ReplayScript = (function() {
       if (this.outputPageVars.length > 0){
         prefix = this.outputPageVars.join(", ")+" = ";
       }
-      return prefix+"click("+this.pageVar+", '"+this.trace[0].additional.visualization+"')";
+      return prefix+"click("+this.pageVar+", <img src='"+this.trace[0].additional.visualization+"'>)";
     };
   }
   function ScrapeStatement(pageVar, node, trace){
@@ -322,7 +322,7 @@ var ReplayScript = (function() {
     this.trace = trace;
 
     this.toString = function(){
-      return "scrape("+this.pageVar+", '"+this.node+"')";
+      return "scrape("+this.pageVar+", <img src='"+this.trace[0].additional.visualization+"'>)";
     };
   }
   function TypeStatement(pageVar, node, typedString, outputPageVars, trace){
@@ -337,7 +337,7 @@ var ReplayScript = (function() {
       if (this.outputPageVars.length > 0){
         prefix = this.outputPageVars.join(", ")+" = ";
       }
-      return prefix+"type("+this.pageVar+", '"+this.node+"', '"+this.typedString+"')";
+      return prefix+"type("+this.pageVar+",, <img src='"+this.trace[0].additional.visualization+"'>, '"+this.typedString+"')";
     };
   }
 

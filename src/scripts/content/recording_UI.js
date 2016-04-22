@@ -181,7 +181,6 @@ var Visualization = (function() { var pub = {};
       html2canvas(node, {
         onrendered: function(canvas) {
           updateExistingEvent(eventMessage, "additional.visualization", canvas.toDataURL());
-          //eventData.additional.visualization = canvas.toDataURL();
         }
       });
       return null;

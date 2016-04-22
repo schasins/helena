@@ -100,7 +100,7 @@ var Tooltip = (function() { var pub = {};
     if(tooltipColor === undefined) { tooltipColor = tooltipColorDefault;}
     if(tooltipBorderColor === undefined) { tooltipBorderColor = tooltipBorderColorDefault;}
     var $node = $(node);
-    var nodeText = "CTRL + ALT + click to scrape:<br>"+NodeRep.nodeToText(node);
+    var nodeText = "SHIFT + ALT + click to scrape:<br>"+NodeRep.nodeToText(node);
     var offset = $node.offset();
     var boundingBox = node.getBoundingClientRect();
     var newDiv = $('<div>'+nodeText+'<div/>');
@@ -167,6 +167,6 @@ var Scraping = (function() { var pub = {};
   }
 
   pub.scrapingCriteria = function(event){
-    return event.ctrlKey && event.altKey; // convention is we need ctrl+alt+click to scrape
+    return event.shiftKey && event.altKey; // convention is we need shift+alt+click to scrape
   }
 return pub;}());

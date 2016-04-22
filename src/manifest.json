@@ -26,6 +26,8 @@
       "js": [		"scripts/lib/utilities.js", 
 			"scripts/lib/jquery.js", 
 			"scripts/lib/underscore-min.js", 
+      "scripts/lib/html2canvas.js", 
+      "scripts/lib/html2canvas.svg.js", 
       "scripts/content/setup.js",
 			"scripts/content/recording_UI.js",
 			"scripts/lib/record-replay/common_common.js",

@@ -170,3 +170,24 @@ var Scraping = (function() { var pub = {};
     return event.shiftKey && event.altKey; // convention is we need shift+alt+click to scrape
   }
 return pub;}());
+
+/**********************************************************************
+ * For visualization purposes, it is useful for us if we can get 'snapshots' of the nodes with which we interact
+ **********************************************************************/
+
+var Visualization = (function() { var pub = {};
+  $(function(){
+    additional_recording_handlers.visualization = function(node, eventData){
+      html2canvas(node, {
+        onrendered: function(canvas) {
+          utilities.sendMessage("content", "mainpanel", "nodeScreenshot", {canvasDataURL: canvas.toDataURL()});
+        }
+      });
+      return null;
+    };
+  additional_recording_handlers_on.visualization = true;
+  }); //run once page loaded, because else runs before r+r content script
+
+return pub;}());
+
+

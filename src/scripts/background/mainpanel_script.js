@@ -5,6 +5,7 @@ function setUp(){
   //utilities.listenForMessage("content", "mainpanel", "nextButtonData", processNextButtonData);
   //utilities.listenForMessage("content", "mainpanel", "moreItems", moreItems);
   utilities.listenForMessage("content", "mainpanel", "scrapedData", RecorderUI.processScrapedData);
+  utilities.listenForMessage("content", "mainpanel", "nodeScreenshot", RecorderUI.processNodeScreenshot);
   
   //messages sent by this component
   //utilities.sendMessage("mainpanel", "content", "startProcessingList", "");
@@ -60,6 +61,12 @@ var RecorderUI = (function() {
     for (var i = 0; i < xpaths.length; i++){
       $div.append($('<div class="first_row_elem">'+scraped[xpaths[i]]+'</div>'));
     }
+  }
+
+  pub.processNodeScreenshot = function(data){
+    $div = $("#scraped_items_preview");
+    console.log(data.canvasDataURL);
+    $div.append($('<img src="'+data.canvasDataURL+'">'));
   }
 
   return pub;

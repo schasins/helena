@@ -135,6 +135,10 @@ var EventM = (function() {
     ev.additional.display.causedBy = val;
   };
 
+  pub.clearDisplayInfo = function(ev){
+    ev.additional.display = null;
+  }
+
   return pub;
 }());
 
@@ -442,6 +446,7 @@ var WebAutomationLanguage = (function() {
       console.log("replaying");
       var trace = [];
       _.each(this.statements, function(statement){trace = trace.concat(statement.trace);});
+      _.each(trace, function(ev){EventM.clearDisplayInfo(ev);});
       console.log(trace);
       SimpleRecord.replay(trace, null, function(){console.log("done recording.");});
     }

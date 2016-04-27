@@ -66,7 +66,7 @@ var RecorderUI = (function() {
 }());
 
 /**********************************************************************
- * Wrangling the replay script once we have the raw trace
+ * Hiding the modifications to the internals of Ringer event objects
  **********************************************************************/
 
 var EventM = (function() {
@@ -128,10 +128,16 @@ var EventM = (function() {
   return pub;
 }());
 
+/**********************************************************************
+ * Manipulations of whole scripts
+ **********************************************************************/
+
 var ReplayScript = (function() {
   var pub = {};
 
   pub.trace = null;
+
+  // controls the sequence of transformations we do when we get a trace
 
   pub.setCurrentTrace = function(trace){
     trace = processTrace(trace);
@@ -150,6 +156,8 @@ var ReplayScript = (function() {
     pub.scriptString = scriptString;
     return scriptString;
   }
+
+  // functions for each transformation
 
   function processTrace(trace){
     trace = sanitizeTrace(trace);
@@ -215,6 +223,7 @@ var ReplayScript = (function() {
     keyboard: ['keydown','keyup','keypress','textinput','paste','input']
   };
 
+  // helper function.  returns the StatementType (see above) that we should associate with the argument event, or null if the event is invisible
   function statementType(ev){
     if (ev.type === "completed"){
       if (!EventM.getVisible(ev)){
@@ -240,6 +249,7 @@ var ReplayScript = (function() {
     return null; // these events don't matter to the user, so we don't care where this goes
   }
 
+  // helper function.  returns whether two events should be allowed in the same statement, based on visibility, statement type, statement page, statement target
   function allowedInSameSegment(e1, e2){
     // if either of them is null (as when we do not yet have a current visible event), anything goes
     if (e1 === null || e2 === null){
@@ -293,7 +303,66 @@ var ReplayScript = (function() {
     return allSegments;
   }
 
-  function LoadStatement(url, outputPageVar, trace){
+  function segmentedTraceToStatements(segmentedTrace){
+    var statements = [];
+    _.each(segmentedTrace, function(seg){
+      sType = null;
+      for (var i = 0; i < seg.length; i++){
+        var ev = seg[i];
+        var st = statementType(ev);
+        if (st !== null){
+          sType = st;
+          if (sType === StatementTypes.LOAD){
+            var url = ev.data.url;
+            var outputPageVar = EventM.getLoadOutputPageVar(ev);
+            statements.push(new WebAutomationLanguage.LoadStatement(url, outputPageVar, seg));
+            break;
+          }
+          else if (sType === StatementTypes.MOUSE){
+            var pageVar = EventM.getDOMInputPageVar(ev);
+            var node = ev.target.xpath;
+            var domEvents = _.filter(seg, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
+            var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
+            var outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
+
+            statements.push(new WebAutomationLanguage.ClickStatement(pageVar, node, outputPageVars, seg));
+            break;
+          }
+          else if (sType === StatementTypes.SCRAPE){
+            var pageVar = EventM.getDOMInputPageVar(ev);
+            var node = ev.target.xpath;
+            statements.push(new WebAutomationLanguage.ScrapeStatement(pageVar, node, seg));
+            break;
+          }
+          else if (sType === StatementTypes.KEYBOARD){
+            var pageVar = EventM.getDOMInputPageVar(ev);
+            var node = ev.target.xpath;
+            var textEntryEvents = _.filter(seg, function(ev){statementToEventMapping.keyboard.indexOf(statementType(ev)) > -1;});
+            var lastTextEntryEvent = textEntryEvents[-1];
+            var finalTypedValue = ev.meta.deltas.value;
+            var domEvents = _.filter(seg, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
+            var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
+            var outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
+            statements.push(new WebAutomationLanguage.TypeStatement(pageVar, node, finalTypedValue, outputPageVars, seg));
+            break;
+          }
+        }
+      }
+    });
+    return statements;
+  }
+
+  return pub;
+}());
+
+/**********************************************************************
+ * Our high-level automation language
+ **********************************************************************/
+
+var WebAutomationLanguage = (function() {
+  var pub = {};
+
+  pub.LoadStatement = function(url, outputPageVar, trace){
     this.url = url;
     this.outputPageVar = outputPageVar;
     this.trace = trace;
@@ -302,7 +371,7 @@ var ReplayScript = (function() {
       return this.outputPageVar+" = load('"+this.url+"')";
     };
   }
-  function ClickStatement(pageVar, node, outputPageVars, trace){
+  pub.ClickStatement = function(pageVar, node, outputPageVars, trace){
     this.pageVar = pageVar;
     this.node = node;
     this.outputPageVars = outputPageVars;
@@ -316,7 +385,7 @@ var ReplayScript = (function() {
       return prefix+"click("+this.pageVar+", <img src='"+this.trace[0].additional.visualization+"'>)";
     };
   }
-  function ScrapeStatement(pageVar, node, trace){
+  pub.ScrapeStatement = function(pageVar, node, trace){
     this.pageVar = pageVar;
     this.node = node;
     this.trace = trace;
@@ -325,7 +394,7 @@ var ReplayScript = (function() {
       return "scrape("+this.pageVar+", <img src='"+this.trace[0].additional.visualization+"'>)";
     };
   }
-  function TypeStatement(pageVar, node, typedString, outputPageVars, trace){
+  pub.TypeStatement = function(pageVar, node, typedString, outputPageVars, trace){
     this.pageVar = pageVar;
     this.node = node;
     this.typedString = typedString;
@@ -339,72 +408,6 @@ var ReplayScript = (function() {
       }
       return prefix+"type("+this.pageVar+",, <img src='"+this.trace[0].additional.visualization+"'>, '"+this.typedString+"')";
     };
-  }
-
-  function segmentedTraceToStatements(segmentedTrace){
-    var statements = [];
-    _.each(segmentedTrace, function(seg){
-      sType = null;
-      for (var i = 0; i < seg.length; i++){
-        var ev = seg[i];
-        var st = statementType(ev);
-        if (st !== null){
-          sType = st;
-          if (sType === StatementTypes.LOAD){
-            var url = ev.data.url;
-            var outputPageVar = EventM.getLoadOutputPageVar(ev);
-            statements.push(new LoadStatement(url, outputPageVar, seg));
-            break;
-          }
-          else if (sType === StatementTypes.MOUSE){
-            var pageVar = EventM.getDOMInputPageVar(ev);
-            var node = ev.target.xpath;
-            var domEvents = _.filter(seg, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
-            var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
-            var outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
-
-            statements.push(new ClickStatement(pageVar, node, outputPageVars, seg));
-            break;
-          }
-          else if (sType === StatementTypes.SCRAPE){
-            var pageVar = EventM.getDOMInputPageVar(ev);
-            var node = ev.target.xpath;
-            statements.push(new ScrapeStatement(pageVar, node, seg));
-            break;
-          }
-          else if (sType === StatementTypes.KEYBOARD){
-            var pageVar = EventM.getDOMInputPageVar(ev);
-            var node = ev.target.xpath;
-            var textEntryEvents = _.filter(seg, function(ev){statementToEventMapping.keyboard.indexOf(statementType(ev)) > -1;});
-            var lastTextEntryEvent = textEntryEvents[-1];
-            var finalTypedValue = ev.meta.deltas.value;
-            var domEvents = _.filter(seg, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
-            var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
-            var outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
-            statements.push(new TypeStatement(pageVar, node, finalTypedValue, outputPageVars, seg));
-            break;
-          }
-        }
-      }
-    });
-    return statements;
-  }
-
-  // from output trace, extract the items that were scraped
-  pub.capturesFromTrace = function(trace){
-    var scraped_nodes = {};
-    for (var i = 0; i < trace.length; i++){
-      var event = trace[i];
-      if (event.type !== "dom"){continue;}
-        var additional = event.additional;
-        if (additional.scrape){
-          var c = additional.scrape;
-          //only want one text per node, even though click on same node, for instance, has 3 events
-          scraped_nodes[c.xpath] = c;
-        }
-      }
-    var items = _.map(scraped_nodes, function(val,key){return val;});
-    return items;
   }
 
   return pub;

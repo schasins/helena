@@ -46,7 +46,17 @@ var RecorderUI = (function() {
   pub.stopRecording = function(){
     var trace = SimpleRecord.stopRecording();
     var scriptString = ReplayScript.setCurrentTrace(trace);
-    utilities.replaceContent($("#new_script_content"), $("<div>"+scriptString+"</div>"));
+    var div = $("#new_script_content");
+    utilities.replaceContent(div, $("#done_recording")); // let's put in the done_recording node
+    var scriptPreviewDiv = div.find("#program_representation");
+    utilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the done_recording node
+    var replayButton = div.find("#replay");
+    replayButton.button();
+    replayButton.click(RecorderUI.replay);
+  }
+
+  pub.replay = function(){
+    ReplayScript.prog.replay();
   }
 
   // during recording, when user scrapes, show the text so user gets feedback on what's happening
@@ -140,6 +150,7 @@ var ReplayScript = (function() {
   // controls the sequence of transformations we do when we get a trace
 
   pub.setCurrentTrace = function(trace){
+    console.log(trace);
     trace = processTrace(trace);
     trace = prepareForDisplay(trace);
     trace = markUnnecessaryLoads(trace);
@@ -426,6 +437,14 @@ var WebAutomationLanguage = (function() {
       _.each(this.statements, function(statement){scriptString += statement.toString() + "<br>";});
       return scriptString;
     };
+
+    this.replay = function(){
+      console.log("replaying");
+      var trace = [];
+      _.each(this.statements, function(statement){trace = trace.concat(statement.trace);});
+      console.log(trace);
+      SimpleRecord.replay(trace, null, function(){console.log("done recording.");});
+    }
   }
 
   return pub;

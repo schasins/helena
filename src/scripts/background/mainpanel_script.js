@@ -149,12 +149,9 @@ var ReplayScript = (function() {
     pub.trace = trace;
 
     segmentedTrace = segment(trace);
-    statements = segmentedTraceToStatements(segmentedTrace);
-    pub.statements = statements; // the actual useful representation
-    var scriptString = "";
-    _.each(statements, function(statement){console.log(statement.toString()); scriptString += statement.toString() + "<br>";});
-    pub.scriptString = scriptString;
-    return scriptString;
+    var prog = segmentedTraceToProgram(segmentedTrace);
+    pub.prog = prog;
+    return prog.toString();
   }
 
   // functions for each transformation
@@ -211,52 +208,14 @@ var ReplayScript = (function() {
     return trace;
   }
 
-  var StatementTypes = {
-    MOUSE: "click",
-    KEYBOARD: "type",
-    LOAD: "load",
-    SCRAPE: "extract"
-  };
-
-  var statementToEventMapping = {
-    mouse: ['click','dblclick','mousedown','mousemove','mouseout','mouseover','mouseup'],
-    keyboard: ['keydown','keyup','keypress','textinput','paste','input']
-  };
-
-  // helper function.  returns the StatementType (see above) that we should associate with the argument event, or null if the event is invisible
-  function statementType(ev){
-    if (ev.type === "completed"){
-      if (!EventM.getVisible(ev)){
-        return null; // invisible, so we don't care where this goes
-      }
-      return StatementTypes.LOAD;
-    }
-    else if (ev.type === "dom"){
-      if (statementToEventMapping.mouse.indexOf(ev.data.type) > -1){
-        if (ev.additional.scrape){
-          return StatementTypes.SCRAPE
-        }
-        return StatementTypes.MOUSE;
-      }
-      else if (statementToEventMapping.keyboard.indexOf(ev.data.type) > -1){
-        if ([16, 17, 18].indexOf(ev.data.keyCode) > -1){
-          // this is just shift, ctrl, or alt key.  don't need to show these to the user
-          return null;
-        }
-        return StatementTypes.KEYBOARD;
-      }
-    }
-    return null; // these events don't matter to the user, so we don't care where this goes
-  }
-
   // helper function.  returns whether two events should be allowed in the same statement, based on visibility, statement type, statement page, statement target
   function allowedInSameSegment(e1, e2){
     // if either of them is null (as when we do not yet have a current visible event), anything goes
     if (e1 === null || e2 === null){
       return true;
     }
-    var e1type = statementType(e1);
-    var e2type = statementType(e2);
+    var e1type = WebAutomationLanguage.statementType(e1);
+    var e2type = WebAutomationLanguage.statementType(e2);
     // if either is invisible, can be together, because an invisible event allowed anywhere
     if (e1type === null || e2type === null){
       return true;
@@ -289,7 +248,7 @@ var ReplayScript = (function() {
     _.each(trace, function(ev){
       if (allowedInSameSegment(currentSegmentVisibleEvent, ev)){
         currentSegment.push(ev);
-        if (currentSegmentVisibleEvent === null && statementType(ev) !== null ){ // only relevant to first segment
+        if (currentSegmentVisibleEvent === null && WebAutomationLanguage.statementType(ev) !== null ){ // only relevant to first segment
           currentSegmentVisibleEvent = ev;
         }
       }
@@ -303,53 +262,32 @@ var ReplayScript = (function() {
     return allSegments;
   }
 
-  function segmentedTraceToStatements(segmentedTrace){
+  function segmentedTraceToProgram(segmentedTrace){
     var statements = [];
     _.each(segmentedTrace, function(seg){
       sType = null;
       for (var i = 0; i < seg.length; i++){
         var ev = seg[i];
-        var st = statementType(ev);
+        var st = WebAutomationLanguage.statementType(ev);
         if (st !== null){
           sType = st;
           if (sType === StatementTypes.LOAD){
-            var url = ev.data.url;
-            var outputPageVar = EventM.getLoadOutputPageVar(ev);
-            statements.push(new WebAutomationLanguage.LoadStatement(url, outputPageVar, seg));
-            break;
+            statements.push(new WebAutomationLanguage.LoadStatement(seg));
           }
           else if (sType === StatementTypes.MOUSE){
-            var pageVar = EventM.getDOMInputPageVar(ev);
-            var node = ev.target.xpath;
-            var domEvents = _.filter(seg, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
-            var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
-            var outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
-
-            statements.push(new WebAutomationLanguage.ClickStatement(pageVar, node, outputPageVars, seg));
-            break;
+            statements.push(new WebAutomationLanguage.ClickStatement(seg));
           }
           else if (sType === StatementTypes.SCRAPE){
-            var pageVar = EventM.getDOMInputPageVar(ev);
-            var node = ev.target.xpath;
-            statements.push(new WebAutomationLanguage.ScrapeStatement(pageVar, node, seg));
-            break;
+            statements.push(new WebAutomationLanguage.ScrapeStatement(seg));
           }
           else if (sType === StatementTypes.KEYBOARD){
-            var pageVar = EventM.getDOMInputPageVar(ev);
-            var node = ev.target.xpath;
-            var textEntryEvents = _.filter(seg, function(ev){statementToEventMapping.keyboard.indexOf(statementType(ev)) > -1;});
-            var lastTextEntryEvent = textEntryEvents[-1];
-            var finalTypedValue = ev.meta.deltas.value;
-            var domEvents = _.filter(seg, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
-            var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
-            var outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
-            statements.push(new WebAutomationLanguage.TypeStatement(pageVar, node, finalTypedValue, outputPageVars, seg));
-            break;
+            statements.push(new WebAutomationLanguage.TypeStatement(seg));
           }
+          break;
         }
       }
     });
-    return statements;
+    return new WebAutomationLanguage.Program(statements);
   }
 
   return pub;
@@ -359,23 +297,81 @@ var ReplayScript = (function() {
  * Our high-level automation language
  **********************************************************************/
 
+var StatementTypes = {
+  MOUSE: "click",
+  KEYBOARD: "type",
+  LOAD: "load",
+  SCRAPE: "extract"
+};
+
 var WebAutomationLanguage = (function() {
   var pub = {};
 
-  pub.LoadStatement = function(url, outputPageVar, trace){
-    this.url = url;
-    this.outputPageVar = outputPageVar;
+  var statementToEventMapping = {
+    mouse: ['click','dblclick','mousedown','mousemove','mouseout','mouseover','mouseup'],
+    keyboard: ['keydown','keyup','keypress','textinput','paste','input']
+  };
+
+  // helper function.  returns the StatementType (see above) that we should associate with the argument event, or null if the event is invisible
+  pub.statementType = function(ev){
+    if (ev.type === "completed"){
+      if (!EventM.getVisible(ev)){
+        return null; // invisible, so we don't care where this goes
+      }
+      return StatementTypes.LOAD;
+    }
+    else if (ev.type === "dom"){
+      if (statementToEventMapping.mouse.indexOf(ev.data.type) > -1){
+        if (ev.additional.scrape){
+          return StatementTypes.SCRAPE
+        }
+        return StatementTypes.MOUSE;
+      }
+      else if (statementToEventMapping.keyboard.indexOf(ev.data.type) > -1){
+        if ([16, 17, 18].indexOf(ev.data.keyCode) > -1){
+          // this is just shift, ctrl, or alt key.  don't need to show these to the user
+          return null;
+        }
+        return StatementTypes.KEYBOARD;
+      }
+    }
+    return null; // these events don't matter to the user, so we don't care where this goes
+  }
+
+  function firstVisibleEvent(trace){
+    for (var i = 0; i < trace.length; i++){
+      var ev = trace[i];
+      var st = WebAutomationLanguage.statementType(ev);
+      if (st !== null){
+        return ev;
+      }
+    }
+  }
+
+  // the actual statements
+
+  pub.LoadStatement = function(trace){
     this.trace = trace;
+
+    // find the record-time constants that we'll turn into parameters
+    var ev = firstVisibleEvent(trace);
+    this.url = ev.data.url;
+    this.outputPageVar = EventM.getLoadOutputPageVar(ev);
 
     this.toString = function(){
       return this.outputPageVar+" = load('"+this.url+"')";
     };
   }
-  pub.ClickStatement = function(pageVar, node, outputPageVars, trace){
-    this.pageVar = pageVar;
-    this.node = node;
-    this.outputPageVars = outputPageVars;
+  pub.ClickStatement = function(trace){
     this.trace = trace;
+
+    // find the record-time constants that we'll turn into parameters
+    var ev = firstVisibleEvent(trace);
+    this.pageVar = EventM.getDOMInputPageVar(ev);
+    this.node = ev.target.xpath;
+    var domEvents = _.filter(trace, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
+    var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
+    this.outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
 
     this.toString = function(){
       prefix = "";
@@ -385,21 +381,31 @@ var WebAutomationLanguage = (function() {
       return prefix+"click("+this.pageVar+", <img src='"+this.trace[0].additional.visualization+"'>)";
     };
   }
-  pub.ScrapeStatement = function(pageVar, node, trace){
-    this.pageVar = pageVar;
-    this.node = node;
+  pub.ScrapeStatement = function(trace){
     this.trace = trace;
+
+    // find the record-time constants that we'll turn into parameters
+    var ev = firstVisibleEvent(trace);
+    this.pageVar = EventM.getDOMInputPageVar(ev);
+    this.node = ev.target.xpath;
 
     this.toString = function(){
       return "scrape("+this.pageVar+", <img src='"+this.trace[0].additional.visualization+"'>)";
     };
   }
-  pub.TypeStatement = function(pageVar, node, typedString, outputPageVars, trace){
-    this.pageVar = pageVar;
-    this.node = node;
-    this.typedString = typedString;
-    this.outputPageVars = outputPageVars;
+  pub.TypeStatement = function(trace){
     this.trace = trace;
+
+    // find the record-time constants that we'll turn into parameters
+    var ev = firstVisibleEvent(trace);
+    this.pageVar = EventM.getDOMInputPageVar(ev);
+    this.node = ev.target.xpath;
+    var textEntryEvents = _.filter(trace, function(ev){statementToEventMapping.keyboard.indexOf(WebAutomationLanguage.statementType(ev)) > -1;});
+    var lastTextEntryEvent = textEntryEvents[-1];
+    this.typedString = ev.meta.deltas.value;
+    var domEvents = _.filter(trace, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
+    var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
+    this.outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
 
     this.toString = function(){
       prefix = "";
@@ -407,6 +413,18 @@ var WebAutomationLanguage = (function() {
         prefix = this.outputPageVars.join(", ")+" = ";
       }
       return prefix+"type("+this.pageVar+",, <img src='"+this.trace[0].additional.visualization+"'>, '"+this.typedString+"')";
+    };
+  }
+
+  // the whole program
+
+  pub.Program = function(statements){
+    this.statements = statements;
+
+    this.toString = function(){
+      var scriptString = "";
+      _.each(this.statements, function(statement){scriptString += statement.toString() + "<br>";});
+      return scriptString;
     };
   }
 

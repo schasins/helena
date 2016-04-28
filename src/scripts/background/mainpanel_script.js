@@ -372,11 +372,28 @@ var WebAutomationLanguage = (function() {
     var ev = firstVisibleEvent(trace);
     this.url = ev.data.url;
     this.outputPageVar = EventM.getLoadOutputPageVar(ev);
+    // for now, assume the ones we saw at record time are the ones we'll want at replay
+    this.currentUrl = this.url;
+    this.currentUrl = "https://scholar.google.com/citations?hl=en&view_op=search_authors&mauthors=label%3Acomputers"; //test
 
     this.toString = function(){
       return this.outputPageVar+" = load('"+this.url+"')";
     };
-  }
+
+    this.pbvs = function(){
+      var pbvs = [];
+      if (this.url !== this.currentUrl){
+        pbvs.push({type:"url", value: this.url});
+      }
+      return pbvs;
+    };
+
+    this.args = function(){
+      var args = [];
+      args.push({type:"url", value: this.currentUrl});
+      return args;
+    };
+  };
   pub.ClickStatement = function(trace){
     this.trace = trace;
 
@@ -387,6 +404,8 @@ var WebAutomationLanguage = (function() {
     var domEvents = _.filter(trace, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
     var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
     this.outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
+    // for now, assume the ones we saw at record time are the ones we'll want at replay
+    this.currentNode = this.node;
 
     this.toString = function(){
       prefix = "";
@@ -395,7 +414,21 @@ var WebAutomationLanguage = (function() {
       }
       return prefix+"click("+this.pageVar+", <img src='"+this.trace[0].additional.visualization+"'>)";
     };
-  }
+
+    this.pbvs = function(){
+      var pbvs = [];
+      if (this.node !== this.currentNode){
+        pbvs.push({type:"node", value: this.node});
+      }
+      return pbvs;
+    };
+
+    this.args = function(){
+      var args = [];
+      args.push({type:"node", value: this.currentNode});
+      return args;
+    };
+  };
   pub.ScrapeStatement = function(trace){
     this.trace = trace;
 
@@ -403,11 +436,27 @@ var WebAutomationLanguage = (function() {
     var ev = firstVisibleEvent(trace);
     this.pageVar = EventM.getDOMInputPageVar(ev);
     this.node = ev.target.xpath;
+    // for now, assume the ones we saw at record time are the ones we'll want at replay
+    this.currentNode = this.node;
 
     this.toString = function(){
       return "scrape("+this.pageVar+", <img src='"+this.trace[0].additional.visualization+"'>)";
     };
-  }
+
+    this.pbvs = function(){
+      var pbvs = [];
+      if (this.node !== this.currentNode){
+        pbvs.push({type:"node", value: this.node});
+      }
+      return pbvs;
+    };
+
+    this.args = function(){
+      var args = [];
+      args.push({type:"node", value: this.currentNode});
+      return args;
+    };
+  };
   pub.TypeStatement = function(trace){
     this.trace = trace;
 
@@ -421,6 +470,9 @@ var WebAutomationLanguage = (function() {
     var domEvents = _.filter(trace, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
     var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
     this.outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
+    // for now, assume the ones we saw at record time are the ones we'll want at replay
+    this.currentNode = this.node;
+    this.currentTypedString = this.typedString;
 
     this.toString = function(){
       prefix = "";
@@ -429,7 +481,21 @@ var WebAutomationLanguage = (function() {
       }
       return prefix+"type("+this.pageVar+",, <img src='"+this.trace[0].additional.visualization+"'>, '"+this.typedString+"')";
     };
-  }
+
+    this.pbvs = function(){
+      var pbvs = [];
+      if (this.node !== this.currentNode){
+        pbvs.push({type:"node", value: this.node});
+      }
+      return pbvs;
+    };
+
+    this.args = function(){
+      var args = [];
+      args.push({type:"node", value: this.currentNode});
+      return args;
+    };
+  };
 
   // the whole program
 
@@ -443,13 +509,82 @@ var WebAutomationLanguage = (function() {
     };
 
     this.replay = function(){
-      console.log("replaying");
       var trace = [];
       _.each(this.statements, function(statement){trace = trace.concat(statement.trace);});
-      _.each(trace, function(ev){EventM.clearDisplayInfo(ev);});
-      console.log(trace);
-      SimpleRecord.replay(trace, null, function(){console.log("done recording.");});
+      _.each(trace, function(ev){EventM.clearDisplayInfo(ev);}); // strip the display info back out from the event objects
+
+      // now that we have the trace, let's figure out how to parameterize it
+      // note that this should only be run once the current___ variables in the statements have been updated!  otherwise won't know what needs to be parameterized, will assume nothing
+      // should see in future whether this is a reasonable way to do it
+      var parameterizedTrace = this.pbv(trace);
+      // now that we've run parameterization-by-value, have a function, let's put in the arguments we need for the current run
+      var runnableTrace = this.passArguments(parameterizedTrace);
+
+      SimpleRecord.replay(runnableTrace, null, function(){console.log("Done replaying.");});
+    };
+
+    function paramName(statementIndex, paramType){ // assumes we can't have more than one of a single paramtype from a single statement.  should be true
+      return "s"+statementIndex+"_"+paramType;
     }
+
+    this.pbv = function(trace){
+      var pTrace = new ParameterizedTrace(trace);
+
+      for (var i = 0; i < this.statements.length; i++){
+        var statement = this.statements[i];
+        var pbvs = statement.pbvs();
+        console.log(pbvs);
+        for (var j = 0; j < pbvs.length; j++){
+          var currPbv = pbvs[j];
+          var pname = paramName(i, currPbv.type);
+          if (currPbv.type === "url"){
+            pTrace.parameterizeUrl(pname, currPbv.value);
+          }
+          else if (currPbv.type === "node"){
+            pTrace.parameterizeXpath(pname, currPbv.value);
+          }
+          else if (currPbv.type === "typedString"){
+            pTrace.parameterizeTypedString(pname, currPbv.value);
+          }
+          else if (currPbv.type === "frame"){
+            pTrace.parameterizeFrame(pname, currPbv.value);
+          }
+          else{
+            console.log("Tried to do pbv on a type we don't know.");
+          }
+        }
+      }
+      return pTrace;
+    }
+
+    this.passArguments = function(pTrace){
+      for (var i = 0; i < this.statements.length; i++){
+        var statement = this.statements[i];
+        var args = statement.args();
+        console.log(args);
+        for (var j = 0; j < args.length; j++){
+          var currArg = args[j];
+          var pname = paramName(i, currArg.type);
+          if (currArg.type === "url"){
+            pTrace.useUrl(pname, currArg.value);
+          }
+          else if (currArg.type === "node"){
+            pTrace.useXpath(pname, currArg.value);
+          }
+          else if (currArg.type === "typedString"){
+            pTrace.useTypedString(pname, currArg.value);
+          }
+          else if (currArg.type === "frame"){
+            pTrace.useFrame(pname, currArg.value);
+          }
+          else{
+            console.log("Tried to do pbv on a type we don't know. (Arg provision.)");
+          }
+        }
+      }
+      return pTrace.getStandardTrace();
+    }
+
   }
 
   return pub;

@@ -24,7 +24,7 @@ function ParameterizedTrace(trace){
 		for (var i = 0; i< trace.length; i++){
 			if (trace[i].type !== "dom"){ continue;}
 			var xpath = trace[i].target.xpath;
-			if (xpath["name"] === parameter_name){
+			if (xpath.name === parameter_name){
 				console.log("use xpath", value);
 				trace[i].target.xpath = {"name": parameter_name, "value": value};
 			}
@@ -124,6 +124,35 @@ function ParameterizedTrace(trace){
 		}
 		frames[parameter_name].value = value;
 	};
+
+		/* url load parameterization */
+
+	this.parameterizeUrl = function(parameter_name, original_value) {
+		original_value = original_value.toUpperCase();
+		for (var i = 0; i< trace.length; i++){
+			if (trace[i].type !== "completed"){ continue;}
+			if (trace[i].data.url.name){
+				//this one has already been converted to an object, parameterized
+				return;
+			}
+			var url = trace[i].data.url.toUpperCase();
+			if (url === original_value){
+				console.log("putting a hole in for a URL", original_value);
+				trace[i].data.url = {"name": parameter_name, "value": null};
+			}
+		}
+	};
+
+	this.useUrl = function(parameter_name, value) {
+		for (var i = 0; i< trace.length; i++){
+			if (trace[i].type !== "completed"){ continue;}
+			var url = trace[i].data.url;
+			if (url.name === parameter_name){
+				console.log("use url", url);
+				trace[i].data.url = {"name": parameter_name, "value": value};
+			}
+		}
+	};
 	
 	//TODO tabs: create a parameterize on frame or tab.  not yet sure which
 	//we'll be using it for cases where a demonstration does something on a list page
@@ -146,7 +175,7 @@ function ParameterizedTrace(trace){
 		var prop_corrections = {};
 		for (var i = 0; i< cloned_trace.length; i++){
 			if (cloned_trace[i].type === "dom"){
-				//do any prop corrections we might need, as when we've recorded a value but what to enforce a diff
+				//do any prop corrections we might need, as when we've recorded a value but want to enforce a diff
 				if (cloned_trace[i].meta.nodeSnapshot && cloned_trace[i].meta.nodeSnapshot.prop){
 					var xpath = cloned_trace[i].meta.nodeSnapshot.prop.xpath;
 					for (var correction_xpath in prop_corrections){
@@ -158,7 +187,7 @@ function ParameterizedTrace(trace){
 				}
 				//correct xpath if it's a parameterized xpath
 				var xpath = cloned_trace[i].target.xpath;
-				if (xpath["name"]){
+				if (xpath.name){
 					console.log("Correcting xpath to ", xpath.value);
 					cloned_trace[i].target.xpath = xpath.value;
 					cloned_trace[i].target.useXpathOnly = true;
@@ -175,6 +204,14 @@ function ParameterizedTrace(trace){
 				cloned_trace = cloned_trace.slice(0,i)
 				.concat([new_event])
 				.concat(cloned_trace.slice(i+1,cloned_trace.length));
+			}
+			else if (cloned_trace[i].type === "completed"){
+				//correct url if it's a parameterized url
+				var url = cloned_trace[i].data.url;
+				if (url.name){
+					console.log("Correcting url to ", url.value);
+					cloned_trace[i].data.url = url.value;
+				}
 			}
 		}
 		return cloned_trace;

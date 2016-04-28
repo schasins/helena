@@ -128,28 +128,29 @@ function ParameterizedTrace(trace){
 		/* url load parameterization */
 
 	this.parameterizeUrl = function(parameter_name, original_value) {
+		// see record-replay/mainpanel_main for the func (getMatchingPort) where we actually open a new tab if we're trying to run an event that needs it, which explains why we do url parameterization the way we do
 		original_value = original_value.toUpperCase();
 		for (var i = 0; i< trace.length; i++){
-			if (trace[i].type !== "completed"){ continue;}
-			if (trace[i].data.url.name){
+			if (trace[i].type !== "dom"){ continue;}
+			if (trace[i].frame.topURL.name){
 				//this one has already been converted to an object, parameterized
 				return;
 			}
-			var url = trace[i].data.url.toUpperCase();
+			var url = trace[i].frame.topURL.toUpperCase();
 			if (url === original_value){
 				console.log("putting a hole in for a URL", original_value);
-				trace[i].data.url = {"name": parameter_name, "value": null};
+				trace[i].frame.topURL = {"name": parameter_name, "value": null};
 			}
 		}
 	};
 
 	this.useUrl = function(parameter_name, value) {
 		for (var i = 0; i< trace.length; i++){
-			if (trace[i].type !== "completed"){ continue;}
-			var url = trace[i].data.url;
+			if (trace[i].type !== "dom"){ continue;}
+			var url = trace[i].frame.topURL;
 			if (url.name === parameter_name){
 				console.log("use url", url);
-				trace[i].data.url = {"name": parameter_name, "value": value};
+				trace[i].frame.topURL = {"name": parameter_name, "value": value};
 			}
 		}
 	};
@@ -192,6 +193,12 @@ function ParameterizedTrace(trace){
 					cloned_trace[i].target.xpath = xpath.value;
 					cloned_trace[i].target.useXpathOnly = true;
 				}
+				//correct url if it's a parameterized url
+				var url = cloned_trace[i].frame.topURL;
+				if (url.name){
+					console.log("Correcting url to ", url.value);
+					cloned_trace[i].frame.topURL = url.value;
+				}
 			}
 			else if (cloned_trace[i].type === "string_parameterize"){
 				var new_event = cloned_trace[i].text_input_event;
@@ -205,14 +212,7 @@ function ParameterizedTrace(trace){
 				.concat([new_event])
 				.concat(cloned_trace.slice(i+1,cloned_trace.length));
 			}
-			else if (cloned_trace[i].type === "completed"){
-				//correct url if it's a parameterized url
-				var url = cloned_trace[i].data.url;
-				if (url.name){
-					console.log("Correcting url to ", url.value);
-					cloned_trace[i].data.url = url.value;
-				}
-			}
+			
 		}
 		return cloned_trace;
 	};

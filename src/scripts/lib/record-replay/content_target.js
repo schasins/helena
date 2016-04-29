@@ -313,14 +313,22 @@ function getFeatures(element){
     return bestNode;
   };
 
+  var identifiedNodesCache = {};
+
   getTarget = function(targetInfo) {
-    console.log("targetInfo", targetInfo);
     if (! targetInfo){
       return null;
     }
-    //we have a useXpathOnly flag set to true when the top level has parameterized on xpath, and normal node addressing approach should be ignored
+    var xpath = targetInfo.xpath;
+    if (xpath in identifiedNodesCache){
+      // we've already had to find this node on this page.  go ahead and use the cached node.
+      console.log("using cached node");
+      console.log(identifiedNodesCache);
+      return identifiedNodesCache[xpath];
+    }
+    // we have a useXpathOnly flag set to true when the top level has parameterized on xpath, and normal node addressing approach should be ignored
     if (targetInfo.useXpathOnly){
-      var nodes = xPathToNodes(targetInfo.xpath);
+      var nodes = xPathToNodes(xpath);
       if (nodes.length > 0){
         console.log("using pure xpath: ", nodes[0]);
         return nodes[0];
@@ -328,6 +336,7 @@ function getFeatures(element){
     }
     var features = targetInfo.snapshot;
     var winningNode = getTargetForSimilarity(features);
+    identifiedNodesCache[xpath] = winningNode;
     console.log("winningNode: ", winningNode);
     return winningNode;
   }

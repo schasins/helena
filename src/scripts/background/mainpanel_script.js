@@ -376,7 +376,6 @@ var WebAutomationLanguage = (function() {
     this.outputPageVar = EventM.getLoadOutputPageVar(ev);
     // for now, assume the ones we saw at record time are the ones we'll want at replay
     this.currentUrl = this.url;
-    this.currentUrl = "https://scholar.google.com/citations?hl=en&view_op=search_authors&mauthors=label%3Acomputers"; //test
 
     this.toString = function(){
       return this.outputPageVar+" = load('"+this.url+"')";

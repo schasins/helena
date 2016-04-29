@@ -243,7 +243,6 @@ var SelectorSynthesis = (function() { var pub = {};
     //  return synthesizeSelector(all_features);
     //}
     var rows = interpretListSelector(feature_dict, false, suffixes);
-    console.log("rows", rows);
     
     //now handle negative examples
     var exclude_first = false;

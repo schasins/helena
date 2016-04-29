@@ -143,7 +143,6 @@ var Scraping = (function() { var pub = {};
       if (eventMessage.data.type !== "click") {return true;} //only actually scrape on clicks, but still want to record that we're in scraping mode
       var data = NodeRep.nodeToMainpanelNodeRepresentation(node,false);
       utilities.sendMessage("content", "mainpanel", "scrapedData", data);
-      console.log("scrape", data);
       return data;
     };
   }); //run once page loaded, because else runs before r+r content script
@@ -188,7 +187,6 @@ var Visualization = (function() { var pub = {};
   $(function(){
     additional_recording_handlers.visualization = function(node, eventMessage){
       var currentlyHighlighted = Highlight.unhighlightIfHighlighted(node);
-      console.log("currentlyHighlighted: ", currentlyHighlighted);
       html2canvas(node, {
         onrendered: function(canvas) { 
           if (currentlyHighlighted){

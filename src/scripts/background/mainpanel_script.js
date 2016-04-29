@@ -138,7 +138,7 @@ var EventM = (function() {
   };
 
   pub.clearDisplayInfo = function(ev){
-    ev.additional.display = null;
+    delete ev.additional.display;
   }
 
   return pub;

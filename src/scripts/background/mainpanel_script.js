@@ -600,7 +600,8 @@ var WebAutomationLanguage = (function() {
       }
       for (var url in pagesToNodes){
         chrome.tabs.create({url: url, active: true}, function(tab){
-          utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[url]}, null, null, [tab.id]);
+          setTimeout(function(){utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[url]}, null, null, [tab.id]);}, 500); // give it a while to attach the listener
+          // todo: may also want to do a timeout to make sure this actually gets a response
         });
       }
     };

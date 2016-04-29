@@ -45,7 +45,9 @@ var RecorderUI = (function() {
 
   pub.stopRecording = function(){
     var trace = SimpleRecord.stopRecording();
-    var scriptString = ReplayScript.setCurrentTrace(trace);
+    var program = ReplayScript.setCurrentTrace(trace);
+    var scriptString = program.toString();
+    var relevantRelations = program.relevantRelations();
     var div = $("#new_script_content");
     utilities.replaceContent(div, $("#done_recording")); // let's put in the done_recording node
     var scriptPreviewDiv = div.find("#program_representation");
@@ -166,7 +168,7 @@ var ReplayScript = (function() {
     segmentedTrace = segment(trace);
     var prog = segmentedTraceToProgram(segmentedTrace);
     pub.prog = prog;
-    return prog.toString();
+    return prog;
   }
 
   // functions for each transformation
@@ -584,6 +586,25 @@ var WebAutomationLanguage = (function() {
       }
       return pTrace.getStandardTrace();
     }
+
+    this.relevantRelations = function(){
+      var pagesToNodes = {};
+      for (var i = 0; i < this.statements.length; i++){
+        var s = this.statements[i];
+        if ( (s instanceof WebAutomationLanguage.ScrapeStatement) || (s instanceof WebAutomationLanguage.ClickStatement) ){
+          var xpath = s.node; // todo: in future, should get the whole node info, not just the xpath, but this is sufficient for now
+          var ev = firstVisibleEvent(s.trace);
+          var url = ev.frame.topURL;
+          if (! (url in pagesToNodes)){ pagesToNodes[url] = []; }
+          if (! (xpath in pagesToNodes[url])){ pagesToNodes[url].push(xpath); }
+        }
+      }
+      for (var url in pagesToNodes){
+        chrome.tabs.create({url: url, active: true}, function(tab){
+          utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[url]}, null, null, [tab.id]);
+        });
+      }
+    };
 
   }
 

@@ -30,6 +30,8 @@
       "scripts/lib/html2canvas.svg.js", 
       "scripts/content/setup.js",
 			"scripts/content/recording_UI.js",
+      "scripts/content/relation_finding.js",
+      "scripts/content/xpath_rep.js",
 			"scripts/lib/record-replay/common_common.js",
 			"scripts/lib/record-replay/common_params.js",
 			"scripts/lib/record-replay/common_logging.js",

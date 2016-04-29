@@ -6,8 +6,6 @@
  * Message handling
  **********************************************************************/
 
-utilities.listenForMessage("mainpanel", "content", "likelyRelation", function(msg){console.log("biggestRelation: ", msg); SelectorSynthesis.likelyRelation(msg);});
-
 var RelationFinder = (function() { var pub = {};
 
   /**********************************************************************
@@ -25,16 +23,18 @@ var RelationFinder = (function() { var pub = {};
    * excludeFirst
    */
 
-   pub.all_features = ["tag", "class", 
+   var all_features = ["tag", "class", 
    "left", "bottom", "right", "top", "width", "height",
    "font-size", "font-family", "font-style", "font-weight", "color",
    "background-color", 
    "preceding-text", "text",
    "xpath"];
 
+    var almost_all_features = _.without(all_features, "xpath");
+
    function getFeature(element, feature){
     if (feature === "xpath"){
-      return xPathToXPathList(nodeToXPath(element));
+      return XPathList.xPathToXPathList(nodeToXPath(element));
     }
     else if (feature === "preceding-text"){
       return $(element).prev().text();
@@ -71,7 +71,7 @@ var RelationFinder = (function() { var pub = {};
 
   function collapseValues(feature, values){
     if (feature === "xpath"){
-      return xPathReduction(values);
+      return XPathList.xPathReduction(values);
     }
     return _.uniq(values);
   }
@@ -98,6 +98,7 @@ var RelationFinder = (function() { var pub = {};
       }
       return null;
     };
+    return subcomponentFunction;
   }
 
   function getAllCandidates(){
@@ -142,17 +143,12 @@ var RelationFinder = (function() { var pub = {};
   };
 
   pub.interpretRelationSelector = function(selector){
-    return RelationFinder.interpretRelationSelectorHelper(selector.dict, selector.exclude_first, makeSubcomponentFunction(selector.suffixes));
+    return pub.interpretRelationSelectorHelper(selector.dict, selector.exclude_first, makeSubcomponentFunction(selector.suffixes));
   };
-
-return pub;}());
-
 
 /**********************************************************************
  * How to actually synthesize the selectors used by the relation-finder above
  **********************************************************************/
-
-var SelectorSynthesis = (function() { var pub = {};
 
   function findCommonAncestor(nodes){
     var xpath_lists = _.map(nodes, function(node){ return XPathList.xPathToXPathList(nodeToXPath(node)); });
@@ -189,7 +185,6 @@ var SelectorSynthesis = (function() { var pub = {};
     xpath_list[i].index = j;
     var xpath_string = XPathList.xPathToString(xpath_list); 
     var nodes = xPathToNodes(xpath_string); // the node at index j, because we updated the index in xpath_list
-    xpath_list[i].index = index; // set it back to the original index since we may be using it later
     if (nodes.length > 0) { 
       // awesome.  there's actually a node at this xpath.  let's make it our candidate node
       var candidateNode = nodes[0];
@@ -213,6 +208,7 @@ var SelectorSynthesis = (function() { var pub = {};
         var candidateNode = findSiblingAtLevelIIndexJ(xpath_list, i, index - 1, suffixes); // subtracting
         if (candidateNode !== null) {return candidateNode;}
       }
+      xpath_list[i].index = index; // set it back to the original index since we may be using it later
     }
     return null;
   }
@@ -229,20 +225,23 @@ var SelectorSynthesis = (function() { var pub = {};
     return suffixes;
   }
 
-  var almost_all_features = _.without(RelationFinder.all_features, "xpath");
+  function Selector(dict, exclude_first, suffixes){
+    return {dict: dict, exclude_first: exclude_first, suffixes: suffixes};
+  }
 
-  function synthesizeSelector(features){
+  function synthesizeSelector(positive_nodes, negative_nodes, suffixes, features){
+    console.log("suffixes", suffixes);
     if(typeof(features)==='undefined') {features = ["tag", "xpath"];}
     
     var feature_dict = featureDict(features, positive_nodes);
     if (feature_dict.hasOwnProperty("xpath") && feature_dict["xpath"].length > 3 && features !== almost_all_features){
       //xpath alone can't handle our positive nodes
-      return synthesizeSelector(almost_all_features);
+      return synthesizeSelector(positive_nodes, negative_nodes, suffixes, almost_all_features);
     }
     //if (feature_dict.hasOwnProperty("tag") && feature_dict["tag"].length > 1 && features !== all_features){
     //  return synthesizeSelector(all_features);
     //}
-    var rows = interpretListSelector(feature_dict, false, suffixes);
+    var rows = pub.interpretRelationSelector(Selector(feature_dict, false, suffixes));
     
     //now handle negative examples
     var exclude_first = false;
@@ -257,7 +256,7 @@ var SelectorSynthesis = (function() { var pub = {};
           else if (features !== almost_all_features) {
             //xpaths weren't enough to exclude nodes we need to exclude
             console.log("need to try more features.");
-            return synthesizeSelector(almost_all_features);
+            return synthesizeSelector(positive_nodes, negative_nodes, suffixes, almost_all_features);
           }
           else {
             console.log("using all our features and still not working.  freak out.");
@@ -268,8 +267,7 @@ var SelectorSynthesis = (function() { var pub = {};
         }
       }
     }
-    
-    return {"dict": feature_dict, "exclude_first": exclude_first, "suffixes": suffixes};
+    return Selector(feature_dict, exclude_first, suffixes);
   }
 
   function featureDict(features, positive_nodes){
@@ -310,11 +308,12 @@ var SelectorSynthesis = (function() { var pub = {};
     var ancestor = findCommonAncestor(rowNodes);
     var positive_nodes = [ancestor];
     var suffixes = suffixesFromNodeAndSubnodes(ancestor, rowNodes);
+    console.log(suffixes);
     var likeliest_sibling = findSibling(ancestor, suffixes);
     if (likeliest_sibling !== null){
       positive_nodes.push(likeliest_sibling);
     }
-    return synthesizeSelector();
+    return synthesizeSelector(positive_nodes, [], suffixes);
   }
 
   function combinations(arr) {
@@ -329,19 +328,20 @@ var SelectorSynthesis = (function() { var pub = {};
 
   function synthesizeSelectorForSubsetThatProducesLargestRelation(rowNodes){
     var combos = combinations(rowNodes);
-    var maxNumCells = 0;
+    var maxNumCells = -1;
     var maxSelector = null;
     for (var i = 0; i < combos.length; i++){
       var combo = combos[i];
       if (combo.length < 1){ continue; }
-      var selector = SelectorSynthesis.synthesizeFromSingleRow(combo);
-      var relation = RelationFinder.interpretRelationSelector(selector);
+      var selector = pub.synthesizeFromSingleRow(combo);
+      console.log("selector", selector);
+      var relation = pub.interpretRelationSelector(selector);
       var numCells = combo.length * relation.length;
       if (numCells > maxNumCells){
         maxNumCells = numCells;
         maxSelector = selector;
-        console.log(maxSelector);
-        console.log(relation);
+        console.log("maxselector", maxSelector);
+        console.log("relation", relation);
       }
     }
     return maxSelector;

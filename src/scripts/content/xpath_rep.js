@@ -71,7 +71,7 @@ pub.xPathReduction = function(xpath_list){
     var success = false;
     for (var j = 0; j < xPathsWithWildcards.length; j++){
       var candidate_match = xPathsWithWildcards[j];
-      success = xPathMerge(candidate_match, new_xpath);
+      success = pub.xPathMerge(candidate_match, new_xpath);
       //in case of success, candidate_match will now contain the
       //updated, merged xpath
       if (success){

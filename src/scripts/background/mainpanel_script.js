@@ -5,13 +5,7 @@ function setUp(){
   //utilities.listenForMessage("content", "mainpanel", "nextButtonData", processNextButtonData);
   //utilities.listenForMessage("content", "mainpanel", "moreItems", moreItems);
   utilities.listenForMessage("content", "mainpanel", "scrapedData", RecorderUI.processScrapedData);
-  
-  //messages sent by this component
-  //utilities.sendMessage("mainpanel", "content", "startProcessingList", "");
-  //utilities.sendMessage("mainpanel", "content", "stopProcessingList", "");
-  //utilities.sendMessage("mainpanel", "content", "startProcessingNextButton", "");
-  //utilities.sendMessage("mainpanel", "content", "getMoreItems", data);
-  //utilities.sendMessage("mainpanel", "content", "getNextPage", data);
+  utilities.listenForMessage("content", "mainpanel", "likelyRelation", RecorderUI.processLikelyRelation);
   
   //handle user interactions with the mainpanel
   //$("button").button(); 
@@ -72,6 +66,46 @@ var RecorderUI = (function() {
     for (var i = 0; i < xpaths.length; i++){
       $div.append($('<div class="first_row_elem">'+scraped[xpaths[i]]+'</div>'));
     }
+  }
+
+  // todo: move this
+
+  function arrayOfTextsToTableRow(array){
+    var $tr = $("<tr></tr>");
+    for (var j= 0; j< array.length; j++){
+      var $td = $("<td></td>");
+      $td.html(_.escape(array[j]).replace(/\n/g,"<br>"));
+      $tr.append($td);
+    }
+    return $tr;
+  }
+
+  function arrayOfArraysToTable(arrayOfArrays){
+    var $table = $("<table></table>");
+    for (var i = 0; i< arrayOfArrays.length; i++){
+      var array = arrayOfArrays[i];
+      $tr = arrayOfTextsToTableRow(array);
+      $table.append($tr);
+    }
+    return $table;
+  }
+
+  var currRelations = {}; // todo: clean this up.  should associate with program.  should clear when re-record.
+  pub.processLikelyRelation = function(data){
+    console.log("processLikelyRelation", data);
+    var tabid = data.tab_id;
+    currRelations[tabid] = data;
+    $div = $("#new_script_content").find("#relations");
+    $div.html("");
+    for (var tab in currRelations){
+      var relation = currRelations[tab].relation;
+      if (relation.length > 2){
+        relation = relation.slice(0,2);
+      }
+      relation = _.map(relation, function(row){return _.map(row, function(cell){return cell.text;});});
+      $div.append(arrayOfArraysToTable(relation));
+    }
+    chrome.tabs.remove(tabid);
   }
 
   return pub;
@@ -599,10 +633,13 @@ var WebAutomationLanguage = (function() {
         }
       }
       for (var url in pagesToNodes){
-        chrome.tabs.create({url: url, active: true}, function(tab){
-          setTimeout(function(){utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[url]}, null, null, [tab.id]);}, 500); // give it a while to attach the listener
-          // todo: may also want to do a timeout to make sure this actually gets a response
-        });
+        (function(){
+          var curl = url; // closure copy
+          chrome.tabs.create({url: curl, active: false}, function(tab){
+            setTimeout(function(){utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[curl]}, null, null, [tab.id]);}, 500); // give it a while to attach the listener
+            // todo: may also want to do a timeout to make sure this actually gets a response
+          });
+        }());
       }
     };
 

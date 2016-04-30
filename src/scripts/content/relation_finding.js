@@ -344,7 +344,7 @@ var RelationFinder = (function() { var pub = {};
         console.log("relation", relation);
       }
     }
-    return maxSelector;
+    return {selector: maxSelector, relation:relation};
   }
 
   pub.likelyRelation = function(msg){
@@ -353,7 +353,10 @@ var RelationFinder = (function() { var pub = {};
     for (var i = 0; i < xpaths.length; i++){
       nodes.push(xPathToNodes(xpaths[i])[0]);
     }
-    return synthesizeSelectorForSubsetThatProducesLargestRelation(nodes);
+    var selectorData = synthesizeSelectorForSubsetThatProducesLargestRelation(nodes);
+    var relationData = _.map(selectorData.relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
+    selectorData.relation = relationData;
+    utilities.sendMessage("content", "mainpanel", "likelyRelation", selectorData);
   }
 
 return pub;}());

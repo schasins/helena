@@ -121,7 +121,7 @@ var Tooltip = (function() { var pub = {};
     newDiv.css('top', offset.top+boundingBox.height);
     newDiv.css('left', offset.left);
     newDiv.css('position', 'absolute');
-    newDiv.css('z-index', 1000);
+    newDiv.css('z-index', 2147483647);
     newDiv.css('background-color', tooltipColor);
     newDiv.css('border', 'solid 1px '+tooltipBorderColor);
     newDiv.css('opacity', .9);

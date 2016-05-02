@@ -410,6 +410,7 @@ var WebAutomationLanguage = (function() {
     // find the record-time constants that we'll turn into parameters
     var ev = firstVisibleEvent(trace);
     this.pageVar = EventM.getDOMInputPageVar(ev);
+    this.pageUrl = ev.frame.topURL;
     this.node = ev.target.xpath;
     var domEvents = _.filter(trace, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
     var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
@@ -446,6 +447,7 @@ var WebAutomationLanguage = (function() {
     var ev = firstVisibleEvent(trace);
     this.pageVar = EventM.getDOMInputPageVar(ev);
     this.node = ev.target.xpath;
+    this.pageUrl = ev.frame.topURL;
     // for now, assume the ones we saw at record time are the ones we'll want at replay
     this.currentNode = this.node;
 
@@ -474,6 +476,7 @@ var WebAutomationLanguage = (function() {
     var ev = firstVisibleEvent(trace);
     this.pageVar = EventM.getDOMInputPageVar(ev);
     this.node = ev.target.xpath;
+    this.pageUrl = ev.frame.topURL;
     var textEntryEvents = _.filter(trace, function(ev){statementToEventMapping.keyboard.indexOf(WebAutomationLanguage.statementType(ev)) > -1;});
     var lastTextEntryEvent = textEntryEvents[-1];
     this.typedString = ev.meta.deltas.value;
@@ -507,10 +510,31 @@ var WebAutomationLanguage = (function() {
     };
   };
 
+  pub.Relation = function(selector, demonstrationTimeRelation, url){
+    this.selector = selector;
+    this.demonstrationTimeRelation = demonstrationTimeRelation;
+    this.url = url;
+
+    this.parameterizeableXpaths = function(){
+      // for now, will only parameterize on the first row
+      return _.map(this.demonstrationTimeRelation[0], function(cell){ return cell.xpath;});
+    };
+
+    this.usedByStatement = function(statement){
+      if (!((statement instanceof WebAutomationLanguage.ScrapeStatement) || (statement instanceof WebAutomationLanguage.ClickStatement) || (statement instanceof WebAutomationLanguage.TypeStatement))){
+        return false;
+      }
+      // for now we're only saying the relation is used if the nodes in the relation are used
+      // todo: ultimately should also say it's used if the text contents of a node is typed
+      return (this.url === statement.pageUrl && this.parameterizeableXpaths().indexOf(statement.node) > -1);
+    }
+  }
+
   // the whole program
 
   pub.Program = function(statements){
     this.statements = statements;
+    this.relations = [];
 
     this.toString = function(){
       var scriptString = "";
@@ -601,8 +625,7 @@ var WebAutomationLanguage = (function() {
         var s = this.statements[i];
         if ( (s instanceof WebAutomationLanguage.ScrapeStatement) || (s instanceof WebAutomationLanguage.ClickStatement) ){
           var xpath = s.node; // todo: in future, should get the whole node info, not just the xpath, but this is sufficient for now
-          var ev = firstVisibleEvent(s.trace);
-          var url = ev.frame.topURL;
+          var url = s.pageUrl; // the top url of the frame on which the relevant events were raised
           if (! (url in pagesToNodes)){ pagesToNodes[url] = []; }
           if (! (xpath in pagesToNodes[url])){ pagesToNodes[url].push(xpath); }
         }
@@ -619,20 +642,23 @@ var WebAutomationLanguage = (function() {
     };
 
 
-    var pagesToRelationData = {};
+    var pagesToRelations = {};
     this.processLikelyRelation = function(data){
       chrome.tabs.remove(data.tab_id); // no longer need the tab from which we got this info
-      pagesToRelationData[data.url] = data;
+      var rel = new WebAutomationLanguage.Relation(data.selector, data.relation, data.url);
+      pagesToRelations[data.url] = rel;
+      this.relations.push(rel);
       var textRelations = [];
-      for (var url in pagesToRelationData){
-        var relation = pagesToRelationData[url].relation;
+      for (var url in pagesToRelations){
+        var relation = pagesToRelations[url].demonstrationTimeRelation;
         relation = _.map(relation, function(row){return _.map(row, function(cell){return cell.text;});});
         textRelations.push(relation);
       }
 
-      if (pagesToRelationData.length === pagesToNodes.length){
+      if (pagesToRelations.length === pagesToNodes.length){
         // awesome, all the pages have gotten back to us
-        setTimeout(this.insertLoops, 0);
+        console.log(this);
+        setTimeout(this.insertLoops.bind(this), 0); // bind this to this, since JS runs settimeout func with this pointing to global obj
       }
 
       // give the text relations back to the UI-handling component so we can display to user
@@ -640,7 +666,15 @@ var WebAutomationLanguage = (function() {
     };
 
     this.insertLoops = function(){
-      return;
+      for (var i = 0; i < this.relations.length; i++){
+        var relation = this.relations[i];
+        for (var j = 0; j < this.statements.length; j++){
+          var statement = this.statements[j];
+          if (relation.usedByStatement(statement)){
+            console.log("loop start index: ", j-1);
+          }
+        }
+      }
     };
 
   }

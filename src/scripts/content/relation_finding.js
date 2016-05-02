@@ -356,6 +356,7 @@ var RelationFinder = (function() { var pub = {};
     var selectorData = synthesizeSelectorForSubsetThatProducesLargestRelation(nodes);
     var relationData = _.map(selectorData.relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
     selectorData.relation = relationData;
+    selectorData.url = msg.url; // this url is used by the mainpanel to keep track of which pages have been handled already
     utilities.sendMessage("content", "mainpanel", "likelyRelation", selectorData);
   }
 

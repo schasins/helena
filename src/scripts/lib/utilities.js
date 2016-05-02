@@ -64,8 +64,28 @@ utilities.sendMessage = function(from, to, subject, content, frame_ids_include, 
   }
 };
 
+var DOMCreationUtilities = {};
 
-
-utilities.replaceContent = function(div1, div2){
+DOMCreationUtilities.replaceContent = function(div1, div2){
   div1.html(div2.html());
 };
+
+DOMCreationUtilities.arrayOfTextsToTableRow = function(array){
+    var $tr = $("<tr></tr>");
+    for (var j= 0; j< array.length; j++){
+      var $td = $("<td></td>");
+      $td.html(_.escape(array[j]).replace(/\n/g,"<br>"));
+      $tr.append($td);
+    }
+    return $tr;
+  }
+
+DOMCreationUtilities.arrayOfArraysToTable = function(arrayOfArrays){
+    var $table = $("<table></table>");
+    for (var i = 0; i< arrayOfArrays.length; i++){
+      var array = arrayOfArrays[i];
+      $tr = DOMCreationUtilities.arrayOfTextsToTableRow(array);
+      $table.append($tr);
+    }
+    return $table;
+  }

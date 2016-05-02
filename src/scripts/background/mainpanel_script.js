@@ -25,13 +25,13 @@ var RecorderUI = (function() {
 
   pub.setUpRecordingUI = function(){
     var div = $("#new_script_content");
-    utilities.replaceContent(div, $("#about_to_record"));
+    DOMCreationUtilities.replaceContent(div, $("#about_to_record"));
     div.find("#start_recording").click(RecorderUI.startRecording);
   }
 
   pub.startRecording = function(){
     var div = $("#new_script_content");
-    utilities.replaceContent(div, $("#recording"));
+    DOMCreationUtilities.replaceContent(div, $("#recording"));
     div.find("#stop_recording").click(RecorderUI.stopRecording);
 
     SimpleRecord.startRecording();
@@ -41,11 +41,11 @@ var RecorderUI = (function() {
     var trace = SimpleRecord.stopRecording();
     var program = ReplayScript.setCurrentTrace(trace);
     var scriptString = program.toString();
-    var relevantRelations = program.relevantRelations();
+    program.relevantRelations(); // now that we have a script, let's set some processing in motion that will figure out likely relations
     var div = $("#new_script_content");
-    utilities.replaceContent(div, $("#done_recording")); // let's put in the done_recording node
+    DOMCreationUtilities.replaceContent(div, $("#done_recording")); // let's put in the done_recording node
     var scriptPreviewDiv = div.find("#program_representation");
-    utilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the done_recording node
+    DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the done_recording node
     var replayButton = div.find("#replay");
     replayButton.button();
     replayButton.click(RecorderUI.replay);
@@ -68,44 +68,18 @@ var RecorderUI = (function() {
     }
   }
 
-  // todo: move this
-
-  function arrayOfTextsToTableRow(array){
-    var $tr = $("<tr></tr>");
-    for (var j= 0; j< array.length; j++){
-      var $td = $("<td></td>");
-      $td.html(_.escape(array[j]).replace(/\n/g,"<br>"));
-      $tr.append($td);
-    }
-    return $tr;
-  }
-
-  function arrayOfArraysToTable(arrayOfArrays){
-    var $table = $("<table></table>");
-    for (var i = 0; i< arrayOfArrays.length; i++){
-      var array = arrayOfArrays[i];
-      $tr = arrayOfTextsToTableRow(array);
-      $table.append($tr);
-    }
-    return $table;
-  }
-
-  var currRelations = {}; // todo: clean this up.  should associate with program.  should clear when re-record.
   pub.processLikelyRelation = function(data){
-    console.log("processLikelyRelation", data);
-    var tabid = data.tab_id;
-    currRelations[tabid] = data;
+    var textRelations = ReplayScript.prog.processLikelyRelation(data);
     $div = $("#new_script_content").find("#relations");
     $div.html("");
-    for (var tab in currRelations){
-      var relation = currRelations[tab].relation;
-      if (relation.length > 2){
-        relation = relation.slice(0,2);
+    for (var i = 0; i < textRelations.length; i++){
+      var textRelation = textRelations[i];
+      if (textRelation.length > 2){
+        textRelation = textRelation.slice(0,2);
+        textRelation.push(_.map(Array.apply(null, Array(textRelation[0].length)), function(){return "...";}));
       }
-      relation = _.map(relation, function(row){return _.map(row, function(cell){return cell.text;});});
-      $div.append(arrayOfArraysToTable(relation));
+      $div.append(DOMCreationUtilities.arrayOfArraysToTable(textRelation));
     }
-    chrome.tabs.remove(tabid);
   }
 
   return pub;
@@ -186,6 +160,7 @@ var ReplayScript = (function() {
   var pub = {};
 
   pub.trace = null;
+  pub.prog = null;
 
   // controls the sequence of transformations we do when we get a trace
 
@@ -620,8 +595,8 @@ var WebAutomationLanguage = (function() {
       return pTrace.getStandardTrace();
     }
 
+    var pagesToNodes = {};
     this.relevantRelations = function(){
-      var pagesToNodes = {};
       for (var i = 0; i < this.statements.length; i++){
         var s = this.statements[i];
         if ( (s instanceof WebAutomationLanguage.ScrapeStatement) || (s instanceof WebAutomationLanguage.ClickStatement) ){
@@ -636,11 +611,36 @@ var WebAutomationLanguage = (function() {
         (function(){
           var curl = url; // closure copy
           chrome.tabs.create({url: curl, active: false}, function(tab){
-            setTimeout(function(){utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[curl]}, null, null, [tab.id]);}, 500); // give it a while to attach the listener
+            setTimeout(function(){utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[curl], url:curl}, null, null, [tab.id]);}, 500); // give it a while to attach the listener
             // todo: may also want to do a timeout to make sure this actually gets a response
           });
         }());
       }
+    };
+
+
+    var pagesToRelationData = {};
+    this.processLikelyRelation = function(data){
+      chrome.tabs.remove(data.tab_id); // no longer need the tab from which we got this info
+      pagesToRelationData[data.url] = data;
+      var textRelations = [];
+      for (var url in pagesToRelationData){
+        var relation = pagesToRelationData[url].relation;
+        relation = _.map(relation, function(row){return _.map(row, function(cell){return cell.text;});});
+        textRelations.push(relation);
+      }
+
+      if (pagesToRelationData.length === pagesToNodes.length){
+        // awesome, all the pages have gotten back to us
+        setTimeout(this.insertLoops, 0);
+      }
+
+      // give the text relations back to the UI-handling component so we can display to user
+      return textRelations;
+    };
+
+    this.insertLoops = function(){
+      return;
     };
 
   }

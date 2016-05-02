@@ -107,11 +107,13 @@ h4 {
 }
 
 #relations_container{
-	background-color: #9E9E9E;
+	background-color: #E3E3E3;
 	padding: 10px;
+	margin-top: 20px;
+	margin-bottom: 20px;
 }
 
 #relations_container table{
 	background-color: #ffffff;
-	margin: 8px;
+	margin-top: 8px;
 }

@@ -677,7 +677,7 @@ var WebAutomationLanguage = (function() {
         textRelations.push(relation);
       }
 
-      if (pagesToRelations.length === pagesToNodes.length){
+      if (_.difference(_.keys(pagesToNodes), _.keys(pagesToRelations)).length === 0) { // pagesToRelations now has all the pages from pagesToNodes
         // awesome, all the pages have gotten back to us
         setTimeout(this.insertLoops.bind(this), 0); // bind this to this, since JS runs settimeout func with this pointing to global obj
       }
@@ -700,7 +700,7 @@ var WebAutomationLanguage = (function() {
       }
 
       this.loopyStatements = this.statements;
-      var indexes = Object.keys(indexesToRelations).sort(function(a, b){return b-a});
+      var indexes = _.keys(indexesToRelations).sort(function(a, b){return b-a});
       for (var i = 0; i < indexes.length; i++){
         var index = indexes[i];
         // let's grab all the statements from the loop's start index to the end, put those in the loop body

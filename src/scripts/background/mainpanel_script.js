@@ -82,6 +82,13 @@ var RecorderUI = (function() {
     }
   }
 
+  pub.showLoopyScript = function(){
+    var program = ReplayScript.prog;
+    var scriptString = program.toString();
+    var scriptPreviewDiv = $("#new_script_content").find("#program_representation");
+    DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the done_recording node
+  }
+
   return pub;
 }());
 
@@ -386,8 +393,8 @@ var WebAutomationLanguage = (function() {
     // for now, assume the ones we saw at record time are the ones we'll want at replay
     this.currentUrl = this.url;
 
-    this.toString = function(){
-      return this.outputPageVar+" = load('"+this.url+"')";
+    this.toStringLines = function(){
+      return [this.outputPageVar+" = load('"+this.url+"')"];
     };
 
     this.pbvs = function(){
@@ -418,12 +425,12 @@ var WebAutomationLanguage = (function() {
     // for now, assume the ones we saw at record time are the ones we'll want at replay
     this.currentNode = this.node;
 
-    this.toString = function(){
-      prefix = "";
+    this.toStringLines = function(){
+      var prefix = "";
       if (this.outputPageVars.length > 0){
         prefix = this.outputPageVars.join(", ")+" = ";
       }
-      return prefix+"click("+this.pageVar+", <img src='"+this.trace[0].additional.visualization+"'>)";
+      return [prefix+"click("+this.pageVar+", <img src='"+this.trace[0].additional.visualization+"'>)"];
     };
 
     this.pbvs = function(){
@@ -451,8 +458,8 @@ var WebAutomationLanguage = (function() {
     // for now, assume the ones we saw at record time are the ones we'll want at replay
     this.currentNode = this.node;
 
-    this.toString = function(){
-      return "scrape("+this.pageVar+", <img src='"+this.trace[0].additional.visualization+"'>)";
+    this.toStringLines = function(){
+      return ["scrape("+this.pageVar+", <img src='"+this.trace[0].additional.visualization+"'>)"];
     };
 
     this.pbvs = function(){
@@ -487,12 +494,12 @@ var WebAutomationLanguage = (function() {
     this.currentNode = this.node;
     this.currentTypedString = this.typedString;
 
-    this.toString = function(){
-      prefix = "";
+    this.toStringLines = function(){
+      var prefix = "";
       if (this.outputPageVars.length > 0){
         prefix = this.outputPageVars.join(", ")+" = ";
       }
-      return prefix+"type("+this.pageVar+",, <img src='"+this.trace[0].additional.visualization+"'>, '"+this.typedString+"')";
+      return [prefix+"type("+this.pageVar+",, <img src='"+this.trace[0].additional.visualization+"'>, '"+this.typedString+"')"];
     };
 
     this.pbvs = function(){
@@ -509,6 +516,18 @@ var WebAutomationLanguage = (function() {
       return args;
     };
   };
+
+  pub.LoopStatement = function(relation, bodyStatements){
+    this.relation = relation;
+    this.bodyStatements = bodyStatements;
+
+    this.toStringLines = function(){
+      var prefix = "for loop:";
+      var statementStrings = _.reduce(this.bodyStatements, function(acc, statement){return acc.concat(statement.toStringLines());}, []);
+      statementStrings = _.map(statementStrings, function(line){return ("&nbsp&nbsp&nbsp&nbsp "+line);});
+      return [prefix].concat(statementStrings);
+    };
+  }
 
   pub.Relation = function(selector, demonstrationTimeRelation, url){
     this.selector = selector;
@@ -535,10 +554,15 @@ var WebAutomationLanguage = (function() {
   pub.Program = function(statements){
     this.statements = statements;
     this.relations = [];
+    this.loopyStatements = [];
 
     this.toString = function(){
+      var statementLs = this.loopyStatements;
+      if (this.loopyStatements.length === 0){
+        statementLs = this.statements;
+      }
       var scriptString = "";
-      _.each(this.statements, function(statement){scriptString += statement.toString() + "<br>";});
+      _.each(statementLs, function(statement){scriptString += statement.toStringLines().join("<br>") + "<br>";});
       return scriptString;
     };
 
@@ -567,7 +591,6 @@ var WebAutomationLanguage = (function() {
       for (var i = 0; i < this.statements.length; i++){
         var statement = this.statements[i];
         var pbvs = statement.pbvs();
-        console.log(pbvs);
         for (var j = 0; j < pbvs.length; j++){
           var currPbv = pbvs[j];
           var pname = paramName(i, currPbv.type);
@@ -595,7 +618,6 @@ var WebAutomationLanguage = (function() {
       for (var i = 0; i < this.statements.length; i++){
         var statement = this.statements[i];
         var args = statement.args();
-        console.log(args);
         for (var j = 0; j < args.length; j++){
           var currArg = args[j];
           var pname = paramName(i, currArg.type);
@@ -657,7 +679,6 @@ var WebAutomationLanguage = (function() {
 
       if (pagesToRelations.length === pagesToNodes.length){
         // awesome, all the pages have gotten back to us
-        console.log(this);
         setTimeout(this.insertLoops.bind(this), 0); // bind this to this, since JS runs settimeout func with this pointing to global obj
       }
 
@@ -666,15 +687,29 @@ var WebAutomationLanguage = (function() {
     };
 
     this.insertLoops = function(){
+      var indexesToRelations = {};
       for (var i = 0; i < this.relations.length; i++){
         var relation = this.relations[i];
         for (var j = 0; j < this.statements.length; j++){
           var statement = this.statements[j];
           if (relation.usedByStatement(statement)){
-            console.log("loop start index: ", j-1);
+            indexesToRelations[j] = relation;
+            break;
           }
         }
       }
+
+      this.loopyStatements = this.statements;
+      var indexes = Object.keys(indexesToRelations).sort(function(a, b){return b-a});
+      for (var i = 0; i < indexes.length; i++){
+        var index = indexes[i];
+        // let's grab all the statements from the loop's start index to the end, put those in the loop body
+        var loopStatement = new WebAutomationLanguage.LoopStatement(indexesToRelations[index], this.loopyStatements.slice(index, this.loopyStatements.length));
+        this.loopyStatements = this.loopyStatements.slice(0, index);
+        this.loopyStatements.push(loopStatement);
+      }
+
+      RecorderUI.showLoopyScript();
     };
 
   }

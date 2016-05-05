@@ -82,7 +82,7 @@ var RecorderUI = (function() {
     }
   }
 
-  pub.showLoopyScript = function(){
+  pub.updateDisplayedScript = function(){
     var program = ReplayScript.prog;
     var scriptString = program.toString();
     var scriptPreviewDiv = $("#new_script_content").find("#program_representation");
@@ -381,6 +381,23 @@ var WebAutomationLanguage = (function() {
     }
   }
 
+  // helper functions that some statements will use
+
+  function nodeRepresentation(statement){
+    if (statement.currentNode instanceof WebAutomationLanguage.VariableUse){
+      return statement.currentNode.toString();
+    }
+    return "<img src='"+statement.trace[0].additional.visualization+"'>";
+  }
+
+  function parameterizeNodeWithRelation(statement, relation){
+      var xpaths = relation.parameterizeableXpaths();
+      var index = xpaths.indexOf(statement.currentNode);
+      if (index > -1){
+        statement.currentNode = new WebAutomationLanguage.VariableUse(relation.getParameterizeableXpathNodeName(xpaths[index]), relation);
+      }
+  }
+
   // the actual statements
 
   pub.LoadStatement = function(trace){
@@ -403,6 +420,10 @@ var WebAutomationLanguage = (function() {
         pbvs.push({type:"url", value: this.url});
       }
       return pbvs;
+    };
+
+    this.parameterizeForRelation = function(){
+      return; // loads don't get changed based on relations
     };
 
     this.args = function(){
@@ -430,7 +451,8 @@ var WebAutomationLanguage = (function() {
       if (this.outputPageVars.length > 0){
         prefix = this.outputPageVars.join(", ")+" = ";
       }
-      return [prefix+"click("+this.pageVar+", <img src='"+this.trace[0].additional.visualization+"'>)"];
+      var nodeRep = nodeRepresentation(this);
+      return [prefix+"click("+this.pageVar+", "+nodeRep+")"];
     };
 
     this.pbvs = function(){
@@ -439,6 +461,10 @@ var WebAutomationLanguage = (function() {
         pbvs.push({type:"node", value: this.node});
       }
       return pbvs;
+    };
+
+    this.parameterizeForRelation = function(relation){
+      parameterizeNodeWithRelation(this, relation);
     };
 
     this.args = function(){
@@ -459,7 +485,8 @@ var WebAutomationLanguage = (function() {
     this.currentNode = this.node;
 
     this.toStringLines = function(){
-      return ["scrape("+this.pageVar+", <img src='"+this.trace[0].additional.visualization+"'>)"];
+      var nodeRep = nodeRepresentation(this);
+      return ["scrape("+this.pageVar+", "+nodeRep+")"];
     };
 
     this.pbvs = function(){
@@ -468,6 +495,10 @@ var WebAutomationLanguage = (function() {
         pbvs.push({type:"node", value: this.node});
       }
       return pbvs;
+    };
+
+    this.parameterizeForRelation = function(relation){
+      parameterizeNodeWithRelation(this, relation);
     };
 
     this.args = function(){
@@ -499,7 +530,8 @@ var WebAutomationLanguage = (function() {
       if (this.outputPageVars.length > 0){
         prefix = this.outputPageVars.join(", ")+" = ";
       }
-      return [prefix+"type("+this.pageVar+",, <img src='"+this.trace[0].additional.visualization+"'>, '"+this.typedString+"')"];
+      var nodeRep = nodeRepresentation(this);
+      return [prefix+"type("+this.pageVar+",, "+nodeRep+", '"+this.typedString+"')"];
     };
 
     this.pbvs = function(){
@@ -508,6 +540,10 @@ var WebAutomationLanguage = (function() {
         pbvs.push({type:"node", value: this.node});
       }
       return pbvs;
+    };
+
+    this.parameterizeForRelation = function(relation){
+      parameterizeNodeWithRelation(this, relation);
     };
 
     this.args = function(){
@@ -522,21 +558,43 @@ var WebAutomationLanguage = (function() {
     this.bodyStatements = bodyStatements;
 
     this.toStringLines = function(){
-      var prefix = "for loop:";
+      var relation = this.relation;
+      var varNames = _.map(relation.parameterizeableXpaths(), function(xpath){return relation.getParameterizeableXpathNodeName(xpath);});
+      var prefix = "for "+varNames.join(", ")+" in "+this.relation.name+":";
       var statementStrings = _.reduce(this.bodyStatements, function(acc, statement){return acc.concat(statement.toStringLines());}, []);
       statementStrings = _.map(statementStrings, function(line){return ("&nbsp&nbsp&nbsp&nbsp "+line);});
       return [prefix].concat(statementStrings);
     };
+
+    this.parameterizeForRelation = function(relation){
+      _.each(this.bodyStatements, function(statement){statement.parameterizeForRelation(relation);});
+    };
   }
 
-  pub.Relation = function(selector, demonstrationTimeRelation, url){
+  var relationCounter = 0; // todo: eventually should allow user-provided names
+  pub.Relation = function(selector, demonstrationTimeRelation, url, name){
     this.selector = selector;
     this.demonstrationTimeRelation = demonstrationTimeRelation;
     this.url = url;
+    if (name === undefined){
+      relationCounter += 1;
+      this.name = "relation_"+relationCounter;
+    }
+    else{
+      this.name = name;
+    }
 
     this.parameterizeableXpaths = function(){
       // for now, will only parameterize on the first row
+      // note that this should always return the items in a fixed order
       return _.map(this.demonstrationTimeRelation[0], function(cell){ return cell.xpath;});
+    };
+
+    this.getParameterizeableXpathNodeName = function(xpath){
+      // todo: eventually we should allow user-provided names to be stored with the relations
+      var index = this.parameterizeableXpaths().indexOf(xpath);
+      if (index < 0) { return null; }
+      return this.name+"_item_"+(index+1);
     };
 
     this.usedByStatement = function(statement){
@@ -546,6 +604,16 @@ var WebAutomationLanguage = (function() {
       // for now we're only saying the relation is used if the nodes in the relation are used
       // todo: ultimately should also say it's used if the text contents of a node is typed
       return (this.url === statement.pageUrl && this.parameterizeableXpaths().indexOf(statement.node) > -1);
+    };
+  }
+
+  // todo: for now all variable uses are uses of relations, but eventually will probably want to have scraped from outside of relations too
+  pub.VariableUse = function(name, relation){
+    this.name = name;
+    this.relation = relation;
+
+    this.toString = function(){
+      return this.name;
     }
   }
 
@@ -704,12 +772,18 @@ var WebAutomationLanguage = (function() {
       for (var i = 0; i < indexes.length; i++){
         var index = indexes[i];
         // let's grab all the statements from the loop's start index to the end, put those in the loop body
-        var loopStatement = new WebAutomationLanguage.LoopStatement(indexesToRelations[index], this.loopyStatements.slice(index, this.loopyStatements.length));
+        var bodyStatementLs = this.loopyStatements.slice(index, this.loopyStatements.length);
+        // we want to parameterize the body for the relation
+        var relation = indexesToRelations[index];
+        for (var j = 0; j < bodyStatementLs.length; j++){
+          bodyStatementLs[j].parameterizeForRelation(relation);
+        }
+        var loopStatement = new WebAutomationLanguage.LoopStatement(relation, bodyStatementLs);
         this.loopyStatements = this.loopyStatements.slice(0, index);
         this.loopyStatements.push(loopStatement);
       }
 
-      RecorderUI.showLoopyScript();
+      RecorderUI.updateDisplayedScript();
     };
 
   }

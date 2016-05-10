@@ -27,7 +27,7 @@ var RecorderUI = (function() {
     var div = $("#new_script_content");
     DOMCreationUtilities.replaceContent(div, $("#about_to_record"));
     div.find("#start_recording").click(RecorderUI.startRecording);
-  }
+  };
 
   pub.startRecording = function(){
     var div = $("#new_script_content");
@@ -35,6 +35,12 @@ var RecorderUI = (function() {
     div.find("#stop_recording").click(RecorderUI.stopRecording);
 
     SimpleRecord.startRecording();
+  };
+
+  function activateButton(div, selector, handler){
+    var button = div.find(selector);
+    button.button();
+    button.click(handler);
   }
 
   pub.stopRecording = function(){
@@ -47,22 +53,42 @@ var RecorderUI = (function() {
     var scriptPreviewDiv = div.find("#program_representation");
     DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the done_recording node
 
-    var runButton = div.find("#run");
-    runButton.button();
-    runButton.click(RecorderUI.run);
-
-    var replayButton = div.find("#replay");
-    replayButton.button();
-    replayButton.click(RecorderUI.replayOriginal);
-  }
+    activateButton(div, "#run", RecorderUI.run);
+    activateButton(div, "#replay", RecorderUI.replayOriginal);
+  };
 
   pub.run = function(){
+    // update the panel to show pause, resume buttons
+    var div = $("#new_script_content");
+    DOMCreationUtilities.replaceContent(div, $("#script_running"));
+
+    activateButton(div, "#pause", RecorderUI.pauseRun);
+    activateButton(div, "#resume", RecorderUI.resumeRun);
+    div.find("#resume").button("option", "disabled", true); // shouldn't be able to resume before we even pause
+
+    // actually start the script running
     ReplayScript.prog.run();
-  }
+  };
 
   pub.replayOriginal = function(){
     ReplayScript.prog.replayOriginal();
-  }
+  };
+
+  pub.pauseRun = function(){
+    console.log("Setting pause flag.");
+    pub.userPaused = true; // next runbasicblock call will handle saving a continuation
+    var div = $("#new_script_content");
+    div.find("#pause").button("option", "disabled", true); // can't pause while we're paused
+    div.find("#resume").button("option", "disabled", false); // can now resume
+  };
+
+  pub.resumeRun = function(){
+    pub.userPaused = false;
+    var div = $("#new_script_content");
+    div.find("#pause").button("option", "disabled", false);
+    div.find("#resume").button("option", "disabled", true);
+    pub.resumeContinuation();
+  };
 
   // during recording, when user scrapes, show the text so user gets feedback on what's happening
   var scraped = {};
@@ -75,7 +101,7 @@ var RecorderUI = (function() {
     for (var i = 0; i < xpaths.length; i++){
       $div.append($('<div class="first_row_elem">'+scraped[xpaths[i]]+'</div>'));
     }
-  }
+  };
 
   pub.processLikelyRelation = function(data){
     var textRelations = ReplayScript.prog.processLikelyRelation(data);
@@ -89,14 +115,14 @@ var RecorderUI = (function() {
       }
       $div.append(DOMCreationUtilities.arrayOfArraysToTable(textRelation));
     }
-  }
+  };
 
   pub.updateDisplayedScript = function(){
     var program = ReplayScript.prog;
     var scriptString = program.toString();
     var scriptPreviewDiv = $("#new_script_content").find("#program_representation");
     DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the done_recording node
-  }
+  };
 
   return pub;
 }());
@@ -802,6 +828,14 @@ var WebAutomationLanguage = (function() {
 
     function runBasicBlock(loopyStatements, callback){
       console.log("rbb", loopyStatements.length, loopyStatements);
+      // first check if we're supposed to pause, stop execution if yes
+      console.log("RecorderUI.userPaused", RecorderUI.userPaused);
+      if (RecorderUI.userPaused){
+        RecorderUI.resumeContinuation = function(){runBasicBlock(loopyStatements, callback);};
+        console.log("paused");
+        return;
+      }
+
       if (loopyStatements.length < 1){
         console.log("rbb: empty loopystatments.");
         callback();

@@ -21,7 +21,7 @@ var SimpleRecord = (function SimpleRecordClosure() {
      *
      * @param {array} trace - An array of events to replay
      * @param {object} config - Config for the trace. Currently accepts the following keys:
-     *   frameMapping
+     *   frameMapping, tabMapping
      * @param {function} callback - callback function which should accept the replay object
      */
      replay: function _replay(trace, config, callback) {

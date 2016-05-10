@@ -360,4 +360,11 @@ var RelationFinder = (function() { var pub = {};
     utilities.sendMessage("content", "mainpanel", "likelyRelation", selectorData);
   }
 
+  pub.getRelationItems = function(msg){
+    var selector = msg.selector;
+    var relation = pub.interpretRelationSelector(selector);
+    var relationData = _.map(relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
+    utilities.sendMessage("content", "mainpanel", "relationItems", {relation: relationData});
+  }
+
 return pub;}());

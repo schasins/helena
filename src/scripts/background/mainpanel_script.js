@@ -46,13 +46,22 @@ var RecorderUI = (function() {
     DOMCreationUtilities.replaceContent(div, $("#done_recording")); // let's put in the done_recording node
     var scriptPreviewDiv = div.find("#program_representation");
     DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the done_recording node
+
+    var runButton = div.find("#run");
+    runButton.button();
+    runButton.click(RecorderUI.run);
+
     var replayButton = div.find("#replay");
     replayButton.button();
-    replayButton.click(RecorderUI.replay);
+    replayButton.click(RecorderUI.replayOriginal);
   }
 
-  pub.replay = function(){
-    ReplayScript.prog.replay();
+  pub.run = function(){
+    ReplayScript.prog.run();
+  }
+
+  pub.replayOriginal = function(){
+    ReplayScript.prog.replayOriginal();
   }
 
   // during recording, when user scrapes, show the text so user gets feedback on what's happening
@@ -215,12 +224,12 @@ var ReplayScript = (function() {
   var frameToPageVarId = {};
   function associateNecessaryLoadsWithIDs(trace){
     var idCounter = 1; // blockly says not to count from 0
-    _.each(trace, function(ev){if (ev.type === "completed" && EventM.getVisible(ev)){ var p = "p"+idCounter; EventM.setLoadOutputPageVar(ev, p); frameToPageVarId[EventM.getLoadURL(ev)] = p; idCounter += 1;}});
+    _.each(trace, function(ev){if (ev.type === "completed" && EventM.getVisible(ev)){ var p = new WebAutomationLanguage.PageVariable("p"+idCounter, EventM.getLoadURL(ev)); EventM.setLoadOutputPageVar(ev, p); frameToPageVarId[EventM.getLoadURL(ev)] = p; idCounter += 1;}});
     return trace;
   }
 
   function parameterizePages(trace){
-    _.each(trace, function(ev){if (ev.type === "dom"){ EventM.setDOMInputPageVar(ev, frameToPageVarId[EventM.getDOMURL(ev)]); }});
+    _.each(trace, function(ev){if (ev.type === "dom"){ var p = frameToPageVarId[EventM.getDOMURL(ev)]; EventM.setDOMInputPageVar(ev, p); p.setRecordTimeFrameData(ev.frame); }});
     return trace;
   }
 
@@ -390,12 +399,47 @@ var WebAutomationLanguage = (function() {
     return "<img src='"+statement.trace[0].additional.visualization+"'>";
   }
 
+  function outputPagesRepresentation(statement){
+    var prefix = "";
+    if (statement.outputPageVars.length > 0){
+      prefix = _.map(statement.outputPageVars, function(pv){return pv.toString();}).join(", ")+" = ";
+    }
+    return prefix;
+  }
+
   function parameterizeNodeWithRelation(statement, relation){
       var xpaths = relation.parameterizeableXpaths();
       var index = xpaths.indexOf(statement.currentNode);
       if (index > -1){
         statement.currentNode = new WebAutomationLanguage.VariableUse(relation.getParameterizeableXpathNodeName(xpaths[index]), relation);
       }
+  }
+
+  function currentNodeXpath(statement){
+    if (statement.currentNode instanceof WebAutomationLanguage.VariableUse){
+      return statement.currentNode.currentValue();
+    }
+    return statement.currentNode; // this means currentNode better be an xpath if it's not a variable use!
+  }
+
+  function currentTab(statement){
+    return statement.pageVar.currentTabId();
+  }
+
+  function originalTab(statement){
+    return statement.pageVar.originalTabId();
+  }
+
+  function cleanTrace(trace){
+    var cleanTrace = [];
+    for (var i = 0; i < trace.length; i++){
+      var displayData = trace[i].additional.display;
+      delete trace[i].additional.display;
+      cleanTrace.push(clone(trace[i]));
+      // now restore the true trace object
+      trace[i].additional.display = displayData;
+    }
+    return cleanTrace;
   }
 
   // the actual statements
@@ -410,8 +454,13 @@ var WebAutomationLanguage = (function() {
     // for now, assume the ones we saw at record time are the ones we'll want at replay
     this.currentUrl = this.url;
 
+    // usually 'completed' events actually don't affect replayer -- won't load a new page in a new tab just because we have one.  want to tell replayer to actually do a load
+    ev.forceReplay = true;
+
+    this.cleanTrace = cleanTrace(trace);
+
     this.toStringLines = function(){
-      return [this.outputPageVar+" = load('"+this.url+"')"];
+      return [this.outputPageVar.toString()+" = load('"+this.url+"')"];
     };
 
     this.pbvs = function(){
@@ -434,6 +483,7 @@ var WebAutomationLanguage = (function() {
   };
   pub.ClickStatement = function(trace){
     this.trace = trace;
+    this.cleanTrace = cleanTrace(trace);
 
     // find the record-time constants that we'll turn into parameters
     var ev = firstVisibleEvent(trace);
@@ -447,16 +497,13 @@ var WebAutomationLanguage = (function() {
     this.currentNode = this.node;
 
     this.toStringLines = function(){
-      var prefix = "";
-      if (this.outputPageVars.length > 0){
-        prefix = this.outputPageVars.join(", ")+" = ";
-      }
       var nodeRep = nodeRepresentation(this);
-      return [prefix+"click("+this.pageVar+", "+nodeRep+")"];
+      return [outputPagesRepresentation(this)+"click("+this.pageVar.toString()+", "+nodeRep+")"];
     };
 
     this.pbvs = function(){
       var pbvs = [];
+      pbvs.push({type:"tab", value: originalTab(this)});
       if (this.node !== this.currentNode){
         pbvs.push({type:"node", value: this.node});
       }
@@ -469,12 +516,14 @@ var WebAutomationLanguage = (function() {
 
     this.args = function(){
       var args = [];
-      args.push({type:"node", value: this.currentNode});
+      args.push({type:"tab", value: currentTab(this)});
+      args.push({type:"node", value: currentNodeXpath(this)});
       return args;
     };
   };
   pub.ScrapeStatement = function(trace){
     this.trace = trace;
+    this.cleanTrace = cleanTrace(trace);
 
     // find the record-time constants that we'll turn into parameters
     var ev = firstVisibleEvent(trace);
@@ -486,11 +535,12 @@ var WebAutomationLanguage = (function() {
 
     this.toStringLines = function(){
       var nodeRep = nodeRepresentation(this);
-      return ["scrape("+this.pageVar+", "+nodeRep+")"];
+      return ["scrape("+this.pageVar.toString()+", "+nodeRep+")"];
     };
 
     this.pbvs = function(){
       var pbvs = [];
+      pbvs.push({type:"tab", value: originalTab(this)});
       if (this.node !== this.currentNode){
         pbvs.push({type:"node", value: this.node});
       }
@@ -503,12 +553,14 @@ var WebAutomationLanguage = (function() {
 
     this.args = function(){
       var args = [];
-      args.push({type:"node", value: this.currentNode});
+      args.push({type:"node", value: currentNodeXpath(this)});
+      args.push({type:"tab", value: currentTab(this)});
       return args;
     };
   };
   pub.TypeStatement = function(trace){
     this.trace = trace;
+    this.cleanTrace = cleanTrace(trace);
 
     // find the record-time constants that we'll turn into parameters
     var ev = firstVisibleEvent(trace);
@@ -526,16 +578,13 @@ var WebAutomationLanguage = (function() {
     this.currentTypedString = this.typedString;
 
     this.toStringLines = function(){
-      var prefix = "";
-      if (this.outputPageVars.length > 0){
-        prefix = this.outputPageVars.join(", ")+" = ";
-      }
       var nodeRep = nodeRepresentation(this);
-      return [prefix+"type("+this.pageVar+",, "+nodeRep+", '"+this.typedString+"')"];
+      return [outputPagesRepresentation(this)+"type("+this.pageVar.toString()+",, "+nodeRep+", '"+this.typedString+"')"];
     };
 
     this.pbvs = function(){
       var pbvs = [];
+      pbvs.push({type:"tab", value: originalTab(this)});
       if (this.node !== this.currentNode){
         pbvs.push({type:"node", value: this.node});
       }
@@ -548,14 +597,16 @@ var WebAutomationLanguage = (function() {
 
     this.args = function(){
       var args = [];
-      args.push({type:"node", value: this.currentNode});
+      args.push({type:"node", value: currentNodeXpath(this)});
+      args.push({type:"tab", value: currentTab(this)});
       return args;
     };
   };
 
-  pub.LoopStatement = function(relation, bodyStatements){
+  pub.LoopStatement = function(relation, bodyStatements, pageVar){
     this.relation = relation;
     this.bodyStatements = bodyStatements;
+    this.pageVar = pageVar;
 
     this.toStringLines = function(){
       var relation = this.relation;
@@ -573,6 +624,7 @@ var WebAutomationLanguage = (function() {
 
   var relationCounter = 0; // todo: eventually should allow user-provided names
   pub.Relation = function(selector, demonstrationTimeRelation, url, name){
+    console.log(selector, demonstrationTimeRelation, url, name);
     this.selector = selector;
     this.demonstrationTimeRelation = demonstrationTimeRelation;
     this.url = url;
@@ -584,17 +636,36 @@ var WebAutomationLanguage = (function() {
       this.name = name;
     }
 
-    this.parameterizeableXpaths = function(){
+    this.currentRows = null;
+    this.currentRowsCounter = 0;
+
+    var relation = this;
+
+    function genParameterizeableXpaths(){
       // for now, will only parameterize on the first row
-      // note that this should always return the items in a fixed order
-      return _.map(this.demonstrationTimeRelation[0], function(cell){ return cell.xpath;});
-    };
+      return _.map(relation.demonstrationTimeRelation[0], function(cell){ return cell.xpath;});
+    }
+    var parameterizeableXpaths = genParameterizeableXpaths(); // for now we're assuming that the demonstrationtimerelation never changes in a single relation object.  if it does, we'll have to refresh this
+    console.log(parameterizeableXpaths);
+    this.parameterizeableXpaths = function(){
+      return parameterizeableXpaths;
+    }
+
+    var xpathsToNames = {}; // for now we're assuming that the demonstrationtimerelation never changes in a single relation object.  if it does, we'll have to refresh this
+    var namesToIndexes = {};
+    function genParameterizeableXpathNodeNames(){
+      // todo: eventually we should allow user-provided names to be stored with the relations
+      for (var i = 0; i < parameterizeableXpaths.length; i++){
+        var xpath = parameterizeableXpaths[i];
+        var name = this.name+"_item_"+(i+1);
+        xpathsToNames[xpath] = name;
+        namesToIndexes[name] = i;
+      }
+    }
+    genParameterizeableXpathNodeNames();
 
     this.getParameterizeableXpathNodeName = function(xpath){
-      // todo: eventually we should allow user-provided names to be stored with the relations
-      var index = this.parameterizeableXpaths().indexOf(xpath);
-      if (index < 0) { return null; }
-      return this.name+"_item_"+(index+1);
+      return xpathsToNames[xpath];
     };
 
     this.usedByStatement = function(statement){
@@ -605,6 +676,40 @@ var WebAutomationLanguage = (function() {
       // todo: ultimately should also say it's used if the text contents of a node is typed
       return (this.url === statement.pageUrl && this.parameterizeableXpaths().indexOf(statement.node) > -1);
     };
+
+    this.clearRunningState = function(){
+      this.currentRows = null;
+      this.currentRowsCounter = 0;
+    }
+
+    this.getNextRow = function(pageVar, callback){ // has to be called on a page, since a relation selector can be applied to many pages.  higher-level tool must control where to apply
+      // todo: this is a very simplified version that assumes there's only one page of results.  add the rest soon.
+      console.log("getnextrow", this, this.currentRowsCounter);
+      if (this.currentRows === null){
+        var currRelation = this;
+        utilities.listenForMessageOnce("content", "mainpanel", "relationItems", function(data){
+          currRelation.currentRows = data.relation;
+          currRelation.currentRowsCounter = 0;
+          callback(true);
+        })
+        utilities.sendMessage("mainpanel", "content", "getRelationItems", {selector: this.selector}, null, null, [pageVar.currentTabId()]);
+        // todo: for above.  need to figure out the appropriate tab_id
+        // how should we decide on tab id?  should we just send to all tabs, have them all check if it looks listy on the relevant tab?
+        // this might be useful for later attempts to apply relation finders to new pages with different urls, so user doesn't have to show them, that sort of thing
+      }
+      else if (this.currentRowsCounter + 1 >= this.currentRows.length){
+        callback(false); // no more rows -- let the callback know we're done
+      }
+      else {
+        // we still have local rows that we haven't used yet.  just advance the counter to change which is our current row
+        this.currentRowsCounter += 1;
+        callback(true);
+      }
+    }
+
+    this.getCurrentValue = function(nodeName){
+      return this.currentRows[this.currentRowsCounter][namesToIndexes[nodeName]].xpath; // in the current row, value at the index associated with nodeName
+    }
   }
 
   // todo: for now all variable uses are uses of relations, but eventually will probably want to have scraped from outside of relations too
@@ -615,7 +720,38 @@ var WebAutomationLanguage = (function() {
     this.toString = function(){
       return this.name;
     }
+
+    this.currentValue = function(){
+      return this.relation.getCurrentValue(this.name);
+    }
   }
+
+  pub.PageVariable = function(name, recordTimeUrl){
+    this.name = name;
+    this.recordTimeUrl = recordTimeUrl;
+
+    this.setRecordTimeFrameData = function(frameData){
+      this.recordTimeFrameData = frameData;
+    };
+
+    this.setCurrentTabId = function(tabId){
+      this.tabId = tabId;
+    };
+
+    this.originalTabId = function(){
+      console.log(this.recordTimeFrameData);
+      return this.recordTimeFrameData.tab;
+    }
+
+    this.currentTabId = function(){
+      return this.tabId;
+    }
+
+    this.toString = function(){
+      return this.name;
+    }
+
+  };
 
   // the whole program
 
@@ -634,31 +770,129 @@ var WebAutomationLanguage = (function() {
       return scriptString;
     };
 
-    this.replay = function(){
+    // just for replaying the straight-line recording, primarily for debugging
+    this.replayOriginal = function(){
       var trace = [];
       _.each(this.statements, function(statement){trace = trace.concat(statement.trace);});
       _.each(trace, function(ev){EventM.clearDisplayInfo(ev);}); // strip the display info back out from the event objects
 
-      // now that we have the trace, let's figure out how to parameterize it
-      // note that this should only be run once the current___ variables in the statements have been updated!  otherwise won't know what needs to be parameterized, will assume nothing
-      // should see in future whether this is a reasonable way to do it
-      var parameterizedTrace = this.pbv(trace);
-      // now that we've run parameterization-by-value, have a function, let's put in the arguments we need for the current run
-      var runnableTrace = this.passArguments(parameterizedTrace);
+      SimpleRecord.replay(trace, null, function(){console.log("Done replaying.");});
+    };
 
-      SimpleRecord.replay(runnableTrace, null, function(){console.log("Done replaying.");});
+    function updatePageVars(recordTimeTrace, replayTimeTrace){
+      // we should see corresponding 'completed' events in the traces
+      var recCompleted = _.filter(recordTimeTrace, function(ev){return ev.type === "completed";}); // todo: for now doing this for all completed events, but may ultimately want to restrict to top-level urls or some other restriction
+      var repCompleted = _.filter(replayTimeTrace, function(ev){return ev.type === "completed";});
+      console.log(recCompleted, repCompleted);
+      // should have same number of top-level load events.  if not, might be trouble
+      if (recCompleted.length !== repCompleted.length){
+        console.log("Different numbers of completed events in record and replay: ", recCompleted, repCompleted);
+      }
+      // todo: for now aligning solely based on point at which the events appear in the trace.  if we get traces with many events, may need to do something more intelligent
+      var smallerLength = recCompleted.length;
+      if (repCompleted.length < smallerLength) { smallerLength = repCompleted.length;}
+      for (var i = 0; i < smallerLength; i++){
+        var pageVar = EventM.getLoadOutputPageVar(recCompleted[i]);
+        if (pageVar === undefined){
+          continue;
+        }
+        pageVar.setCurrentTabId(repCompleted[i].data.tabId);
+      }
+    }
+
+    function runBasicBlock(loopyStatements, callback){
+      console.log("rbb", loopyStatements.length, loopyStatements);
+      if (loopyStatements.length < 1){
+        console.log("rbb: empty loopystatments.");
+        callback();
+        return;
+      }
+      else if (loopyStatements[0] instanceof WebAutomationLanguage.LoopStatement){
+        console.log("rbb: loop.");
+        var loopStatement = loopyStatements[0];
+        loopStatement.relation.getNextRow(loopStatement.pageVar, function(moreRows){
+          if (!moreRows){
+            console.log("no more rows");
+            // hey, we're done!
+            callback();
+            return;
+          }
+          console.log("we have a row!  let's run");
+          // otherwise, should actually run the body
+          console.log("loopyStatements", loopyStatements);
+          runBasicBlock(loopStatement.bodyStatements, function(){
+            // and once we've run the body, we should do the next iteration of the loop
+            runBasicBlock(loopyStatements, callback); // running extra iterations of the for loop is the only time we change the callback
+          });
+        });
+      }
+      else {
+        console.log("rbb: r+r.");
+        // the fun stuff!  we get to run a basic block with the r+r layer
+        var basicBlockStatements = [];
+        var nextBlockStartIndex = loopyStatements.length;
+        for (var i = 0; i < loopyStatements.length; i++){
+          if (loopyStatements[i] instanceof WebAutomationLanguage.LoopStatement){
+            nextBlockStartIndex = i;
+            break;
+          }
+          basicBlockStatements.push(loopyStatements[i]);
+        }
+
+        if (nextBlockStartIndex === 0){
+          console.log("nextBlockStartIndex was 0!  this shouldn't happen!", loopyStatements);
+          throw("nextBlockStartIndex 0");
+        }
+
+        var trace = [];
+        _.each(basicBlockStatements, function(statement){trace = trace.concat(statement.cleanTrace);});
+
+        // now that we have the trace, let's figure out how to parameterize it
+        // note that this should only be run once the current___ variables in the statements have been updated!  otherwise won't know what needs to be parameterized, will assume nothing
+        // should see in future whether this is a reasonable way to do it
+        var parameterizedTrace = pbv(trace, basicBlockStatements);
+        // now that we've run parameterization-by-value, have a function, let's put in the arguments we need for the current run
+        var runnableTrace = passArguments(parameterizedTrace, basicBlockStatements);
+        var config = parameterizedTrace.getConfig();
+
+        // the above works because we've already put in VariableUses for statement arguments that use relation items, for all statements within a loop, so currNode for those statements will be a variableuse that uses the relation
+        // however, because we're only running these basic blocks, any uses of relation items (in invisible events) that happen before the for loop will not get parameterized, 
+        // since their statement arguments won't be changed, and they won't be part of the trace that does have statement arguments changed (and thus get the whole trace parameterized for that)
+        // I don't see right now how this could cause issues, but it's worth thinking about
+
+        SimpleRecord.replay(runnableTrace, config, function(replayObject){
+          // use what we've observed in the replay to update page variables
+          console.log("replayObject", replayObject);
+
+          // based on the replay object, we need to update any pagevars involved in the trace;
+          var trace = [];
+          _.each(basicBlockStatements, function(statement){trace = trace.concat(statement.trace);}); // want the trace with display data, not the clean trace
+          updatePageVars(trace, replayObject.record.events);
+
+          console.log("going to play the rest of the statments starting from nextblockstartindex:", nextBlockStartIndex);
+
+          // once we're done replaying, have to replay the remainder of the script
+          runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback);
+        });
+      }
+    }
+
+    this.run = function(){
+      _.each(this.relations, function(relation){relation.clearRunningState();});
+      runBasicBlock(this.loopyStatements, function(){console.log("Done with script execution.");});
     };
 
     function paramName(statementIndex, paramType){ // assumes we can't have more than one of a single paramtype from a single statement.  should be true
       return "s"+statementIndex+"_"+paramType;
     }
 
-    this.pbv = function(trace){
+    function pbv(trace, statements){
       var pTrace = new ParameterizedTrace(trace);
 
-      for (var i = 0; i < this.statements.length; i++){
-        var statement = this.statements[i];
+      for (var i = 0; i < statements.length; i++){
+        var statement = statements[i];
         var pbvs = statement.pbvs();
+        console.log("pbvs", pbvs);
         for (var j = 0; j < pbvs.length; j++){
           var currPbv = pbvs[j];
           var pname = paramName(i, currPbv.type);
@@ -671,6 +905,9 @@ var WebAutomationLanguage = (function() {
           else if (currPbv.type === "typedString"){
             pTrace.parameterizeTypedString(pname, currPbv.value);
           }
+          else if (currPbv.type === "tab"){
+            pTrace.parameterizeTab(pname, currPbv.value);
+          }
           else if (currPbv.type === "frame"){
             pTrace.parameterizeFrame(pname, currPbv.value);
           }
@@ -682,9 +919,9 @@ var WebAutomationLanguage = (function() {
       return pTrace;
     }
 
-    this.passArguments = function(pTrace){
-      for (var i = 0; i < this.statements.length; i++){
-        var statement = this.statements[i];
+    function passArguments(pTrace, statements){
+      for (var i = 0; i < statements.length; i++){
+        var statement = statements[i];
         var args = statement.args();
         for (var j = 0; j < args.length; j++){
           var currArg = args[j];
@@ -697,6 +934,9 @@ var WebAutomationLanguage = (function() {
           }
           else if (currArg.type === "typedString"){
             pTrace.useTypedString(pname, currArg.value);
+          }
+          else if (currArg.type === "tab"){
+            pTrace.useTab(pname, currArg.value);
           }
           else if (currArg.type === "frame"){
             pTrace.useFrame(pname, currArg.value);
@@ -778,7 +1018,7 @@ var WebAutomationLanguage = (function() {
         for (var j = 0; j < bodyStatementLs.length; j++){
           bodyStatementLs[j].parameterizeForRelation(relation);
         }
-        var loopStatement = new WebAutomationLanguage.LoopStatement(relation, bodyStatementLs);
+        var loopStatement = new WebAutomationLanguage.LoopStatement(relation, bodyStatementLs, this.loopyStatements[index].pageVar);
         this.loopyStatements = this.loopyStatements.slice(0, index);
         this.loopyStatements.push(loopStatement);
       }

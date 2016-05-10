@@ -412,7 +412,8 @@ var Replay = (function ReplayClosure() {
 
   Replay.prototype = {
     replayableEvents: {
-      dom: 'simulateDomEvent'
+      dom: 'simulateDomEvent',
+      completed: 'simulateCompletedEvent'
     },
     addonReset: [],
     addonTiming: [],
@@ -490,6 +491,12 @@ var Replay = (function ReplayClosure() {
           var ports = this.ports;
           for (var k in frameMapping)
             portMapping[k] = ports.getPort(frameMapping[k]);
+        }
+        if (config.tabMapping) {
+          var tabMapping = config.tabMapping;
+          var tm = this.tabMapping;
+          for (var k in tabMapping)
+            tm[k] = tabMapping[k];
         }
       }
 
@@ -788,7 +795,10 @@ var Replay = (function ReplayClosure() {
           return;
         }
 
+        // todo: ensure commenting out the below is acceptable.  for now relying on completed events marked forceReplay to make sure we load everything that doesn't get loaded by dom events
+
         /* create a new tab, and update the mapping */
+        /*
         var replay = this;
         var openNewTab = function() {
           replayLog.log('need to open new tab');
@@ -802,11 +812,14 @@ var Replay = (function ReplayClosure() {
             }
           );
         };
+        */
 
         /* automatically open up a new tab for the first event */
+        /*
         if (!this.firstEventReplayed && params.replay.openNewTab) {
           openNewTab();
         }
+        */
 
         //High level goal here:
         //Check this.events against this.record.events for a load in the same position in the trace
@@ -861,6 +874,8 @@ var Replay = (function ReplayClosure() {
       if (!replayPort){
         console.log(v, portMapping, tabMapping);
         console.log("Freak out.  We don't know what port to use to replay this event.");
+        // it may be the tab just isn't ready yet, not added to our mappings yet.  try again in a few.
+        return null;
       }
       console.log(replayPort);
       return replayPort;
@@ -970,8 +985,12 @@ var Replay = (function ReplayClosure() {
       var index = this.index;
 
       /* check if the script finished */
+      console.log("index", index);
+      console.log("events.length", events.length);
+      console.log(events);
       if (index >= events.length) {
         //no more events to actively replay, but may need to wait for some
+        console.log("waiting for observed events");
         this.waitForObservedEvents();
         return;
       }
@@ -993,16 +1012,33 @@ var Replay = (function ReplayClosure() {
     },
     openTabSequenceFromTrace: function _openTabSequenceFromTrace(trace){
       var completed_events = _.filter(trace, function(event){return event.type === "completed" && event.data.type === "main_frame";});
-      var tabIDs = _.map(completed_events, function(event){return event.data.tabId});
-      return tabIDs;
+      var eventIds = _.map(completed_events, function(event){return event.meta.id});
+      return eventIds;
     },
     waitForObservedEvents: function _waitForObservedEvents(){
+      console.log(this.openTabSequenceFromTrace(this.events), this.openTabSequenceFromTrace(this.record.events));
+      console.log(this.events, this.record.events);
       if (this.openTabSequenceFromTrace(this.events).length === this.openTabSequenceFromTrace(this.record.events).length){
         this.finish();
       }
       else{
         var replayer = this;
         setTimeout(function(){replayer.waitForObservedEvents();},500);
+      }
+    },
+    simulateCompletedEvent: function _simulateCompletedEvent(e){
+      if (e.forceReplay){
+        var that = this;
+        chrome.tabs.create({url: e.data.url, active: true}, function(){
+          // when tab has been created, it's like getting an ack.
+          that.index ++; // advance to next event
+          that.setNextTimeout(0);
+        });
+      }
+      else{
+        // don't need to do anything
+        this.index ++;
+        this.setNextTimeout(0);
       }
     },
     /* The main function which dispatches events to the content script */
@@ -1023,8 +1059,12 @@ var Replay = (function ReplayClosure() {
 
         /* if no matching port, try again later */
         var replayPort = this.getMatchingPort(v);
-        if (!replayPort)
+        if (!replayPort){
+          var that = this;
+          setTimeout(function(){that.simulateDomEvent(v);}, 500);
+          // it may be that the target tab just isn't ready yet, hasn't been added to our mappings yet.  may need to try again in a moment.
           return;
+        }
 
         /* if there is a trigger, then check if trigger was observed */
         var triggerEvent = this.getEvent(v.timing.triggerEvent);

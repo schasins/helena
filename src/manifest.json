@@ -25,13 +25,7 @@
       "matches": ["http://*/*", "https://*/*"],
       "js": [		"scripts/lib/utilities.js", 
 			"scripts/lib/jquery.js", 
-			"scripts/lib/underscore-min.js", 
-      "scripts/lib/html2canvas.js", 
-      "scripts/lib/html2canvas.svg.js", 
       "scripts/content/setup.js",
-			"scripts/content/recording_UI.js",
-      "scripts/content/relation_finding.js",
-      "scripts/content/xpath_rep.js",
 			"scripts/lib/record-replay/common_common.js",
 			"scripts/lib/record-replay/common_params.js",
 			"scripts/lib/record-replay/common_logging.js",
@@ -41,7 +35,13 @@
 			"scripts/lib/record-replay/content_dom.js",
 			"scripts/lib/record-replay/content_target.js",
 			"scripts/lib/record-replay/content_script.js",
-			"scripts/lib/record-replay/content_simple_record.js"
+			"scripts/lib/record-replay/content_simple_record.js",
+      "scripts/lib/underscore-min.js", 
+      "scripts/lib/html2canvas.js", 
+      "scripts/lib/html2canvas.svg.js", 
+      "scripts/content/recording_UI.js",
+      "scripts/content/relation_finding.js",
+      "scripts/content/xpath_rep.js"
 			]
     }
   ],

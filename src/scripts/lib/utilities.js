@@ -61,10 +61,10 @@ var utilities = (function() { var pub = {};
     var newfunc = null;
     oneOffListenerCounter += 1;
     if (to === "background" || to === "mainpanel"){
-      newfunc = function(){fn(); delete runtimeListeners[key];};
+      newfunc = function(msg){fn(msg); delete runtimeListeners[key];};
     }
     else if (to === "content"){
-      newfunc = function(){fn(); delete extensionListeners[key];};
+      newfunc = function(msg){fn(msg); delete extensionListeners[key];};
     }
     pub.listenForMessage(from, to, subject, newfunc, key);
   }

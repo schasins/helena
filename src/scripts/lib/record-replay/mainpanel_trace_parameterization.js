@@ -11,7 +11,7 @@ function ParameterizedTrace(trace){
 			if (trace[i].type !== "dom"){ continue;}
 			if (trace[i].target.xpath.name){
 				//this one has already been converted to an object, parameterized
-				return;
+				continue;
 			}
 			var xpath = trace[i].target.xpath.toUpperCase();
 			if (xpath === original_value){
@@ -158,7 +158,7 @@ function ParameterizedTrace(trace){
 			if (trace[i].type !== "dom"){ continue;}
 			if (trace[i].frame.topURL.name){
 				//this one has already been converted to an object, parameterized
-				return;
+				continue;
 			}
 			var url = trace[i].frame.topURL.toUpperCase();
 			if (url === original_value){
@@ -172,7 +172,7 @@ function ParameterizedTrace(trace){
 			if (trace[i].type !== "completed"){ continue;}
 			if (trace[i].data.url.name){
 				//this one has already been converted to an object, parameterized
-				return;
+				continue;
 			}
 			var url = trace[i].data.url.toUpperCase();
 			if (url === original_value){

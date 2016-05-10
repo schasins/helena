@@ -433,11 +433,11 @@ var WebAutomationLanguage = (function() {
     return prefix;
   }
 
-  function parameterizeNodeWithRelation(statement, relation){
+  function parameterizeNodeWithRelation(statement, relation, pageVar){
       var xpaths = relation.parameterizeableXpaths();
       var index = xpaths.indexOf(statement.currentNode);
       if (index > -1){
-        statement.currentNode = new WebAutomationLanguage.VariableUse(relation.getParameterizeableXpathNodeName(xpaths[index]), relation);
+        statement.currentNode = new WebAutomationLanguage.VariableUse(relation.getParameterizeableXpathNodeName(xpaths[index]), relation, pageVar);
       }
   }
 
@@ -537,7 +537,7 @@ var WebAutomationLanguage = (function() {
     };
 
     this.parameterizeForRelation = function(relation){
-      parameterizeNodeWithRelation(this, relation);
+      parameterizeNodeWithRelation(this, relation, this.pageVar);
     };
 
     this.args = function(){
@@ -574,7 +574,7 @@ var WebAutomationLanguage = (function() {
     };
 
     this.parameterizeForRelation = function(relation){
-      parameterizeNodeWithRelation(this, relation);
+      parameterizeNodeWithRelation(this, relation, this.pageVar);
     };
 
     this.args = function(){
@@ -618,7 +618,7 @@ var WebAutomationLanguage = (function() {
     };
 
     this.parameterizeForRelation = function(relation){
-      parameterizeNodeWithRelation(this, relation);
+      parameterizeNodeWithRelation(this, relation, this.pageVar);
     };
 
     this.args = function(){
@@ -662,8 +662,7 @@ var WebAutomationLanguage = (function() {
       this.name = name;
     }
 
-    this.currentRows = null;
-    this.currentRowsCounter = 0;
+    this.pageRelationsInfo = {};
 
     var relation = this;
 
@@ -704,18 +703,26 @@ var WebAutomationLanguage = (function() {
     };
 
     this.clearRunningState = function(){
-      this.currentRows = null;
-      this.currentRowsCounter = 0;
+      this.pageRelationsInfo = {};
     }
 
     this.getNextRow = function(pageVar, callback){ // has to be called on a page, since a relation selector can be applied to many pages.  higher-level tool must control where to apply
       // todo: this is a very simplified version that assumes there's only one page of results.  add the rest soon.
-      console.log("getnextrow", this, this.currentRowsCounter);
-      if (this.currentRows === null){
-        var currRelation = this;
+
+      // have to keep track of different state for relations retrieved with the same relation but on different pages
+      // todo: in future may sometimes want to clear out the information in this.pageRelationsInfo.  should think about this, lest it become a memory hog
+      var pname = pageVar.name;
+      var prinfo = this.pageRelationsInfo[pname];
+      if (prinfo === undefined || prinfo.currentTabId !== pageVar.currentTabId()){ // if we haven't seen this pagevar or haven't seen the URL currently associated with the pagevar, need to clear our state and start fresh
+        prinfo = {currentRows: null, currentRowsCounter: 0, currentTabId: pageVar.currentTabId()};
+        this.pageRelationsInfo[pname] = prinfo;
+      }
+
+      console.log("getnextrow", this, prinfo.currentRowsCounter);
+      if (prinfo.currentRows === null){
         utilities.listenForMessageOnce("content", "mainpanel", "relationItems", function(data){
-          currRelation.currentRows = data.relation;
-          currRelation.currentRowsCounter = 0;
+          prinfo.currentRows = data.relation;
+          prinfo.currentRowsCounter = 0;
           callback(true);
         })
         utilities.sendMessage("mainpanel", "content", "getRelationItems", {selector: this.selector}, null, null, [pageVar.currentTabId()]);
@@ -723,33 +730,37 @@ var WebAutomationLanguage = (function() {
         // how should we decide on tab id?  should we just send to all tabs, have them all check if it looks listy on the relevant tab?
         // this might be useful for later attempts to apply relation finders to new pages with different urls, so user doesn't have to show them, that sort of thing
       }
-      else if (this.currentRowsCounter + 1 >= this.currentRows.length){
+      else if (prinfo.currentRowsCounter + 1 >= prinfo.currentRows.length){
         callback(false); // no more rows -- let the callback know we're done
       }
       else {
         // we still have local rows that we haven't used yet.  just advance the counter to change which is our current row
-        this.currentRowsCounter += 1;
+        prinfo.currentRowsCounter += 1;
         callback(true);
       }
     }
 
-    this.getCurrentValue = function(nodeName){
-      return this.currentRows[this.currentRowsCounter][namesToIndexes[nodeName]].xpath; // in the current row, value at the index associated with nodeName
+    this.getCurrentValue = function(pageVar, nodeName){
+      var pname = pageVar.name;
+      var prinfo = this.pageRelationsInfo[pname];
+      if (prinfo === undefined){ console.log("Bad!  Shouldn't be calling getCurrentValue on a pageVar for which we haven't yet called getNextRow."); return null; }
+      return prinfo.currentRows[prinfo.currentRowsCounter][namesToIndexes[nodeName]].xpath; // in the current row, value at the index associated with nodeName
     }
   }
 
   // todo: for now all variable uses are uses of relations, but eventually will probably want to have scraped from outside of relations too
-  pub.VariableUse = function(name, relation){
+  pub.VariableUse = function(name, relation, pageVar){
     this.name = name;
     this.relation = relation;
+    this.pageVar = pageVar;
 
     this.toString = function(){
       return this.name;
-    }
+    };
 
     this.currentValue = function(){
-      return this.relation.getCurrentValue(this.name);
-    }
+      return this.relation.getCurrentValue(this.pageVar, this.name);
+    };
   }
 
   pub.PageVariable = function(name, recordTimeUrl){

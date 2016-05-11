@@ -124,6 +124,11 @@ var RecorderUI = (function() {
     DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the done_recording node
   };
 
+  pub.addNewRowToOutput = function(listOfCellTexts){
+    var div = $("#new_script_content").find("#output_preview").find("table");
+    div.append(DOMCreationUtilities.arrayOfTextsToTableRow(listOfCellTexts));
+  };
+
   return pub;
 }());
 
@@ -135,10 +140,10 @@ var EventM = (function() {
   var pub = {};
 
   pub.prepareForDisplay = function(ev){
-    if (!ev.additional){
-      ev.additional = {};
+    if (!ev.additionalDataTmp){ // this is where this tool chooses to store temporary data that we'll actually clear out before sending it back to r+r
+      ev.additionalDataTmp = {};
     } 
-    ev.additional.display = {};
+    ev.additionalDataTmp.display = {};
   };
 
   pub.getLoadURL = function(ev){
@@ -150,45 +155,66 @@ var EventM = (function() {
   };
 
   pub.getVisible = function(ev){
-    return ev.additional.display.visible;
+    return ev.additionalDataTmp.display.visible;
   };
   pub.setVisible = function(ev, val){
-    ev.additional.display.visible = val;
+    ev.additionalDataTmp.display.visible = val;
   };
 
   pub.getLoadOutputPageVar = function(ev){
-    return ev.additional.display.pageVarId;
+    return ev.additionalDataTmp.display.pageVarId;
   };
   pub.setLoadOutputPageVar = function(ev, val){
-    ev.additional.display.pageVarId = val;
+    ev.additionalDataTmp.display.pageVarId = val;
   };
 
   pub.getDOMInputPageVar = function(ev){
-    return ev.additional.display.inputPageVar;
+    return ev.additionalDataTmp.display.inputPageVar;
   };
   pub.setDOMInputPageVar = function(ev, val){
-    ev.additional.display.inputPageVar = val;
+    ev.additionalDataTmp.display.inputPageVar = val;
   };
 
   pub.getDOMOutputLoadEvents = function(ev){
-    return ev.additional.display.causesLoads;
+    return ev.additionalDataTmp.display.causesLoads;
   };
   pub.setDOMOutputLoadEvents = function(ev, val){
-    ev.additional.display.causesLoads = val;
+    ev.additionalDataTmp.display.causesLoads = val;
   };
   pub.addDOMOutputLoadEvent = function(ev, val){
-    ev.additional.display.causesLoads.push(val);
+    ev.additionalDataTmp.display.causesLoads.push(val);
   };
 
   pub.getLoadCausedBy = function(ev){
-    return ev.additional.display.causedBy;
+    return ev.additionalDataTmp.display.causedBy;
   };
   pub.setLoadCausedBy = function(ev, val){
-    ev.additional.display.causedBy = val;
+    ev.additionalDataTmp.display.causedBy = val;
   };
 
+  pub.getDisplayInfo = function(ev){
+    return ev.additionalDataTmp.display;
+  }
   pub.clearDisplayInfo = function(ev){
-    delete ev.additional.display;
+    delete ev.additionalDataTmp.display;
+  }
+  pub.setDisplayInfo = function(ev, displayInfo){
+    ev.additionalDataTmp.display = displayInfo;
+  }
+
+  pub.setTemporaryStatementIdentifier = function(ev, id){
+    if (!ev.additional){
+      // not a dom event, can't copy this stuff around
+      return null;
+    }
+    ev.additional.___additionalData___.temporaryStatementIdentifier = id; // this is where the r+r layer lets us store data that will actually be copied over to the new events (for dom events);  recall that it's somewhat unreliable because of cascading events; sufficient for us because cascading events will appear in the same statement, so can have same statement id, but be careful
+  }
+  pub.getTemporaryStatementIdentifier = function(ev){
+    if (!ev.additional){
+      // not a dom event, can't copy this stuff around
+      return null;
+    }
+    return ev.additional.___additionalData___.temporaryStatementIdentifier;
   }
 
   return pub;
@@ -459,11 +485,11 @@ var WebAutomationLanguage = (function() {
   function cleanTrace(trace){
     var cleanTrace = [];
     for (var i = 0; i < trace.length; i++){
-      var displayData = trace[i].additional.display;
-      delete trace[i].additional.display;
+      var displayData = EventM.getDisplayInfo(trace[i]);
+      EventM.clearDisplayInfo(trace[i]);
       cleanTrace.push(clone(trace[i]));
       // now restore the true trace object
-      trace[i].additional.display = displayData;
+      EventM.setDisplayInfo(trace[i], displayData);
     }
     return cleanTrace;
   }
@@ -506,6 +532,10 @@ var WebAutomationLanguage = (function() {
       args.push({type:"url", value: this.currentUrl});
       return args;
     };
+
+    this.postReplayProcessing = function(trace, temporaryStatementIdentifier){
+      return;
+    };
   };
   pub.ClickStatement = function(trace){
     this.trace = trace;
@@ -546,6 +576,10 @@ var WebAutomationLanguage = (function() {
       args.push({type:"node", value: currentNodeXpath(this)});
       return args;
     };
+
+    this.postReplayProcessing = function(trace, temporaryStatementIdentifier){
+      return;
+    };
   };
   pub.ScrapeStatement = function(trace){
     this.trace = trace;
@@ -582,6 +616,16 @@ var WebAutomationLanguage = (function() {
       args.push({type:"node", value: currentNodeXpath(this)});
       args.push({type:"tab", value: currentTab(this)});
       return args;
+    };
+
+    this.postReplayProcessing = function(trace, temporaryStatementIdentifier){
+      // find the scrape that corresponds to this scrape statement based on temporarystatementidentifier
+      for (var i = 0; i < trace.length; i++){
+        if (EventM.getTemporaryStatementIdentifier(trace[i]) === temporaryStatementIdentifier && trace[i].additional && trace[i].additional.scrape && trace[i].additional.scrape.text){
+          this.currentNodeCurrentValue = trace[i].additional.scrape.text;
+          return;
+        }
+      }
     };
   };
   pub.TypeStatement = function(trace){
@@ -627,7 +671,40 @@ var WebAutomationLanguage = (function() {
       args.push({type:"tab", value: currentTab(this)});
       return args;
     };
+
+    this.postReplayProcessing = function(trace, temporaryStatementIdentifier){
+      return;
+    };
   };
+
+  pub.OutputRowStatement = function(scrapeStatements){
+    this.trace = []; // no extra work to do in r+r layer for this
+    this.cleanTrace = [];
+    this.scrapeStatements = scrapeStatements;
+
+    this.toStringLines = function(){
+      var nodeRepLs = _.map(this.scrapeStatements, function(statement){return nodeRepresentation(statement);});
+      return ["addOutputRow(["+nodeRepLs.join(",")+"])"];
+    };
+
+    this.pbvs = function(){
+      return [];
+    };
+    this.parameterizeForRelation = function(relation){
+      return;
+    };
+    this.args = function(){
+      return [];
+    };
+    this.postReplayProcessing = function(trace, temporaryStatementIdentifier){
+      // we've 'executed' an output statement.  better send a new row to our output
+      var cells = [];
+      _.each(this.scrapeStatements, function(scrapeStatment){
+        cells.push(scrapeStatment.currentNodeCurrentValue);
+      });
+      RecorderUI.addNewRowToOutput(cells);
+    };
+  }
 
   pub.LoopStatement = function(relation, bodyStatements, pageVar){
     this.relation = relation;
@@ -650,7 +727,6 @@ var WebAutomationLanguage = (function() {
 
   var relationCounter = 0; // todo: eventually should allow user-provided names
   pub.Relation = function(selector, demonstrationTimeRelation, url, name){
-    console.log(selector, demonstrationTimeRelation, url, name);
     this.selector = selector;
     this.demonstrationTimeRelation = demonstrationTimeRelation;
     this.url = url;
@@ -671,7 +747,6 @@ var WebAutomationLanguage = (function() {
       return _.map(relation.demonstrationTimeRelation[0], function(cell){ return cell.xpath;});
     }
     var parameterizeableXpaths = genParameterizeableXpaths(); // for now we're assuming that the demonstrationtimerelation never changes in a single relation object.  if it does, we'll have to refresh this
-    console.log(parameterizeableXpaths);
     this.parameterizeableXpaths = function(){
       return parameterizeableXpaths;
     }
@@ -682,7 +757,7 @@ var WebAutomationLanguage = (function() {
       // todo: eventually we should allow user-provided names to be stored with the relations
       for (var i = 0; i < parameterizeableXpaths.length; i++){
         var xpath = parameterizeableXpaths[i];
-        var name = this.name+"_item_"+(i+1);
+        var name = relation.name+"_item_"+(i+1);
         xpathsToNames[xpath] = name;
         namesToIndexes[name] = i;
       }
@@ -797,6 +872,10 @@ var WebAutomationLanguage = (function() {
     this.relations = [];
     this.loopyStatements = [];
 
+    // add an output statement to the end if there are any scrape statements in the program.  should have a list of all scrape statements, treat them as cells in one row
+    var scrapeStatements = _.filter(this.statements, function(statement){return statement instanceof WebAutomationLanguage.ScrapeStatement;});
+    if (scrapeStatements.length > 0){ this.statements.push(new WebAutomationLanguage.OutputRowStatement(scrapeStatements));}
+
     this.toString = function(){
       var statementLs = this.loopyStatements;
       if (this.loopyStatements.length === 0){
@@ -889,8 +968,14 @@ var WebAutomationLanguage = (function() {
           throw("nextBlockStartIndex 0");
         }
 
+        // make the trace we'll replay
         var trace = [];
-        _.each(basicBlockStatements, function(statement){trace = trace.concat(statement.cleanTrace);});
+        // label each trace item with the basicBlock statement being used
+        for (var i = 0; i < basicBlockStatements.length; i++){
+          var cleanTrace = basicBlockStatements[i].cleanTrace;
+          _.each(cleanTrace, function(ev){EventM.setTemporaryStatementIdentifier(ev, i);});
+          trace = trace.concat(cleanTrace);
+        }
 
         // now that we have the trace, let's figure out how to parameterize it
         // note that this should only be run once the current___ variables in the statements have been updated!  otherwise won't know what needs to be parameterized, will assume nothing
@@ -914,7 +999,11 @@ var WebAutomationLanguage = (function() {
           _.each(basicBlockStatements, function(statement){trace = trace.concat(statement.trace);}); // want the trace with display data, not the clean trace
           updatePageVars(trace, replayObject.record.events);
 
-          console.log("going to play the rest of the statments starting from nextblockstartindex:", nextBlockStartIndex);
+          // statements may need to do something based on this trace, so go ahead and do any extra processing
+          for (var i = 0; i < basicBlockStatements.length; i++){
+            console.log("calling postReplayProcessing on", basicBlockStatements[i]);
+            basicBlockStatements[i].postReplayProcessing(replayObject.record.events, i);
+          }
 
           // once we're done replaying, have to replay the remainder of the script
           runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback);

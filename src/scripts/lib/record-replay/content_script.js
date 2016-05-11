@@ -20,6 +20,9 @@ var curRecordSnapshot; /* snapshot (before and after) the current event */
 var additional_recording_handlers = {}; // so that other tools using an interface to r+r can put data in event messages
 var additional_recording_handlers_on = {};
 
+additional_recording_handlers_on.___additionalData___ = true;
+additional_recording_handlers.___additionalData___ = function(){return {};}; // the only default additional handler, for copying data from record event objects to replay event objects
+
 /* Replay variables */
 var lastReplayEvent; /* last event replayed */
 var lastReplayTarget;
@@ -220,7 +223,9 @@ function recordEvent(eventData) {
   }
   
   for (var key in additional_recording_handlers_on){
-	  if (!additional_recording_handlers_on[key]){continue;}
+	  if (!additional_recording_handlers[key]){
+      continue;
+    }
 	  var handler = additional_recording_handlers[key];
 	  var ret_val = handler(target, eventMessage);
     if (ret_val !== null){
@@ -464,13 +469,21 @@ function simulate(events, startIndex) {
       }
     }
         
-	//additional handlers should run in replay only if ran in record
-	for (var key in additional_recording_handlers_on){
-		additional_recording_handlers_on[key] = false;
-	}
+  	// additional handlers should run in replay only if ran in record
+  	for (var key in additional_recording_handlers_on){
+  		additional_recording_handlers_on[key] = false;
+  	}
     for (var key in eventRecord.additional){
-		additional_recording_handlers_on[key] = true;
-	}
+  		additional_recording_handlers_on[key] = true;
+  	}
+    // want to copy over any data in additionalData, so let's remember what's in current event object's additionalData field
+    additional_recording_handlers_on.___additionalData___ = true;
+    additional_recording_handlers.___additionalData___ = function(){
+      if (eventRecord.additional && eventRecord.additional.___additionalData___){
+        return eventRecord.additional.___additionalData___; 
+      }
+      return {};
+    };
 
     /* Create an event object to mimick the recorded event */
     var eventType = getEventType(eventName);

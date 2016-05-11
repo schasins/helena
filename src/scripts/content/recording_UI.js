@@ -162,6 +162,8 @@ var Scraping = (function() { var pub = {};
 
   pub.stopProcessingScrape = function(){
     additional_recording_handlers_on.scrape = false;
+    console.log(additional_recording_handlers_on);
+    console.log(currentlyScraping());
     Highlight.unhighlightRemaining();
   }
 

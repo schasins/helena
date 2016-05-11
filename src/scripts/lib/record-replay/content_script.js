@@ -223,7 +223,7 @@ function recordEvent(eventData) {
   }
   
   for (var key in additional_recording_handlers_on){
-	  if (!additional_recording_handlers[key]){
+	  if (!additional_recording_handlers_on[key] || !additional_recording_handlers[key]){ // on may be false, or may lack a handler if user attached something silly
       continue;
     }
 	  var handler = additional_recording_handlers[key];

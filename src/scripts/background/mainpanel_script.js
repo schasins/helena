@@ -637,7 +637,7 @@ var WebAutomationLanguage = (function() {
     this.toStringLines = function(){
       var relation = this.relation;
       var varNames = _.map(relation.parameterizeableXpaths(), function(xpath){return relation.getParameterizeableXpathNodeName(xpath);});
-      var prefix = "for "+varNames.join(", ")+" in "+this.relation.name+":";
+      var prefix = "for "+varNames.join(", ")+" in "+this.pageVar.toString()+"."+this.relation.name+":";
       var statementStrings = _.reduce(this.bodyStatements, function(acc, statement){return acc.concat(statement.toStringLines());}, []);
       statementStrings = _.map(statementStrings, function(line){return ("&nbsp&nbsp&nbsp&nbsp "+line);});
       return [prefix].concat(statementStrings);
@@ -1009,7 +1009,7 @@ var WebAutomationLanguage = (function() {
         (function(){
           var curl = url; // closure copy
           chrome.tabs.create({url: curl, active: false}, function(tab){
-            setTimeout(function(){utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[curl], url:curl}, null, null, [tab.id]);}, 500); // give it a while to attach the listener
+            setTimeout(function(){utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[curl], url:curl}, null, null, [tab.id]);}, 1000); // give it a while to attach the listener
             // todo: may also want to do a timeout to make sure this actually gets a response
           });
         }());

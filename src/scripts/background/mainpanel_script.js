@@ -104,7 +104,7 @@ var RecorderUI = (function() {
   };
 
   pub.processLikelyRelation = function(data){
-    var relationObjects = ReplayScript.prog.processLikelyRelation(data);
+    var relationObjects = ReplayScript.prog.processLikelyRelationNewRelation(data);
     $div = $("#new_script_content").find("#relations");
     $div.html("");
     for (var i = 0; i < relationObjects.length; i++){
@@ -763,6 +763,10 @@ var WebAutomationLanguage = (function() {
       return _.map(this.demonstrationTimeRelation, function(row){return _.map(row, function(cell){return cell.text;});});
     }
 
+    this.numberOfCellsInFirstPage = function(){
+      return this.demonstrationTimeRelation[0].length * this.demonstrationTimeRelation.length;
+    }
+
     this.firstRowXpathsInOrder = function(){
       return this.parameterizeableXpaths();
     }
@@ -1113,9 +1117,31 @@ var WebAutomationLanguage = (function() {
       return pTrace.getStandardTrace();
     }
 
+    function longestCommonPrefix(strings) {
+      if (strings.length < 1) {
+        return "";
+      }
+      if (strings.length == 1){
+        return strings[0];
+      }
+
+      var sorted = strings.slice(0).sort(); // copy
+      var string1 = sorted[0];
+      var string2 = sorted[sorted.length - 1];
+      var i = 0;
+      var l = Math.min(string1.length, string2.length);
+
+      while (i < l && string1[i] === string2[i]) {
+        i++;
+      }
+
+      return string1.slice(0, i);
+    }
+
     var pagesToNodes = {};
     var pagesProcessed = {};
     this.relevantRelations = function(){
+      // let's start by finding what we think should be in the first row of a relation on this page
       for (var i = 0; i < this.statements.length; i++){
         var s = this.statements[i];
         if ( (s instanceof WebAutomationLanguage.ScrapeStatement) || (s instanceof WebAutomationLanguage.ClickStatement) ){
@@ -1125,7 +1151,34 @@ var WebAutomationLanguage = (function() {
           if (! (xpath in pagesToNodes[url])){ pagesToNodes[url].push(xpath); }
         }
       }
+      // ok, now that we know what should be in the first row, let's find a relation that works
       for (var url in pagesToNodes){
+        var relations = RelationManager.findStoredRelationWithAllFirstRowElements(url, pagesToNodes[url]);
+        if (relations.length > 0){
+          // cool!  there are one or more relations that have all these elements in their first row.  let's pick the biggest
+          var winner = _.max(relations, function(rel){ return rel.numberOfCellsInFirstPage(); });
+          processLikelyRelation(url, winner);
+          // should probably actually show the user this relation to make sure he/she trusts it?  and so we can apply it to the current target page
+          continue; // done with this url
+        }
+        // unfortunately none of our relations so far have all the columns we want.  let's see if we can find one that has lots of them
+        var relations = RelationManager.findStoredRelationWithLargestSubsetOfFirstRowElements(url, pagesToNodes[url]);
+        if (relations.length > 0){
+          // there are some relations that have at least one of the elements of our first row.
+          // let's see if we can extend any of them with new columns to include whatever elements have been left out
+          // we consider it the same relation if the row selector is the same.  any time we select a different set of rows, we better make a new relation to avoid messing up other scripts that already use the old relation and actually want that
+          // we prefer to use larger relations, and we'll return the first one we can extend, so let's start with whichever one has the most cells on the first page
+          var sortedRelations = _.sortBy(relations, function(rel){ return rel.numberOfCellsInFirstPage(); });
+          for (var i = 0; i < sortedRelations.length; i++){
+            var rel = sortedRelations[i];
+            var xpaths = rel.firstRowXpathsInOrder();
+            var 
+          }
+          var winner = _.max(relations, function(rel){ return rel.numberOfCellsInFirstPage(); });
+          processLikelyRelation(url, winner);
+          continue; // done with this url
+        }
+
         (function(){
           var curl = url; // closure copy
           chrome.tabs.create({url: curl, active: false}, function(tab){
@@ -1142,22 +1195,25 @@ var WebAutomationLanguage = (function() {
     };
 
 
-    var pagesToRelations = {};
-    this.processLikelyRelation = function(data){
+    this.processLikelyRelationNewRelation = function(data){
       chrome.tabs.remove(data.tab_id); // no longer need the tab from which we got this info
       var rel = new WebAutomationLanguage.Relation(data.selector, data.relation, data.url);
-      pagesToRelations[data.url] = rel;
-      pagesProcessed[data.url] = true;
+      this.processLikelyRelation(data.url, rel);
+    };
+
+    var pagesToRelations = {};
+    this.processLikelyRelation = function(url, rel){
+      pagesToRelations[url] = rel;
+      pagesProcessed[url] = true;
       this.relations.push(rel);
 
       if (_.difference(_.keys(pagesToNodes), _.keys(pagesToRelations)).length === 0) { // pagesToRelations now has all the pages from pagesToNodes
         // awesome, all the pages have gotten back to us
         setTimeout(this.insertLoops.bind(this), 0); // bind this to this, since JS runs settimeout func with this pointing to global obj
       }
-
       // give the text relations back to the UI-handling component so we can display to user
       return this.relations;
-    };
+    }
 
     this.insertLoops = function(){
       var indexesToRelations = {};

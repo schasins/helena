@@ -126,13 +126,15 @@ var RecorderUI = (function() {
       var xpaths = relation.firstRowXpathsInOrder();
       var tr = $("<tr></tr>");
       for (var j = 0; j < xpaths.length; j++){
-        var xpath = xpaths[j];
-        var columnTitle = $("<input></input>");
-        columnTitle.val(relation.getParameterizeableXpathColumnObject(xpath).name);
-        columnTitle.change(function(){relation.setParameterizeableXpathNodeName(xpath, columnTitle.val()); RecorderUI.updateDisplayedScript();});
-        var td = $("<td></td>");
-        td.append(columnTitle);
-        tr.append(td);
+        (function(){
+          var xpath = xpaths[j];
+          var columnTitle = $("<input></input>");
+          columnTitle.val(relation.getParameterizeableXpathColumnObject(xpath).name);
+          columnTitle.change(function(){console.log(columnTitle.val(), xpath); relation.setParameterizeableXpathNodeName(xpath, columnTitle.val()); RecorderUI.updateDisplayedScript();});
+          var td = $("<td></td>");
+          td.append(columnTitle);
+          tr.append(td);
+        })();
       }
       table.prepend(tr);
       var relationTitle = $("<input></input>");

@@ -1114,6 +1114,7 @@ var WebAutomationLanguage = (function() {
     }
 
     var pagesToNodes = {};
+    var pagesProcessed = {};
     this.relevantRelations = function(){
       for (var i = 0; i < this.statements.length; i++){
         var s = this.statements[i];
@@ -1128,8 +1129,13 @@ var WebAutomationLanguage = (function() {
         (function(){
           var curl = url; // closure copy
           chrome.tabs.create({url: curl, active: false}, function(tab){
-            setTimeout(function(){utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[curl], url:curl}, null, null, [tab.id]);}, 5000); // give it a while to attach the listener
-            // todo: may also want to do a timeout to make sure this actually gets a response
+            pagesProcessed[curl] = false;
+            var getLikelyRelationFunc = function(){utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[curl], url:curl}, null, null, [tab.id]);};
+            var getLikelyRelationFuncUntilAnswer = function(){
+              if (pagesProcessed[curl]){ return; } 
+              getLikelyRelationFunc(); 
+              setTimeout(getLikelyRelationFuncUntilAnswer, 1000);}
+            setTimeout(getLikelyRelationFuncUntilAnswer, 500); // give it a while to attach the listener
           });
         }());
       }
@@ -1141,6 +1147,7 @@ var WebAutomationLanguage = (function() {
       chrome.tabs.remove(data.tab_id); // no longer need the tab from which we got this info
       var rel = new WebAutomationLanguage.Relation(data.selector, data.relation, data.url);
       pagesToRelations[data.url] = rel;
+      pagesProcessed[data.url] = true;
       this.relations.push(rel);
 
       if (_.difference(_.keys(pagesToNodes), _.keys(pagesToRelations)).length === 0) { // pagesToRelations now has all the pages from pagesToNodes

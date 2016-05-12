@@ -105,6 +105,11 @@ var RecorderUI = (function() {
 
   pub.processLikelyRelation = function(data){
     var relationObjects = ReplayScript.prog.processLikelyRelation(data);
+    pub.updateDisplayedRelations();
+  };
+
+  pub.updateDisplayedRelations = function(){
+    var relationObjects = ReplayScript.prog.relations;
     $div = $("#new_script_content").find("#relations");
     $div.html("");
     for (var i = 0; i < relationObjects.length; i++){
@@ -131,8 +136,12 @@ var RecorderUI = (function() {
       relationTitle.change(function(){relation.name = relationTitle.val(); RecorderUI.updateDisplayedScript();});
       $div.append(relationTitle);
       $div.append(table);
+      var saveRelationButton = $("<button>Save These Table and Column Names</button>");
+      saveRelationButton.button();
+      saveRelationButton.click(function(){relation.saveRelationNames();});
+      $div.append(saveRelationButton);
     }
-  };
+  }
 
   pub.updateDisplayedScript = function(){
     var program = ReplayScript.prog;
@@ -742,7 +751,7 @@ var WebAutomationLanguage = (function() {
     };
   }
 
-  var relationCounter = 0; // todo: eventually should allow user-provided names
+  var relationCounter = 0;
   pub.Relation = function(selector, demonstrationTimeRelation, url, name){
     this.selector = selector;
     this.demonstrationTimeRelation = demonstrationTimeRelation;
@@ -780,18 +789,83 @@ var WebAutomationLanguage = (function() {
       return parameterizeableXpaths;
     }
 
+    function domain(url){
+      var domain = "";
+      // don't need http and so on
+      if (url.indexOf("://") > -1) {
+          domain = url.split('/')[2];
+      }
+      else {
+          domain = url.split('/')[0];
+      }
+      domain = domain.split(':')[0]; // there can be site.com:1234 and we don't want that
+      return domain;
+    }
+
     this.columnObjects = [];// for now we're assuming that the demonstrationtimerelation never changes in a single relation object.  if it does, we'll have to refresh this
     var xpathsToColumnObjects = {};
     function genColumnObjects(){
       for (var i = 0; i < parameterizeableXpaths.length; i++){
         var xpath = parameterizeableXpaths[i];
-        var name = relation.name+"_item_"+(i+1);
+        var name = relation.name+"_item_"+(i+1); // a filler name that we'll use for now
         var newColumnObj = {xpath: xpath, name: name, index: i};
         relation.columnObjects.push(newColumnObj);
         xpathsToColumnObjects[xpath] = newColumnObj;
       }
     }
     genColumnObjects();
+
+    // ineff
+    function findById(objList, id){
+      for (var i = 0; i < objList.length; i++){
+        if (objList[i].id === id){
+          return objList[i];
+        }
+      }
+      return null;
+    }
+
+    this.nameColumnsAndRelation = function(){
+      var xpaths = _.map(relation.columnObjects, function(col){return col.xpath;});
+      var xpathsToNames = {};
+      _.each(xpaths, function(xpath){xpathsToNames[xpath] = [];});
+      var relationNames = [];
+      chrome.storage.sync.get(['relations', 'columns'], function(obj) {
+        console.log("name columns and rel", obj);
+        var relations = obj.relations;
+        if (relations === undefined){ relations = [];}
+        var columns = obj.columns;
+        if (columns === undefined){ columns = [];}
+        for (var i = 0; i < columns.length; i++){
+          if (xpaths.indexOf(columns[i].xpath) > -1){
+            xpathsToNames[columns[i].xpath].push(columns[i].name);
+            var rel = findById(relations, columns[i].relId);
+            relationNames.push(rel.name);
+          }
+        }
+        console.log("----");
+        console.log(xpathsToNames);
+        console.log(relationNames);
+        // now we've seen all the uses of the xpaths we're trying to use
+        // obviously in future we also want to use domain, url also
+        for (var i = 0; i < relation.columnObjects.length; i++){
+          var colObj = relation.columnObjects[i];
+          var nameCandidates = xpathsToNames[colObj.xpath];
+          if (nameCandidates.length < 1){
+            continue;
+          }
+          var commonestName = _.chain(nameCandidates).countBy().pairs().max(_.last).head().value();
+          console.log("commonestName", commonestName);
+          colObj.name = commonestName;
+        }
+        var commonestRelName = _.chain(relationNames).countBy().pairs().max(_.last).head().value();
+        console.log("commonestRelName", commonestRelName);
+        relation.name = commonestRelName;
+        RecorderUI.updateDisplayedScript();
+        RecorderUI.updateDisplayedRelations();
+      });
+    }
+    this.nameColumnsAndRelation();
 
     this.getParameterizeableXpathColumnObject = function(xpath){
       return xpathsToColumnObjects[xpath];
@@ -854,6 +928,38 @@ var WebAutomationLanguage = (function() {
       var prinfo = this.pageRelationsInfo[pname];
       if (prinfo === undefined){ console.log("Bad!  Shouldn't be calling getCurrentValue on a pageVar for which we haven't yet called getNextRow."); return null; }
       return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index].xpath; // in the current row, value at the index associated with nodeName
+    }
+
+    // super inefficient, just for prototyping
+    function getNewId(arrayOfObjects){
+      var maxId = 0;
+      for (var i = 0; i < arrayOfObjects.length; i++){
+        if (arrayOfObjects[i].id > maxId){
+          maxId = arrayOfObjects[i].id;
+        }
+      }
+      return maxId + 1;
+    }
+
+    this.saveRelationNames = function(){
+      var relation = this;
+      chrome.storage.sync.get(['columns', 'relations'], function(obj) {
+        console.log(obj);
+        var relations = obj.relations;
+        if (relations === undefined){ relations = [];}
+        var columns = obj.columns;
+        if (columns === undefined){ columns = [];}
+        // let's save relation info
+        var relId = getNewId(relations);
+        relations.push({id: relId, url: relation.url, domain: domain(relation.url), name: relation.name});
+        chrome.storage.sync.set({"relations": relations});
+        // let's save column info
+        for (var i = 0; i < relation.columnObjects.length; i++){
+          var col = relation.columnObjects[i];
+          columns.push({id: getNewId(columns), xpath: col.xpath, url: relation.url, domain: domain(relation.url), name: col.name, relId: relId});
+        }
+        chrome.storage.sync.set({"columns": columns});
+      });
     }
   }
 
@@ -1154,12 +1260,14 @@ var WebAutomationLanguage = (function() {
         (function(){
           var curl = url; // closure copy
           chrome.tabs.create({url: curl, active: false}, function(tab){
+            console.log(tab.id);
             pagesProcessed[curl] = false;
             var getLikelyRelationFunc = function(){utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[curl], url:curl}, null, null, [tab.id]);};
             var getLikelyRelationFuncUntilAnswer = function(){
+              console.log(pagesProcessed);
               if (pagesProcessed[curl]){ return; } 
               getLikelyRelationFunc(); 
-              setTimeout(getLikelyRelationFuncUntilAnswer, 1000);}
+              setTimeout(getLikelyRelationFuncUntilAnswer, 2000);}
             setTimeout(getLikelyRelationFuncUntilAnswer, 500); // give it a while to attach the listener
           });
         }());
@@ -1169,10 +1277,10 @@ var WebAutomationLanguage = (function() {
     var pagesToRelations = {};
     this.processLikelyRelation = function(data){
       chrome.tabs.remove(data.tab_id); // no longer need the tab from which we got this info
+      pagesProcessed[data.url] = true;
       var rel = new WebAutomationLanguage.Relation(data.selector, data.relation, data.url);
       pagesToRelations[data.url] = rel;
       this.relations.push(rel);
-      pagesProcessed[data.url] = true;
 
       if (_.difference(_.keys(pagesToNodes), _.keys(pagesToRelations)).length === 0) { // pagesToRelations now has all the pages from pagesToNodes
         // awesome, all the pages have gotten back to us

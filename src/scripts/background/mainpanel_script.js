@@ -1255,8 +1255,9 @@ var WebAutomationLanguage = (function() {
         if ( (s instanceof WebAutomationLanguage.ScrapeStatement) || (s instanceof WebAutomationLanguage.ClickStatement) ){
           var xpath = s.node; // todo: in future, should get the whole node info, not just the xpath, but this is sufficient for now
           var url = s.pageUrl; // the top url of the frame on which the relevant events were raised
-          if (! (url in pagesToNodes)){ pagesToNodes[url] = []; }
-          if (! (xpath in pagesToNodes[url])){ pagesToNodes[url].push(xpath); }
+          if (!(url in pagesToNodes)){ pagesToNodes[url] = []; }
+          console.log(pagesToNodes[url], xpath, xpath in pagesToNodes[url]);
+          if (pagesToNodes[url].indexOf(xpath) === -1){ pagesToNodes[url].push(xpath); }
         }
       }
       for (var url in pagesToNodes){

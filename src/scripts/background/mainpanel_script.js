@@ -104,16 +104,33 @@ var RecorderUI = (function() {
   };
 
   pub.processLikelyRelation = function(data){
-    var textRelations = ReplayScript.prog.processLikelyRelation(data);
+    var relationObjects = ReplayScript.prog.processLikelyRelation(data);
     $div = $("#new_script_content").find("#relations");
     $div.html("");
-    for (var i = 0; i < textRelations.length; i++){
-      var textRelation = textRelations[i];
+    for (var i = 0; i < relationObjects.length; i++){
+      var relation = relationObjects[i];
+      var textRelation = relation.demonstrationTimeRelationText();
       if (textRelation.length > 2){
         textRelation = textRelation.slice(0,2);
         textRelation.push(_.map(Array.apply(null, Array(textRelation[0].length)), function(){return "...";}));
       }
-      $div.append(DOMCreationUtilities.arrayOfArraysToTable(textRelation));
+      var table = DOMCreationUtilities.arrayOfArraysToTable(textRelation);
+
+      var xpaths = relation.firstRowXpathsInOrder();
+      var tr = $("<tr></tr>");
+      for (var j = 0; j < xpaths.length; j++){
+        var xpath = xpaths[j];
+        var columnTitle = $("<input></input>");
+        columnTitle.val(relation.getParameterizeableXpathColumnObject(xpath).name);
+        columnTitle.change(function(){relation.setParameterizeableXpathNodeName(xpath, columnTitle.val()); RecorderUI.updateDisplayedScript();});
+        tr.append(columnTitle);
+      }
+      table.prepend(tr);
+      var relationTitle = $("<input></input>");
+      relationTitle.val(relation.name);
+      relationTitle.change(function(){relation.name = relationTitle.val(); RecorderUI.updateDisplayedScript();});
+      $div.append(relationTitle);
+      $div.append(table);
     }
   };
 
@@ -463,7 +480,7 @@ var WebAutomationLanguage = (function() {
       var xpaths = relation.parameterizeableXpaths();
       var index = xpaths.indexOf(statement.currentNode);
       if (index > -1){
-        statement.currentNode = new WebAutomationLanguage.VariableUse(relation.getParameterizeableXpathNodeName(xpaths[index]), relation, pageVar);
+        statement.currentNode = new WebAutomationLanguage.VariableUse(relation.getParameterizeableXpathColumnObject(xpaths[index]), relation, pageVar);
       }
   }
 
@@ -713,7 +730,7 @@ var WebAutomationLanguage = (function() {
 
     this.toStringLines = function(){
       var relation = this.relation;
-      var varNames = _.map(relation.parameterizeableXpaths(), function(xpath){return relation.getParameterizeableXpathNodeName(xpath);});
+      var varNames = _.map(relation.columnObjects, function(columnObject){return columnObject.name;});
       var prefix = "for "+varNames.join(", ")+" in "+this.pageVar.toString()+"."+this.relation.name+":";
       var statementStrings = _.reduce(this.bodyStatements, function(acc, statement){return acc.concat(statement.toStringLines());}, []);
       statementStrings = _.map(statementStrings, function(line){return ("&nbsp&nbsp&nbsp&nbsp "+line);});
@@ -742,6 +759,14 @@ var WebAutomationLanguage = (function() {
 
     var relation = this;
 
+    this.demonstrationTimeRelationText = function(){
+      return _.map(this.demonstrationTimeRelation, function(row){return _.map(row, function(cell){return cell.text;});});
+    }
+
+    this.firstRowXpathsInOrder = function(){
+      return this.parameterizeableXpaths();
+    }
+
     function genParameterizeableXpaths(){
       // for now, will only parameterize on the first row
       return _.map(relation.demonstrationTimeRelation[0], function(cell){ return cell.xpath;});
@@ -751,21 +776,26 @@ var WebAutomationLanguage = (function() {
       return parameterizeableXpaths;
     }
 
-    var xpathsToNames = {}; // for now we're assuming that the demonstrationtimerelation never changes in a single relation object.  if it does, we'll have to refresh this
-    var namesToIndexes = {};
-    function genParameterizeableXpathNodeNames(){
-      // todo: eventually we should allow user-provided names to be stored with the relations
+    this.columnObjects = [];// for now we're assuming that the demonstrationtimerelation never changes in a single relation object.  if it does, we'll have to refresh this
+    var xpathsToColumnObjects = {};
+    function genColumnObjects(){
       for (var i = 0; i < parameterizeableXpaths.length; i++){
         var xpath = parameterizeableXpaths[i];
         var name = relation.name+"_item_"+(i+1);
-        xpathsToNames[xpath] = name;
-        namesToIndexes[name] = i;
+        var newColumnObj = {xpath: xpath, name: name, index: i};
+        relation.columnObjects.push(newColumnObj);
+        xpathsToColumnObjects[xpath] = newColumnObj;
       }
     }
-    genParameterizeableXpathNodeNames();
+    genColumnObjects();
 
-    this.getParameterizeableXpathNodeName = function(xpath){
-      return xpathsToNames[xpath];
+    this.getParameterizeableXpathColumnObject = function(xpath){
+      return xpathsToColumnObjects[xpath];
+    };
+    // user can give us better names
+    this.setParameterizeableXpathNodeName = function(xpath, v){
+      var columnObj = xpathsToColumnObjects[xpath];
+      columnObj.name = v;
     };
 
     this.usedByStatement = function(statement){
@@ -815,26 +845,26 @@ var WebAutomationLanguage = (function() {
       }
     }
 
-    this.getCurrentValue = function(pageVar, nodeName){
+    this.getCurrentValue = function(pageVar, columnObject){
       var pname = pageVar.name;
       var prinfo = this.pageRelationsInfo[pname];
       if (prinfo === undefined){ console.log("Bad!  Shouldn't be calling getCurrentValue on a pageVar for which we haven't yet called getNextRow."); return null; }
-      return prinfo.currentRows[prinfo.currentRowsCounter][namesToIndexes[nodeName]].xpath; // in the current row, value at the index associated with nodeName
+      return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index].xpath; // in the current row, value at the index associated with nodeName
     }
   }
 
   // todo: for now all variable uses are uses of relations, but eventually will probably want to have scraped from outside of relations too
-  pub.VariableUse = function(name, relation, pageVar){
-    this.name = name;
+  pub.VariableUse = function(columnObject, relation, pageVar){
+    this.columnObject = columnObject;
     this.relation = relation;
     this.pageVar = pageVar;
 
     this.toString = function(){
-      return this.name;
+      return this.columnObject.name;
     };
 
     this.currentValue = function(){
-      return this.relation.getCurrentValue(this.pageVar, this.name);
+      return this.relation.getCurrentValue(this.pageVar, this.columnObject);
     };
   }
 
@@ -1098,7 +1128,7 @@ var WebAutomationLanguage = (function() {
         (function(){
           var curl = url; // closure copy
           chrome.tabs.create({url: curl, active: false}, function(tab){
-            setTimeout(function(){utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[curl], url:curl}, null, null, [tab.id]);}, 1000); // give it a while to attach the listener
+            setTimeout(function(){utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[curl], url:curl}, null, null, [tab.id]);}, 5000); // give it a while to attach the listener
             // todo: may also want to do a timeout to make sure this actually gets a response
           });
         }());
@@ -1112,12 +1142,6 @@ var WebAutomationLanguage = (function() {
       var rel = new WebAutomationLanguage.Relation(data.selector, data.relation, data.url);
       pagesToRelations[data.url] = rel;
       this.relations.push(rel);
-      var textRelations = [];
-      for (var url in pagesToRelations){
-        var relation = pagesToRelations[url].demonstrationTimeRelation;
-        relation = _.map(relation, function(row){return _.map(row, function(cell){return cell.text;});});
-        textRelations.push(relation);
-      }
 
       if (_.difference(_.keys(pagesToNodes), _.keys(pagesToRelations)).length === 0) { // pagesToRelations now has all the pages from pagesToNodes
         // awesome, all the pages have gotten back to us
@@ -1125,7 +1149,7 @@ var WebAutomationLanguage = (function() {
       }
 
       // give the text relations back to the UI-handling component so we can display to user
-      return textRelations;
+      return this.relations;
     };
 
     this.insertLoops = function(){

@@ -113,6 +113,8 @@ var RecorderUI = (function() {
     $div = $("#new_script_content").find("#relations");
     $div.html("");
     for (var i = 0; i < relationObjects.length; i++){
+      var $relDiv = $("<div class=relation_preview></div>");
+      $div.append($relDiv);
       var relation = relationObjects[i];
       var textRelation = relation.demonstrationTimeRelationText();
       if (textRelation.length > 2){
@@ -128,18 +130,20 @@ var RecorderUI = (function() {
         var columnTitle = $("<input></input>");
         columnTitle.val(relation.getParameterizeableXpathColumnObject(xpath).name);
         columnTitle.change(function(){relation.setParameterizeableXpathNodeName(xpath, columnTitle.val()); RecorderUI.updateDisplayedScript();});
-        tr.append(columnTitle);
+        var td = $("<td></td>");
+        td.append(columnTitle);
+        tr.append(td);
       }
       table.prepend(tr);
       var relationTitle = $("<input></input>");
       relationTitle.val(relation.name);
       relationTitle.change(function(){relation.name = relationTitle.val(); RecorderUI.updateDisplayedScript();});
-      $div.append(relationTitle);
-      $div.append(table);
+      $relDiv.append(relationTitle);
+      $relDiv.append(table);
       var saveRelationButton = $("<button>Save These Table and Column Names</button>");
       saveRelationButton.button();
       saveRelationButton.click(function(){relation.saveRelationNames();});
-      $div.append(saveRelationButton);
+      $relDiv.append(saveRelationButton);
     }
   }
 
@@ -843,9 +847,6 @@ var WebAutomationLanguage = (function() {
             relationNames.push(rel.name);
           }
         }
-        console.log("----");
-        console.log(xpathsToNames);
-        console.log(relationNames);
         // now we've seen all the uses of the xpaths we're trying to use
         // obviously in future we also want to use domain, url also
         for (var i = 0; i < relation.columnObjects.length; i++){

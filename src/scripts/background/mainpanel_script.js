@@ -144,7 +144,7 @@ var RecorderUI = (function() {
       $relDiv.append(table);
       var saveRelationButton = $("<button>Save These Table and Column Names</button>");
       saveRelationButton.button();
-      saveRelationButton.click(function(){relation.saveRelationNames();});
+      saveRelationButton.click(function(){relation.saveToServer();});
       $relDiv.append(saveRelationButton);
     }
   }
@@ -767,7 +767,7 @@ var WebAutomationLanguage = (function() {
     this.demonstrationTimeRelation = demonstrationTimeRelation;
     this.numRowsInDemo = numRowsInDemo;
     this.url = url;
-    if (name === undefined){
+    if (name === undefined || name === null){
       relationCounter += 1;
       this.name = "relation_"+relationCounter;
     }
@@ -893,8 +893,9 @@ var WebAutomationLanguage = (function() {
 
     this.saveToServer = function(){
       // sample: $($.post('http://localhost:3000/saverelation', { relation: {name: "test", url: "www.test2.com/test-test2", selector: "test2", selector_version: 1, num_rows_in_demonstration: 10}, columns: [{name: "col1", xpath: "a[1]/div[1]", suffix: "div[1]"}] } ));
-      var rel = { relation: {name: this.name, url: this.url, selector: this.selector, selector_version: this.selectorVersion, num_rows_in_demonstration: this.numRowsInDemo}, columns: this.columns };
-      $($.post('http://visual-pbd-scraping-server.herokuapp.com/saverelation', rel));
+      var rel = { relation: {name: this.name, url: this.url, selector: JSON.stringify(this.selector), selector_version: this.selectorVersion, num_rows_in_demonstration: this.numRowsInDemo, columns: _.map(this.columns, function(colObj){return {name: colObj.name, xpath: colObj.xpath, suffix: JSON.stringify(colObj.suffix)};}) } };
+      console.log(rel);
+      $.post('http://visual-pbd-scraping-server.herokuapp.com/saverelation', rel);
     }
   }
 
@@ -1206,7 +1207,7 @@ var WebAutomationLanguage = (function() {
 
       }
       var that = this;
-      $($.post('http://visual-pbd-scraping-server.herokuapp.com/retrieverelations', { pages: reqList }, function(resp){that.processServerRelations(resp);}));
+      $.post('http://visual-pbd-scraping-server.herokuapp.com/retrieverelations', { pages: reqList }, function(resp){that.processServerRelations(resp);});
     }
 
     this.processServerRelations = function(resp){

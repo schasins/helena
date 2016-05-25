@@ -758,9 +758,14 @@ var WebAutomationLanguage = (function() {
   }
 
   var relationCounter = 0;
-  pub.Relation = function(selector, demonstrationTimeRelation, url, name){
+  pub.Relation = function(relationId, name, selector, selectorVersion, excludeFirst, columns, demonstrationTimeRelation, numRowsInDemo, url){
+    this.id = relationId;
     this.selector = selector;
+    this.selectorVersion = selectorVersion;
+    this.excludeFirst = excludeFirst;
+    this.columns = columns;
     this.demonstrationTimeRelation = demonstrationTimeRelation;
+    this.numRowsInDemo = numRowsInDemo;
     this.url = url;
     if (name === undefined){
       relationCounter += 1;
@@ -776,10 +781,6 @@ var WebAutomationLanguage = (function() {
 
     this.demonstrationTimeRelationText = function(){
       return _.map(this.demonstrationTimeRelation, function(row){return _.map(row, function(cell){return cell.text;});});
-    }
-
-    this.numberOfCellsInFirstPage = function(){
-      return this.demonstrationTimeRelation[0].length * this.demonstrationTimeRelation.length;
     }
 
     this.firstRowXpathsInOrder = function(){
@@ -808,65 +809,22 @@ var WebAutomationLanguage = (function() {
       return domain;
     }
 
-    this.columnObjects = [];// for now we're assuming that the demonstrationtimerelation never changes in a single relation object.  if it does, we'll have to refresh this
     var xpathsToColumnObjects = {};
-    function genColumnObjects(){
-      for (var i = 0; i < parameterizeableXpaths.length; i++){
-        var xpath = parameterizeableXpaths[i];
-        var name = relation.name+"_item_"+(i+1); // a filler name that we'll use for now
-        var newColumnObj = {xpath: xpath, name: name, index: i};
-        relation.columnObjects.push(newColumnObj);
-        xpathsToColumnObjects[xpath] = newColumnObj;
-      }
-    }
-    genColumnObjects();
-
-    // ineff
-    function findById(objList, id){
-      for (var i = 0; i < objList.length; i++){
-        if (objList[i].id === id){
-          return objList[i];
+    function processColumns(){
+      console.log("columns", relation.columns);
+      for (var i = 0; i < relation.columns.length; i++){
+        var xpath = relation.columns[i].xpath;
+        if (relation.columns[i].name === null || relation.columns[i].name === undefined){
+          relation.columns[i].name = relation.name+"_item_"+(i+1); // a filler name that we'll use for now
         }
+        relation.columns[i].index = i; // should later look at whether this index is good enough
+        xpathsToColumnObjects[xpath] = relation.columns[i];
       }
-      return null;
     }
+    processColumns();
 
     this.nameColumnsAndRelation = function(){
-      var xpaths = _.map(relation.columnObjects, function(col){return col.xpath;});
-      var xpathsToNames = {};
-      _.each(xpaths, function(xpath){xpathsToNames[xpath] = [];});
-      var relationNames = [];
-      chrome.storage.sync.get(['relations', 'columns'], function(obj) {
-        console.log("name columns and rel", obj);
-        var relations = obj.relations;
-        if (relations === undefined){ relations = [];}
-        var columns = obj.columns;
-        if (columns === undefined){ columns = [];}
-        for (var i = 0; i < columns.length; i++){
-          if (xpaths.indexOf(columns[i].xpath) > -1){
-            xpathsToNames[columns[i].xpath].push(columns[i].name);
-            var rel = findById(relations, columns[i].relId);
-            relationNames.push(rel.name);
-          }
-        }
-        // now we've seen all the uses of the xpaths we're trying to use
-        // obviously in future we also want to use domain, url also
-        for (var i = 0; i < relation.columnObjects.length; i++){
-          var colObj = relation.columnObjects[i];
-          var nameCandidates = xpathsToNames[colObj.xpath];
-          if (nameCandidates.length < 1){
-            continue;
-          }
-          var commonestName = _.chain(nameCandidates).countBy().pairs().max(_.last).head().value();
-          console.log("commonestName", commonestName);
-          colObj.name = commonestName;
-        }
-        var commonestRelName = _.chain(relationNames).countBy().pairs().max(_.last).head().value();
-        console.log("commonestRelName", commonestRelName);
-        relation.name = commonestRelName;
-        RecorderUI.updateDisplayedScript();
-        RecorderUI.updateDisplayedRelations();
-      });
+      // should eventually consider looking at existing columns to suggest columns names
     }
     this.nameColumnsAndRelation();
 
@@ -911,7 +869,7 @@ var WebAutomationLanguage = (function() {
           prinfo.currentRowsCounter = 0;
           callback(true);
         })
-        utilities.sendMessage("mainpanel", "content", "getRelationItems", {selector: this.selector}, null, null, [pageVar.currentTabId()]);
+        utilities.sendMessage("mainpanel", "content", "getRelationItems", {selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns}, null, null, [pageVar.currentTabId()]);
         // todo: for above.  need to figure out the appropriate tab_id
         // how should we decide on tab id?  should we just send to all tabs, have them all check if it looks listy on the relevant tab?
         // this might be useful for later attempts to apply relation finders to new pages with different urls, so user doesn't have to show them, that sort of thing
@@ -933,36 +891,10 @@ var WebAutomationLanguage = (function() {
       return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index].xpath; // in the current row, value at the index associated with nodeName
     }
 
-    // super inefficient, just for prototyping
-    function getNewId(arrayOfObjects){
-      var maxId = 0;
-      for (var i = 0; i < arrayOfObjects.length; i++){
-        if (arrayOfObjects[i].id > maxId){
-          maxId = arrayOfObjects[i].id;
-        }
-      }
-      return maxId + 1;
-    }
-
-    this.saveRelationNames = function(){
-      var relation = this;
-      chrome.storage.sync.get(['columns', 'relations'], function(obj) {
-        console.log(obj);
-        var relations = obj.relations;
-        if (relations === undefined){ relations = [];}
-        var columns = obj.columns;
-        if (columns === undefined){ columns = [];}
-        // let's save relation info
-        var relId = getNewId(relations);
-        relations.push({id: relId, url: relation.url, domain: domain(relation.url), name: relation.name});
-        chrome.storage.sync.set({"relations": relations});
-        // let's save column info
-        for (var i = 0; i < relation.columnObjects.length; i++){
-          var col = relation.columnObjects[i];
-          columns.push({id: getNewId(columns), xpath: col.xpath, url: relation.url, domain: domain(relation.url), name: col.name, relId: relId});
-        }
-        chrome.storage.sync.set({"columns": columns});
-      });
+    this.saveToServer = function(){
+      // sample: $($.post('http://localhost:3000/saverelation', { relation: {name: "test", url: "www.test2.com/test-test2", selector: "test2", selector_version: 1, num_rows_in_demonstration: 10}, columns: [{name: "col1", xpath: "a[1]/div[1]", suffix: "div[1]"}] } ));
+      var rel = { relation: {name: this.name, url: this.url, selector: this.selector, selector_version: this.selectorVersion, num_rows_in_demonstration: this.numRowsInDemo}, columns: this.columns };
+      $($.post('http://visual-pbd-scraping-server.herokuapp.com/saverelation', rel));
     }
   }
 
@@ -1250,6 +1182,12 @@ var WebAutomationLanguage = (function() {
     var pagesToNodes = {};
     var pagesProcessed = {};
     this.relevantRelations = function(){
+      // ok, at this point we know the urls we've used and the xpaths we've used on them
+      // we should ask the server for relations that might help us out
+      // when the server gets back to us, we should try those relations on the current page
+      // we'll compare those against the best we can create on the page right now, pick the winner
+
+      // get the xpaths used on the urls
       for (var i = 0; i < this.statements.length; i++){
         var s = this.statements[i];
         if ( (s instanceof WebAutomationLanguage.ScrapeStatement) || (s instanceof WebAutomationLanguage.ClickStatement) ){
@@ -1260,18 +1198,36 @@ var WebAutomationLanguage = (function() {
           if (pagesToNodes[url].indexOf(xpath) === -1){ pagesToNodes[url].push(xpath); }
         }
       }
+      // ask the server for relations
+      // sample: $($.post('http://localhost:3000/retrieverelations', { pages: [{xpaths: ["a[1]/div[2]"], url: "www.test2.com/test-test"}] }, function(resp){ console.log(resp);} ));
+      var reqList = [];
       for (var url in pagesToNodes){
+        reqList.push({url: url, xpaths: pagesToNodes[url]});
+
+      }
+      var that = this;
+      $($.post('http://visual-pbd-scraping-server.herokuapp.com/retrieverelations', { pages: reqList }, function(resp){that.processServerRelations(resp);}));
+    }
+
+    this.processServerRelations = function(resp){
+      // we're ready to try these relations on the current pages
+      console.log(resp); 
+      var resps = resp.pages;
+      for (var i = 0; i < resps.length; i++){
+        var url = resps[i].url;
+        var suggestedRelations = [resps[i].same_domain_best_relation, resps[i].same_url_best_relation];
         (function(){
           var curl = url; // closure copy
+          var csuggestedRelations = suggestedRelations;
           chrome.tabs.create({url: curl, active: false}, function(tab){
             console.log(tab.id);
             pagesProcessed[curl] = false;
-            var getLikelyRelationFunc = function(){utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[curl], url:curl}, null, null, [tab.id]);};
+            var getLikelyRelationFunc = function(){utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[curl], url:curl, serverSuggestedRelations: csuggestedRelations}, null, null, [tab.id]);};
             var getLikelyRelationFuncUntilAnswer = function(){
               console.log(pagesProcessed);
               if (pagesProcessed[curl]){ return; } 
               getLikelyRelationFunc(); 
-              setTimeout(getLikelyRelationFuncUntilAnswer, 2000);}
+              setTimeout(getLikelyRelationFuncUntilAnswer, 1000);}
             setTimeout(getLikelyRelationFuncUntilAnswer, 500); // give it a while to attach the listener
           });
         }());
@@ -1280,9 +1236,10 @@ var WebAutomationLanguage = (function() {
 
     var pagesToRelations = {};
     this.processLikelyRelation = function(data){
-      chrome.tabs.remove(data.tab_id); // no longer need the tab from which we got this info
+      // chrome.tabs.remove(data.tab_id); // no longer need the tab from which we got this info; nvm, should remove the tab only once we try the server-suggested relations on the tab
       pagesProcessed[data.url] = true;
-      var rel = new WebAutomationLanguage.Relation(data.selector, data.relation, data.url);
+
+      var rel = new WebAutomationLanguage.Relation(data.relation_id, data.name, data.selector, data.selector_version, data.exclude_first, data.columns, data.first_page_relation, data.num_rows_in_demonstration, data.url);
       pagesToRelations[data.url] = rel;
       this.relations.push(rel);
 
@@ -1296,7 +1253,7 @@ var WebAutomationLanguage = (function() {
     };
 
     this.insertLoops = function(){
-      var indexesToRelations = {};
+      var indexesToRelations = {}; // indexes into the statements mapped to the relations used by those statements
       for (var i = 0; i < this.relations.length; i++){
         var relation = this.relations[i];
         for (var j = 0; j < this.statements.length; j++){
@@ -1309,7 +1266,7 @@ var WebAutomationLanguage = (function() {
       }
 
       this.loopyStatements = this.statements;
-      var indexes = _.keys(indexesToRelations).sort(function(a, b){return b-a});
+      var indexes = _.keys(indexesToRelations).sort(function(a, b){return b-a}); // start at end, work towards beginning
       for (var i = 0; i < indexes.length; i++){
         var index = indexes[i];
         // let's grab all the statements from the loop's start index to the end, put those in the loop body

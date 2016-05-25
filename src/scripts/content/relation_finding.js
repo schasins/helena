@@ -143,7 +143,8 @@ var RelationFinder = (function() { var pub = {};
   };
 
   pub.interpretRelationSelector = function(selector){
-    return pub.interpretRelationSelectorHelper(selector.dict, selector.exclude_first, makeSubcomponentFunction(selector.suffixes));
+    var suffixes = _.pluck(selector.columns, "suffix");
+    return pub.interpretRelationSelectorHelper(selector.dict, selector.exclude_first, makeSubcomponentFunction(suffixes));
   };
 
 /**********************************************************************
@@ -213,35 +214,35 @@ var RelationFinder = (function() { var pub = {};
     return null;
   }
 
-  function suffixesFromNodeAndSubnodes(node, subnodes){
+  function columnsFromNodeAndSubnodes(node, subnodes){
     var nodexpl = XPathList.xPathToXPathList(nodeToXPath(node));
     var nodexpllength = nodexpl.length;
-    suffixes = [];
+    columns = [];
     for (var i = 0; i < subnodes.length; i++){
-      var subnodexpl = XPathList.xPathToXPathList(nodeToXPath(subnodes[i]));
+      var xpath = nodeToXPath(subnodes[i]);
+      var subnodexpl = XPathList.xPathToXPathList(xpath);
       var suffix = subnodexpl.slice(nodexpllength, subnodexpl.length);
-      suffixes.push(suffix);
+      columns.push({xpath: xpath, suffix: suffix, id: null});
     }
-    return suffixes;
+    return columns;
   }
 
-  function Selector(dict, exclude_first, suffixes){
-    return {dict: dict, exclude_first: exclude_first, suffixes: suffixes};
+  function Selector(dict, exclude_first, columns){
+    return {dict: dict, exclude_first: exclude_first, columns: columns};
   }
 
-  function synthesizeSelector(positive_nodes, negative_nodes, suffixes, features){
-    console.log("suffixes", suffixes);
+  function synthesizeSelector(positive_nodes, negative_nodes, columns, features){
     if(typeof(features)==='undefined') {features = ["tag", "xpath"];}
     
     var feature_dict = featureDict(features, positive_nodes);
     if (feature_dict.hasOwnProperty("xpath") && feature_dict["xpath"].length > 3 && features !== almost_all_features){
       //xpath alone can't handle our positive nodes
-      return synthesizeSelector(positive_nodes, negative_nodes, suffixes, almost_all_features);
+      return synthesizeSelector(positive_nodes, negative_nodes, columns, almost_all_features);
     }
     //if (feature_dict.hasOwnProperty("tag") && feature_dict["tag"].length > 1 && features !== all_features){
     //  return synthesizeSelector(all_features);
     //}
-    var rows = pub.interpretRelationSelector(Selector(feature_dict, false, suffixes));
+    var rows = pub.interpretRelationSelector(Selector(feature_dict, false, columns));
     
     //now handle negative examples
     var exclude_first = false;
@@ -256,7 +257,7 @@ var RelationFinder = (function() { var pub = {};
           else if (features !== almost_all_features) {
             //xpaths weren't enough to exclude nodes we need to exclude
             console.log("need to try more features.");
-            return synthesizeSelector(positive_nodes, negative_nodes, suffixes, almost_all_features);
+            return synthesizeSelector(positive_nodes, negative_nodes, columns, almost_all_features);
           }
           else {
             console.log("using all our features and still not working.  freak out.");
@@ -267,7 +268,7 @@ var RelationFinder = (function() { var pub = {};
         }
       }
     }
-    return Selector(feature_dict, exclude_first, suffixes);
+    return Selector(feature_dict, exclude_first, columns);
   }
 
   function featureDict(features, positive_nodes){
@@ -307,13 +308,13 @@ var RelationFinder = (function() { var pub = {};
   pub.synthesizeFromSingleRow = function(rowNodes){
     var ancestor = findCommonAncestor(rowNodes);
     var positive_nodes = [ancestor];
-    var suffixes = suffixesFromNodeAndSubnodes(ancestor, rowNodes);
-    console.log(suffixes);
+    var columns = columnsFromNodeAndSubnodes(ancestor, rowNodes);
+    var suffixes = _.pluck(columns, "suffix");
     var likeliest_sibling = findSibling(ancestor, suffixes);
     if (likeliest_sibling !== null){
       positive_nodes.push(likeliest_sibling);
     }
-    return synthesizeSelector(positive_nodes, [], suffixes);
+    return synthesizeSelector(positive_nodes, [], columns);
   }
 
   function combinations(arr) {
@@ -344,7 +345,56 @@ var RelationFinder = (function() { var pub = {};
         console.log("relation", relation);
       }
     }
-    return {selector: maxSelector, relation:relation};
+    selector.relation = relation;
+    return selector;
+  }
+
+  function numMatchedXpaths(targetXpaths, firstRow){
+    var firstRowXpaths = _.pluck(firstRow, "xpath");
+    var matchedXpaths = _.intersection([targetXpaths, firstRowXpaths]);
+    return matchedXpaths.length;
+  }
+
+  function recordComparisonAttributesNewSelector(selectorData, targetXpaths){
+    var rel = selectorData.relation;
+    selectorData.numMatchedXpaths = numMatchedXpaths(targetXpaths, rel[0]);
+    selectorData.numRows = rel.length;
+    selectorData.numRowsInDemo = selectorData.numRows;
+    selectorData.numColumns = rel[0].length;
+  }
+
+  function recordComparisonAttributesServerSelector(selectorData, targetXpaths){
+    var rel = selectorData.relation;
+    selectorData.numMatchedXpaths = numMatchedXpaths(targetXpaths, rel[0]);
+    selectorData.numRows = rel.length;
+    selectorData.numRowsInDemo = selectorData.num_rows_in_demonstration;
+    selectorData.numColumns = rel[0].length;
+  }
+
+  function bestSelector(defaultRel, alternativeRel){
+    if (defaultRel.numMatchedXpaths > alternativeRel.numMatchedXpaths){
+      return defaultRel;
+    }
+    else if (defaultRel.numMatchedXpaths === alternativeRel.numMatchedXpaths){
+      if (defaultRel.numRows > alternativeRel.numRows){
+        return defaultRel;
+      }
+      else if (defaultRel.numRows === alternativeRel.numRows){
+        if (defaultRel.numRowsInDemo > alternativeRel.numRowsInDemo){
+          return defaultRel;
+        }
+        else if (defaultRel.numRowsInDemo === alternativeRel.numRowsInDemo){
+          if (defaultRel.numColumns > alternativeRel.numColumns){
+            return defaultRel;
+          }
+          else if (defaultRel.numColumns === alternativeRel.numColumns){
+            // they're the same, so just return the default one
+            return defaultRel;
+          }
+        }
+      }
+    }
+    return alternativeRel;
   }
 
   pub.likelyRelation = function(msg){
@@ -356,13 +406,55 @@ var RelationFinder = (function() { var pub = {};
     var selectorData = synthesizeSelectorForSubsetThatProducesLargestRelation(nodes);
     var relationData = _.map(selectorData.relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
     selectorData.relation = relationData;
-    selectorData.url = msg.url; // this url is used by the mainpanel to keep track of which pages have been handled already
-    utilities.sendMessage("content", "mainpanel", "likelyRelation", selectorData);
+
+    // this (above) is the candidate we auto-generate from the page, but want to compare to the relations the server suggested
+    // criteria (1) largest number of target xpaths in the first row, (2) largest number of rows retrieved from the page, (3), largest num of rows in original demonstration (4) largest number of columns associated with relation
+
+    var bestSelectorIsNew = true;
+    var currBestSelector = selectorData;
+    recordComparisonAttributesNewSelector(selectorData, xpaths);
+
+    var serverSuggestedRelations = msg.serverSuggestedRelations;
+    for (var i = 0; i < serverSuggestedRelations.length; i++){
+      var rel = serverSuggestedRelations[i];
+      if (rel === null){
+        continue;
+      }
+      var selector_obj = {selector: rel.selector, exclude_first: rel.exclude_first, columns: rel.columns};
+      var relationNodes = pub.interpretRelationSelector(selector_obj, rel.selector_version);
+      var relationData = _.map(relationNodes, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
+      rel.relation = relationData; 
+      recordComparisonAttributesServerSelector(rel, xpaths);
+
+      // use the server-provided rel as our default, since that'll make the server-side processing when we save the relation easier, and also gives us the nice names
+      var newBestSelector = bestSelector(rel, bestSelector);
+      if (newBestSelector !== currBestSelector){
+        currBestSelector = newBestSelector;
+        bestSelectorIsNew = false;
+      }
+    }
+
+    newMsg = {url: msg.url}; // this url is used by the mainpanel to keep track of which pages have been handled already
+    if (bestSelectorIsNew) {
+      newMsg.relation_id = null;
+      newMsg.name = null;
+    }
+    else {
+      newMsg.relation_id = currBestSelector.id;
+      newMsg.name = currBestSelector.name;
+    }
+    newMsg.exclude_first = currBestSelector.exclude_first;
+    newMsg.num_rows_in_demonstration = currBestSelector.relation.length;
+    newMsg.selector = currBestSelector.dict;
+    newMsg.selector_version = 1; // right now they're all 1
+    newMsg.columns = currBestSelector.columns;
+    newMsg.first_page_relation = currBestSelector.relation;
+
+    utilities.sendMessage("content", "mainpanel", "likelyRelation", newMsg);
   }
 
   pub.getRelationItems = function(msg){
-    var selector = msg.selector;
-    var relation = pub.interpretRelationSelector(selector);
+    var relation = pub.interpretRelationSelector(msg);
     var relationData = _.map(relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
     utilities.sendMessage("content", "mainpanel", "relationItems", {relation: relationData});
   }

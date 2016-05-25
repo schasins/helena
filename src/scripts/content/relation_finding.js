@@ -136,15 +136,16 @@ var RelationFinder = (function() { var pub = {};
         }
       }
     }
-    if (exclude_first && list.length > 0){
-      return list.slice(1,list.length);
+    if (exclude_first > 0 && list.length > exclude_first){
+      return list.slice(exclude_first,list.length);
     }
     return list;
   };
 
   pub.interpretRelationSelector = function(selector){
     var suffixes = _.pluck(selector.columns, "suffix");
-    return pub.interpretRelationSelectorHelper(selector.dict, selector.exclude_first, makeSubcomponentFunction(suffixes));
+    console.log("interpretRelationSelector", selector);
+    return pub.interpretRelationSelectorHelper(selector.selector, selector.exclude_first, makeSubcomponentFunction(suffixes));
   };
 
 /**********************************************************************
@@ -228,7 +229,7 @@ var RelationFinder = (function() { var pub = {};
   }
 
   function Selector(dict, exclude_first, columns){
-    return {dict: dict, exclude_first: exclude_first, columns: columns};
+    return {selector: dict, exclude_first: exclude_first, columns: columns};
   }
 
   function synthesizeSelector(positive_nodes, negative_nodes, columns, features){
@@ -245,14 +246,14 @@ var RelationFinder = (function() { var pub = {};
     var rows = pub.interpretRelationSelector(Selector(feature_dict, false, columns));
     
     //now handle negative examples
-    var exclude_first = false;
+    var exclude_first = 0;
     for (var j = 0; j < rows.length; j++){
       var nodes = rows[j];
       for (var i = 0; i < nodes.length ; i++){
         var node = nodes[i];
         if (_.contains(negative_nodes, node)){
           if (j === 0){
-            exclude_first = true;
+            exclude_first = 1;
           }
           else if (features !== almost_all_features) {
             //xpaths weren't enough to exclude nodes we need to exclude
@@ -420,14 +421,14 @@ var RelationFinder = (function() { var pub = {};
       if (rel === null){
         continue;
       }
-      var selector_obj = {selector: rel.selector, exclude_first: rel.exclude_first, columns: rel.columns};
+      var selector_obj = Selector(rel.selector, rel.exclude_first, rel.columns);
       var relationNodes = pub.interpretRelationSelector(selector_obj, rel.selector_version);
       var relationData = _.map(relationNodes, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
       rel.relation = relationData; 
       recordComparisonAttributesServerSelector(rel, xpaths);
 
       // use the server-provided rel as our default, since that'll make the server-side processing when we save the relation easier, and also gives us the nice names
-      var newBestSelector = bestSelector(rel, bestSelector);
+      var newBestSelector = bestSelector(rel, currBestSelector);
       if (newBestSelector !== currBestSelector){
         currBestSelector = newBestSelector;
         bestSelectorIsNew = false;
@@ -443,6 +444,7 @@ var RelationFinder = (function() { var pub = {};
       newMsg.relation_id = currBestSelector.id;
       newMsg.name = currBestSelector.name;
     }
+    console.log(currBestSelector);
     newMsg.exclude_first = currBestSelector.exclude_first;
     newMsg.num_rows_in_demonstration = currBestSelector.relation.length;
     newMsg.selector = currBestSelector.dict;

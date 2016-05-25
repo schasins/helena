@@ -893,7 +893,8 @@ var WebAutomationLanguage = (function() {
 
     this.saveToServer = function(){
       // sample: $($.post('http://localhost:3000/saverelation', { relation: {name: "test", url: "www.test2.com/test-test2", selector: "test2", selector_version: 1, num_rows_in_demonstration: 10}, columns: [{name: "col1", xpath: "a[1]/div[1]", suffix: "div[1]"}] } ));
-      var rel = { relation: {name: this.name, url: this.url, selector: JSON.stringify(this.selector), selector_version: this.selectorVersion, num_rows_in_demonstration: this.numRowsInDemo, columns: _.map(this.columns, function(colObj){return {name: colObj.name, xpath: colObj.xpath, suffix: JSON.stringify(colObj.suffix)};}) } };
+      // todo: this should really be stable stringified (the selector), since we'll be using it to test equality of different relations
+      var rel = { relation: {name: this.name, url: this.url, selector: JSON.stringify(this.selector), selector_version: this.selectorVersion, num_rows_in_demonstration: this.numRowsInDemo}, columns: _.map(this.columns, function(colObj){return {name: colObj.name, xpath: colObj.xpath, suffix: JSON.stringify(colObj.suffix)};}) };
       console.log(rel);
       $.post('http://visual-pbd-scraping-server.herokuapp.com/saverelation', rel);
     }
@@ -1216,7 +1217,14 @@ var WebAutomationLanguage = (function() {
       var resps = resp.pages;
       for (var i = 0; i < resps.length; i++){
         var url = resps[i].url;
-        var suggestedRelations = [resps[i].same_domain_best_relation, resps[i].same_url_best_relation];
+        var suggestedRelations = [resps[i].relations.same_domain_best_relation, resps[i].relations.same_url_best_relation];
+        for (var j = 0; j < suggestedRelations.length; j++){
+          if (suggestedRelations[j] === null){ continue; }
+          suggestedRelations[j].selector = JSON.parse(suggestedRelations[j].selector);
+          for (var k = 0; k < suggestedRelations[j].columns.length; k++){
+            suggestedRelations[j].columns[k].suffix = JSON.parse(suggestedRelations[j].columns[k].suffix); // is this the best place to deal with going between our object attributes and the server strings?
+          }
+        }
         (function(){
           var curl = url; // closure copy
           var csuggestedRelations = suggestedRelations;

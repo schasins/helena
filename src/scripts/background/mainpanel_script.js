@@ -784,6 +784,8 @@ var WebAutomationLanguage = (function() {
     }
 
     this.firstRowXpathsInOrder = function(){
+      console.log(relation.demonstrationTimeRelation[0]);
+      console.log(_.map(relation.demonstrationTimeRelation[0], function(cell){ return cell.xpath;}));
       return this.parameterizeableXpaths();
     }
 
@@ -829,6 +831,7 @@ var WebAutomationLanguage = (function() {
     this.nameColumnsAndRelation();
 
     this.getParameterizeableXpathColumnObject = function(xpath){
+      console.log(xpathsToColumnObjects, xpath);
       return xpathsToColumnObjects[xpath];
     };
     // user can give us better names
@@ -1245,7 +1248,7 @@ var WebAutomationLanguage = (function() {
 
     var pagesToRelations = {};
     this.processLikelyRelation = function(data){
-      // chrome.tabs.remove(data.tab_id); // no longer need the tab from which we got this info; nvm, should remove the tab only once we try the server-suggested relations on the tab
+      chrome.tabs.remove(data.tab_id); // no longer need the tab from which we got this info
       pagesProcessed[data.url] = true;
 
       var rel = new WebAutomationLanguage.Relation(data.relation_id, data.name, data.selector, data.selector_version, data.exclude_first, data.columns, data.first_page_relation, data.num_rows_in_demonstration, data.url);

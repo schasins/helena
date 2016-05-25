@@ -447,7 +447,7 @@ var RelationFinder = (function() { var pub = {};
     console.log(currBestSelector);
     newMsg.exclude_first = currBestSelector.exclude_first;
     newMsg.num_rows_in_demonstration = currBestSelector.relation.length;
-    newMsg.selector = currBestSelector.dict;
+    newMsg.selector = currBestSelector.selector;
     newMsg.selector_version = 1; // right now they're all 1
     newMsg.columns = currBestSelector.columns;
     newMsg.first_page_relation = currBestSelector.relation;

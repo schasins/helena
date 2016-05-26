@@ -49,12 +49,21 @@ var RecorderUI = (function() {
     var scriptString = program.toString();
     program.relevantRelations(); // now that we have a script, let's set some processing in motion that will figure out likely relations
     var div = $("#new_script_content");
-    DOMCreationUtilities.replaceContent(div, $("#done_recording")); // let's put in the done_recording node
+    DOMCreationUtilities.replaceContent(div, $("#script_preview")); // let's put in the script_preview node
     var scriptPreviewDiv = div.find("#program_representation");
-    DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the done_recording node
+    DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
 
     activateButton(div, "#run", RecorderUI.run);
     activateButton(div, "#replay", RecorderUI.replayOriginal);
+  };
+
+  pub.showProgramPreview = function(){
+    var div = $("#new_script_content");
+    DOMCreationUtilities.replaceContent(div, $("#script_preview")); // let's put in the script_preview node
+    activateButton(div, "#run", RecorderUI.run);
+    activateButton(div, "#replay", RecorderUI.replayOriginal);
+    RecorderUI.updateDisplayedScript();
+    RecorderUI.updateDisplayedRelations();
   };
 
   pub.run = function(){
@@ -146,14 +155,64 @@ var RecorderUI = (function() {
       saveRelationButton.button();
       saveRelationButton.click(function(){relation.saveToServer();});
       $relDiv.append(saveRelationButton);
+      var editRelationButton = $("<button>Edit This Table</button>");
+      editRelationButton.button();
+      editRelationButton.click(function(){relation.editSelector();});
+      $relDiv.append(editRelationButton);
     }
-  }
+  };
+
+  pub.showRelationEditor = function(tabId){
+    var div = $("#new_script_content");
+    DOMCreationUtilities.replaceContent(div, $("#relation_editing"));
+    console.log("putting in new html");
+    console.log(div.html());
+    console.log("****");
+    var readyButton = div.find("#relation_editing_ready");
+    readyButton.button();
+    // once ready button clicked, we'll already have updated the relation selector info based on messages the content panel has been sending, so we can just go back to looking at the program preview
+    readyButton.click(function(){
+      RecorderUI.showProgramPreview();
+      // we also want to close the tab...
+      chrome.tabs.remove(tabId);
+    });
+  };
+
+  pub.updateDisplayedRelation = function(relationObj){
+    var $relDiv = $("#new_script_content").find("#output_preview");
+    console.log("updatedisplayedrelation");
+    console.log($relDiv.html());
+
+    var textRelation = relationObj.demonstrationTimeRelationText();
+    var table = DOMCreationUtilities.arrayOfArraysToTable(textRelation);
+
+    var xpaths = relationObj.firstRowXpathsInOrder();
+    var tr = $("<tr></tr>");
+    for (var j = 0; j < xpaths.length; j++){
+      (function(){
+        var xpath = xpaths[j];
+        var columnTitle = $("<input></input>");
+        columnTitle.val(relationObj.getParameterizeableXpathColumnObject(xpath).name);
+        columnTitle.change(function(){console.log(columnTitle.val(), xpath); relationObj.setParameterizeableXpathNodeName(xpath, columnTitle.val()); RecorderUI.updateDisplayedScript();});
+        var td = $("<td></td>");
+        td.append(columnTitle);
+        tr.append(td);
+      })();
+    }
+    table.prepend(tr);
+
+    var relationTitle = $("<input></input>");
+    relationTitle.val(relationObj.name);
+    relationTitle.change(function(){relationObj.name = relationTitle.val(); RecorderUI.updateDisplayedScript();});
+    $relDiv.append(relationTitle);
+    $relDiv.append(table);
+  };
 
   pub.updateDisplayedScript = function(){
     var program = ReplayScript.prog;
     var scriptString = program.toString();
     var scriptPreviewDiv = $("#new_script_content").find("#program_representation");
-    DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the done_recording node
+    DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
   };
 
   pub.addNewRowToOutput = function(listOfCellTexts){
@@ -870,7 +929,7 @@ var WebAutomationLanguage = (function() {
           prinfo.currentRows = data.relation;
           prinfo.currentRowsCounter = 0;
           callback(true);
-        })
+        });
         utilities.sendMessage("mainpanel", "content", "getRelationItems", {selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns}, null, null, [pageVar.currentTabId()]);
         // todo: for above.  need to figure out the appropriate tab_id
         // how should we decide on tab id?  should we just send to all tabs, have them all check if it looks listy on the relevant tab?
@@ -897,9 +956,37 @@ var WebAutomationLanguage = (function() {
       // sample: $($.post('http://localhost:3000/saverelation', { relation: {name: "test", url: "www.test2.com/test-test2", selector: "test2", selector_version: 1, num_rows_in_demonstration: 10}, columns: [{name: "col1", xpath: "a[1]/div[1]", suffix: "div[1]"}] } ));
       // todo: this should really be stable stringified (the selector), since we'll be using it to test equality of different relations
       var rel = { relation: {name: this.name, url: this.url, selector: JSON.stringify(this.selector), selector_version: this.selectorVersion, num_rows_in_demonstration: this.numRowsInDemo}, columns: _.map(this.columns, function(colObj){return {name: colObj.name, xpath: colObj.xpath, suffix: JSON.stringify(colObj.suffix)};}) };
-      console.log(rel);
       $.post('http://visual-pbd-scraping-server.herokuapp.com/saverelation', rel);
     }
+
+    var tabReached = false;
+    this.editSelector = function(){
+      // show the UI for editing the selector
+      // we need to open up the new tab that we'll use for showing and editing the relation, and we need to set up a listener to update the selector associated with this relation, based on changes the user makes over at the content script
+      tabReached = false;
+      chrome.tabs.create({url: this.url, active: true}, function(tab){
+        RecorderUI.showRelationEditor(tab.id);
+        var sendSelectorInfo = function(){utilities.sendMessage("mainpanel", "content", "editRelation", {selector: relation.selector, selector_version: relation.selectorVersion, exclude_first: relation.excludeFirst, columns: relation.columns}, null, null, [tab.id]);};
+        var sendSelectorInfoUntilAnswer = function(){
+          if (tabReached){ return; } 
+          sendSelectorInfo(); 
+          setTimeout(sendSelectorInfoUntilAnswer, 1000);}
+        setTimeout(sendSelectorInfoUntilAnswer, 500); // give it a while to attach the listener
+      });
+      // now we've sent over the current selector info.  let's set up the listener that will update the preview (and the object)
+      utilities.listenForMessageWithKey("content", "mainpanel", "editRelation", "editRelation", function(data){relation.selectorFromContentScript(data)}); // remember this will overwrite previous editRelation listeners, since we're providing a key
+    }
+
+    this.selectorFromContentScript = function(msg){
+      tabReached = true;
+      this.selector = msg.selector;
+      this.selectorVersion = msg.selectorVersion;
+      this.excludeFirst = msg.exclude_first;
+      this.columns = msg.columns;
+      this.demonstrationTimeRelation = msg.demonstration_time_relation;
+      this.numRowsInDemo = msg.num_rows_in_demo;
+      RecorderUI.updateDisplayedRelation(this);
+    };
   }
 
   // todo: for now all variable uses are uses of relations, but eventually will probably want to have scraped from outside of relations too

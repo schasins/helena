@@ -459,6 +459,94 @@ var RelationFinder = (function() { var pub = {};
     var relation = pub.interpretRelationSelector(msg);
     var relationData = _.map(relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
     utilities.sendMessage("content", "mainpanel", "relationItems", {relation: relationData});
+  };
+
+/**********************************************************************
+ * Highlight stuff
+ **********************************************************************/
+
+  var colors = ["#9EE4FF","#9EB3FF", "#BA9EFF", "#9EFFEA", "#E4FF9E", "#FFBA9E", "#FF8E61"];
+  function highlightRelation(arrayOfArrays){
+    for (var i = 0; i < arrayOfArrays.length ; i++){
+      for (var j = 0; j < arrayOfArrays[i].length; j++){
+        var node = arrayOfArrays[i][j];
+        if (node === null){continue;}
+        // first make sure there is a color at index j, add one if there isn't
+        if (j >= colors.length){
+          colors.append("#000000".replace(/0/g,function(){return (~~(Math.random()*16)).toString(16);}));
+        }
+        highlightNodeC(node, colors[j]);
+      }
+    }
   }
+
+  var highlightCount = 0;
+  var highlights = {};
+  function highlightNodeC(target, color) {
+    highlightCount +=1;
+    $target = $(target);
+    var offset = $target.offset();
+    var boundingBox = target.getBoundingClientRect();
+    var newDiv = $('<div/>');
+    var idName = 'vpbd-hightlight-' + highlightCount;
+    newDiv.attr('id', idName);
+    newDiv.css('width', boundingBox.width);
+    newDiv.css('height', boundingBox.height);
+    newDiv.css('top', offset.top);
+    newDiv.css('left', offset.left);
+    newDiv.css('position', 'absolute');
+    newDiv.css('z-index', 1000);
+    newDiv.css('background-color', color);
+    newDiv.css('opacity', .4);
+    newDiv.css('pointer-events', 'none');
+    $(document.body).append(newDiv);
+    var html = $target.html();
+    if (highlights[html]) {highlights[html].push(idName);} else {highlights[html] = [idName];}
+    return idName;
+  }
+
+  function dehighlightNode(id) {
+    console.log("dehighlightNode");
+    $('#' + id).remove();
+  }
+
+  function clearHighlights(){
+    console.log("clearHighlights");
+    for (var key in highlights){
+      var ids = highlights[key];
+      _.each(ids, dehighlightNode);
+    }
+    highlights = {};
+  }
+
+/**********************************************************************
+ * Everything we need for editing a relation selector
+ **********************************************************************/
+
+  var currentSelectorToEdit = null;
+  pub.editRelation = function(msg){
+    // utilities.sendMessage("mainpanel", "content", "editRelation", {selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns}, null, null, [tab.id]);};
+    currentSelectorToEdit = msg;
+    pub.setDemonstrationTimeRelation(currentSelectorToEdit)
+    pub.highlightSelector(currentSelectorToEdit);
+    pub.sendSelector(currentSelectorToEdit);
+  };
+
+  pub.setDemonstrationTimeRelation = function(selectorObj){
+    selectorObj.demonstration_time_relation = pub.interpretRelationSelector(selectorObj);
+    selectorObj.num_rows_in_demo = selectorObj.demonstration_time_relation.length;
+  };
+
+  pub.highlightSelector = function(selectorObj){
+    highlightRelation(selectorObj.demonstration_time_relation);
+  };
+
+  pub.sendSelector = function(selectorObj){
+    var relation = selectorObj.demonstration_time_relation;
+    var relationData = _.map(relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
+    selectorObj.demonstration_time_relation = relationData;
+    utilities.sendMessage("content", "mainpanel", "editRelation", selectorObj);
+  };
+
 
 return pub;}());

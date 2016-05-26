@@ -69,6 +69,11 @@ var utilities = (function() { var pub = {};
     pub.listenForMessage(from, to, subject, newfunc, key);
   }
 
+  pub.listenForMessageWithKey = function(from, to, subject, key, fn){
+    console.log("Listening for message with key: "+ from+" : "+to+" : "+subject);
+    pub.listenForMessage(from, to, subject, fn, key);
+  }
+
   pub.sendMessage = function(from, to, subject, content, frame_ids_include, frame_ids_exclude, tab_ids_include, tab_ids_exclude){
     if ((from ==="background" || from ==="mainpanel") && to === "content"){
       var msg = {from: from, subject: subject, content: content, frame_ids_include: frame_ids_include, frame_ids_exclude: frame_ids_exclude};
@@ -105,7 +110,8 @@ return pub; }());
 var DOMCreationUtilities = (function() { var pub = {};
 
   pub.replaceContent = function(div1, div2){
-    div1.html(div2.html());
+    var div2clone = div2.clone();
+    div1.html(div2clone.html());
   };
 
   pub.arrayOfTextsToTableRow = function(array){

@@ -10,6 +10,7 @@ var tabID = "setme";
 utilities.listenForMessage("mainpanel", "content", "likelyRelation", function(msg){RelationFinder.likelyRelation(msg);});
 utilities.listenForMessage("background", "content", "tabID", function(msg){tabID = msg; console.log("tab id: ", msg);});
 utilities.listenForMessage("mainpanel", "content", "getRelationItems", function(msg){RelationFinder.getRelationItems(msg);});
+utilities.listenForMessage("mainpanel", "content", "editRelation", function(msg){RelationFinder.editRelation(msg);});
 utilities.sendMessage("content", "background", "requestTabID", {});
 
 /**********************************************************************

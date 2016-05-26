@@ -70,7 +70,7 @@
 			</div>
 
 
-			<div id="done_recording" class="new_script_message_stage">
+			<div id="script_preview" class="new_script_message_stage">
 				<div id="program_representation"></div>
 				<div id="relations_container">
 					Relevant Tables
@@ -83,6 +83,14 @@
 			<div id="script_running" class="new_script_message_stage">
 				<button id="pause">Pause Script</button> 
 				<button id="resume">Resume Script</button>
+				<div id="output_preview"><table></table></div>
+			</div>
+
+			<div id="relation_editing" class="new_script_message_stage">
+				<div id="instructions">
+					Ok, we've opened the first page in your browser and highlighted the table elements that we currently extract.  To remove highlighted cells from the table, click on them.  To add unhighlighted cells to the table, click on them.  As the table changes, we'll show the first page of table data below.  When you're happy with the table, just press "I'm ready!" button.
+				</div>
+				<button id="relation_editing_ready">I'm ready!</button>
 				<div id="output_preview"><table></table></div>
 			</div>
 

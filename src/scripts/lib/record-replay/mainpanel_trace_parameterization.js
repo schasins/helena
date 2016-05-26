@@ -1,6 +1,7 @@
 function ParameterizedTrace(trace){
 	var trace = trace;
 	var frames = {};
+	var tabs = {};
 	
 	/* xpath parameterization */
 
@@ -10,7 +11,7 @@ function ParameterizedTrace(trace){
 			if (trace[i].type !== "dom"){ continue;}
 			if (trace[i].target.xpath.name){
 				//this one has already been converted to an object, parameterized
-				return;
+				continue;
 			}
 			var xpath = trace[i].target.xpath.toUpperCase();
 			if (xpath === original_value){
@@ -24,7 +25,7 @@ function ParameterizedTrace(trace){
 		for (var i = 0; i< trace.length; i++){
 			if (trace[i].type !== "dom"){ continue;}
 			var xpath = trace[i].target.xpath;
-			if (xpath["name"] === parameter_name){
+			if (xpath.name === parameter_name){
 				console.log("use xpath", value);
 				trace[i].target.xpath = {"name": parameter_name, "value": value};
 			}
@@ -106,6 +107,25 @@ function ParameterizedTrace(trace){
 	};
 	
 	
+	/* tab parameterization if we want to say which page to go to but leave frame mapping to lower level r+r code */
+
+	this.parameterizeTab = function(parameter_name, original_value) {
+		console.log("parameterizing tab ",parameter_name, original_value);
+		tabs[parameter_name] = {original_value: original_value};
+	};
+
+	this.useTab = function(parameter_name, value) {
+		if(value === null){
+			console.log("Freak out: tabs.");
+		}
+		if (!tabs[parameter_name]){
+			console.log("!tabs[parameter_name]");
+			console.log(parameter_name, value);
+			console.log(this);
+		}
+		tabs[parameter_name].value = value;
+	};
+
 	/* frame parameterization */
 	
 	this.parameterizeFrame = function(parameter_name, original_value) {
@@ -123,6 +143,64 @@ function ParameterizedTrace(trace){
 			console.log(this);
 		}
 		frames[parameter_name].value = value;
+	};
+
+		/* url load parameterization */
+
+		// todo: also change the completed event now that we allow that to cause loads if forceReplay is set
+
+	this.parameterizeUrl = function(parameter_name, original_value) {
+
+		// so that dom events (when they open new tabs) open correct tab
+		// see record-replay/mainpanel_main for the func (getMatchingPort) where we actually open a new tab if we're trying to run an event that needs it, which explains why we do url parameterization the way we do
+		original_value = original_value.toUpperCase();
+		for (var i = 0; i< trace.length; i++){
+			if (trace[i].type !== "dom"){ continue;}
+			if (trace[i].frame.topURL.name){
+				//this one has already been converted to an object, parameterized
+				continue;
+			}
+			var url = trace[i].frame.topURL.toUpperCase();
+			if (url === original_value){
+				console.log("putting a hole in for a URL", original_value);
+				trace[i].frame.topURL = {"name": parameter_name, "value": null};
+			}
+		}
+
+		// so that 'completed' events open correct tab
+		for (var i = 0; i< trace.length; i++){
+			if (trace[i].type !== "completed"){ continue;}
+			if (trace[i].data.url.name){
+				//this one has already been converted to an object, parameterized
+				continue;
+			}
+			var url = trace[i].data.url.toUpperCase();
+			if (url === original_value){
+				console.log("putting a hole in for a URL", original_value);
+				trace[i].data.url = {"name": parameter_name, "value": null};
+			}
+		}
+	};
+
+	this.useUrl = function(parameter_name, value) {
+		// dom events
+		for (var i = 0; i< trace.length; i++){
+			if (trace[i].type !== "dom"){ continue;}
+			var url = trace[i].frame.topURL;
+			if (url.name === parameter_name){
+				console.log("use url", url);
+				trace[i].frame.topURL = {"name": parameter_name, "value": value};
+			}
+		}
+		// completed events
+		for (var i = 0; i< trace.length; i++){
+			if (trace[i].type !== "completed"){ continue;}
+			var url = trace[i].data.url;
+			if (url.name === parameter_name){
+				console.log("use url", url);
+				trace[i].data.url = {"name": parameter_name, "value": value};
+			}
+		}
 	};
 	
 	//TODO tabs: create a parameterize on frame or tab.  not yet sure which
@@ -146,7 +224,7 @@ function ParameterizedTrace(trace){
 		var prop_corrections = {};
 		for (var i = 0; i< cloned_trace.length; i++){
 			if (cloned_trace[i].type === "dom"){
-				//do any prop corrections we might need, as when we've recorded a value but what to enforce a diff
+				// do any prop corrections we might need, as when we've recorded a value but want to enforce a diff
 				if (cloned_trace[i].meta.nodeSnapshot && cloned_trace[i].meta.nodeSnapshot.prop){
 					var xpath = cloned_trace[i].meta.nodeSnapshot.prop.xpath;
 					for (var correction_xpath in prop_corrections){
@@ -156,12 +234,24 @@ function ParameterizedTrace(trace){
 						}
 					}
 				}
-				//correct xpath if it's a parameterized xpath
+				// correct xpath if it's a parameterized xpath
 				var xpath = cloned_trace[i].target.xpath;
 				if (xpath.name){
 					console.log("Correcting xpath to ", xpath.value);
 					cloned_trace[i].target.xpath = xpath.value;
 					cloned_trace[i].target.useXpathOnly = true;
+				}
+				// correct url if it's a parameterized url
+				var url = cloned_trace[i].frame.topURL;
+				if (url.name){
+					console.log("Correcting url to ", url.value);
+					cloned_trace[i].frame.topURL = url.value;
+				}
+				// correct tab if it's a parameterized tab
+				var tab = cloned_trace[i].frame.tab;
+				if (tab.name){
+					console.log("Correcting url to ", tab.value);
+					cloned_trace[i].frame.tab = tab.value;
 				}
 			}
 			else if (cloned_trace[i].type === "string_parameterize"){
@@ -176,6 +266,7 @@ function ParameterizedTrace(trace){
 				.concat([new_event])
 				.concat(cloned_trace.slice(i+1,cloned_trace.length));
 			}
+			
 		}
 		return cloned_trace;
 	};
@@ -186,6 +277,10 @@ function ParameterizedTrace(trace){
 		config.frameMapping = {};
 		for (var param in frames){
 			config.frameMapping[frames[param].original_value] = frames[param].value;
+		}
+		config.tabMapping = {};
+		for (var param in tabs){
+			config.tabMapping[tabs[param].original_value] = tabs[param].value;
 		}
 		console.log("config", config);
 		return config;

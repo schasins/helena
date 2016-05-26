@@ -831,7 +831,6 @@ var WebAutomationLanguage = (function() {
     this.nameColumnsAndRelation();
 
     this.getParameterizeableXpathColumnObject = function(xpath){
-      console.log(xpathsToColumnObjects, xpath);
       return xpathsToColumnObjects[xpath];
     };
     // user can give us better names
@@ -1060,8 +1059,10 @@ var WebAutomationLanguage = (function() {
         // now that we have the trace, let's figure out how to parameterize it
         // note that this should only be run once the current___ variables in the statements have been updated!  otherwise won't know what needs to be parameterized, will assume nothing
         // should see in future whether this is a reasonable way to do it
+        console.log("trace", trace);
         var parameterizedTrace = pbv(trace, basicBlockStatements);
         // now that we've run parameterization-by-value, have a function, let's put in the arguments we need for the current run
+        console.log("parameterizedTrace", parameterizedTrace);
         var runnableTrace = passArguments(parameterizedTrace, basicBlockStatements);
         var config = parameterizedTrace.getConfig();
 

@@ -139,6 +139,7 @@ var RelationFinder = (function() { var pub = {};
     if (exclude_first > 0 && list.length > exclude_first){
       return list.slice(exclude_first,list.length);
     }
+    console.log(list);
     return list;
   };
 
@@ -153,6 +154,8 @@ var RelationFinder = (function() { var pub = {};
  **********************************************************************/
 
   function findCommonAncestor(nodes){
+    // this doesn't handle null nodes, so filter those out first
+    nodes = _.filter(nodes, function(node){return node !== null;});
     var xpath_lists = _.map(nodes, function(node){ return XPathList.xPathToXPathList(nodeToXPath(node)); });
     if (xpath_lists.length === 0){
       console.log("Why are you trying to get the common ancestor of 0 nodes?");
@@ -228,8 +231,8 @@ var RelationFinder = (function() { var pub = {};
     return columns;
   }
 
-  function Selector(dict, exclude_first, columns){
-    return {selector: dict, exclude_first: exclude_first, columns: columns};
+  function Selector(dict, exclude_first, columns, positive_nodes, negative_nodes){
+    return {selector: dict, exclude_first: exclude_first, columns: columns, positive_nodes: positive_nodes, negative_nodes: negative_nodes};
   }
 
   function synthesizeSelector(positive_nodes, negative_nodes, columns, features){
@@ -269,7 +272,7 @@ var RelationFinder = (function() { var pub = {};
         }
       }
     }
-    return Selector(feature_dict, exclude_first, columns);
+    return Selector(feature_dict, exclude_first, columns, positive_nodes, negative_nodes);
   }
 
   function featureDict(features, positive_nodes){
@@ -498,10 +501,10 @@ var RelationFinder = (function() { var pub = {};
     newDiv.css('z-index', 1000);
     newDiv.css('background-color', color);
     newDiv.css('opacity', .4);
-    newDiv.css('pointer-events', 'none');
+    //newDiv.css('pointer-events', 'none');
     $(document.body).append(newDiv);
     var html = $target.html();
-    if (highlights[html]) {highlights[html].push(idName);} else {highlights[html] = [idName];}
+    highlights[idName] = target;
     return idName;
   }
 
@@ -513,8 +516,7 @@ var RelationFinder = (function() { var pub = {};
   function clearHighlights(){
     console.log("clearHighlights");
     for (var key in highlights){
-      var ids = highlights[key];
-      _.each(ids, dehighlightNode);
+      dehighlightNode(key);
     }
     highlights = {};
   }
@@ -527,26 +529,141 @@ var RelationFinder = (function() { var pub = {};
   pub.editRelation = function(msg){
     // utilities.sendMessage("mainpanel", "content", "editRelation", {selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns}, null, null, [tab.id]);};
     currentSelectorToEdit = msg;
-    pub.setDemonstrationTimeRelation(currentSelectorToEdit)
+    document.addEventListener('click', editingClick, true);
+    pub.setRelation(currentSelectorToEdit)
     pub.highlightSelector(currentSelectorToEdit);
+    // start with the assumption that the first row should definitely be included
+    msg.positive_nodes = [findCommonAncestor(currentSelectorToEdit.relation[0]),findCommonAncestor(currentSelectorToEdit.relation[1])];
+    msg.negative_nodes = [];
     pub.sendSelector(currentSelectorToEdit);
   };
 
-  pub.setDemonstrationTimeRelation = function(selectorObj){
-    selectorObj.demonstration_time_relation = pub.interpretRelationSelector(selectorObj);
-    selectorObj.num_rows_in_demo = selectorObj.demonstration_time_relation.length;
+  pub.setRelation = function(selectorObj){
+    selectorObj.relation = pub.interpretRelationSelector(selectorObj);
+    selectorObj.num_rows_in_demo = selectorObj.relation.length;
   };
 
   pub.highlightSelector = function(selectorObj){
-    highlightRelation(selectorObj.demonstration_time_relation);
+    highlightRelation(selectorObj.relation);
   };
 
   pub.sendSelector = function(selectorObj){
-    var relation = selectorObj.demonstration_time_relation;
-    var relationData = _.map(relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
+    var relation = selectorObj.relation;
+    var relationData = _.map(relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});}); // mainpanel rep version
     selectorObj.demonstration_time_relation = relationData;
+    selectorObj.relation = null; // don't send the relation
     utilities.sendMessage("content", "mainpanel", "editRelation", selectorObj);
+    selectorObj.relation = relation; // restore the relation
   };
 
+  pub.newSelectorGuess = function(selectorObj){
+    pub.setRelation(selectorObj);
+    pub.highlightSelector(selectorObj);
+    pub.sendSelector(selectorObj);
+  }
+
+  function editingClick(event){
+    console.log("editingClick", currentSelectorToEdit);
+    
+    event.stopPropagation();
+    event.preventDefault();
+
+    var target = event.target;
+    console.log("target", target);
+    var removalClick = false;
+    // it's only a removal click if the clicked item is a highlight
+    var id = $(target).attr("id");
+    if (id !== null && id !== undefined && id.indexOf("vpbd-hightlight") > -1){
+      removalClick = true;
+      // actual target is the one associated with the highlight
+      target = highlights[id];
+      var nodeToRemove = target; // recall the target itself may be the positive example, as when there's only one column
+      if (currentSelectorToEdit.positive_nodes.indexOf(target) < 0){
+        // ok it's not the actual node, better check the parents
+        var parents = $(target).parents(); 
+        for (var i = parents.length - 1; i > 0; i--){
+          var parent = parents[i];
+          var index = currentSelectorToEdit.positive_nodes.indexOf(parent);
+          if ( index > -1){
+            // ok, so this click is for removing a node.  removing the row?  removing the column?
+            // not that useful to remove a column, so probably for removing a row...
+            nodeToRemove = parent;
+            break;
+          }
+        }
+      }
+      // actually remove the node from positive, add to negative
+      var ind = currentSelectorToEdit.positive_nodes.indexOf(nodeToRemove);
+      console.log("ind", ind);
+      var positive_nodes = currentSelectorToEdit.positive_nodes;
+      console.log("positive_nodes before", positive_nodes);
+      positive_nodes.splice(ind, 1);
+      console.log("positive_nodes after", positive_nodes);
+      currentSelectorToEdit.positive_nodes = positive_nodes;
+      console.log(currentSelectorToEdit.positive_nodes);
+      currentSelectorToEdit.negative_nodes.push(nodeToRemove);
+      console.log("removed node, ", nodeToRemove, currentSelectorToEdit);
+    }
+    // we've done all our highlight stuff, know we no longer need that
+    // dehighlight our old list
+    clearHighlights();
+
+    if (!removalClick){
+      // ok, so we're trying to add a node.  is the node another cell in an existing row?  or another row?  could be either.
+      // for now, assume it's another cell in an existing row
+      // todo: give the user an interaction that allows him or her say it's actually another row
+      // todo: put some kind of outline around the ones we think of the user as having actually demonstrated to us?  the ones we're actually using to generate the selector?  so that he/she knows which to actually click on to change things
+      // maybe green outlines (or color-corresponding outlines) around the ones we're trying to include, red outlines around the ones we're trying to exclude.
+
+      // let's figure out which row it should be
+      // go through all rows, find common ancestor of the cells in the row + our new item, pick whichever row produces an ancestor deepest in the tree
+      var currRelation = currentSelectorToEdit.relation;
+      var deepestCommonAncestor = null;
+      var deepestCommonAncestorDepth = 0;
+      var currRelationIndex = 0;
+      for (var i = 0; i < currRelation.length; i++){
+        var nodes = currRelation[i];
+        var ancestor = findCommonAncestor(nodes.concat([target]));
+        var depth = $(ancestor).parents().length;
+        if (depth > deepestCommonAncestorDepth){
+          deepestCommonAncestor = ancestor;
+          deepestCommonAncestorDepth = depth;
+          currRelationIndex = i;
+        }
+      }
+
+      var columns = columnsFromNodeAndSubnodes(deepestCommonAncestor, currRelation[currRelationIndex].concat([target]));
+      currentSelectorToEdit.columns = columns;
+
+      // let's check whether the common ancestor has actually changed.  if no, this is easy and we can just change the columns
+      // if yes, it gets more complicated
+      var origAncestor = findCommonAncestor(currRelation[currRelationIndex]);
+      var newAncestor = findCommonAncestor(currRelation[currRelationIndex].concat([target]));
+      if (origAncestor === newAncestor){
+        // we've already updated the columns, so we're ready
+        pub.newSelectorGuess(currentSelectorToEdit);
+        return;
+      }
+      // drat, the ancestor has actually changed.
+      // let's assume that all the items in our current positive nodes list will have *corresponding* parent nodes...
+      var xpath = nodeToXPath(newAncestor);
+      var xpathlen = xpath.split("/").length;
+      for (var i = 0; i < currentSelectorToEdit.positive_nodes.length; i++){
+        var ixpath = nodeToXPath(currentSelectorToEdit.positive_nodes[i]);
+        var components = ixpath.split("/").slice(0, xpathlen);
+        var newxpath = components.join("/");
+        currentSelectorToEdit.positive_nodes[i] = xPathToNodes(newxpath)[0];
+      }
+      if (currentSelectorToEdit.positive_nodes.indexOf(deepestCommonAncestor) === -1){
+        currentSelectorToEdit.positive_nodes.push(deepestCommonAncestor);
+      }
+    }
+
+    console.log("ready to make new selector with pos nodes: ",currentSelectorToEdit.positive_nodes);
+
+    var newSelector = synthesizeSelector(currentSelectorToEdit.positive_nodes, currentSelectorToEdit.negative_nodes, currentSelectorToEdit.columns);
+    currentSelectorToEdit = newSelector;
+    pub.newSelectorGuess(currentSelectorToEdit);
+  }
 
 return pub;}());

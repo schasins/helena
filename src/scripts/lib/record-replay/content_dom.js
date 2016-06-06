@@ -6,6 +6,9 @@
 /* Convert a node to a xpath expression representing the path from the
  * document element */
 function nodeToXPath(element) {
+  if (element === null){
+    return null;
+  }
   if (element.tagName.toLowerCase() === 'html')
     return element.tagName;
 

@@ -563,13 +563,10 @@ var RelationFinder = (function() { var pub = {};
   }
 
   function editingClick(event){
-    console.log("editingClick", currentSelectorToEdit);
-    
     event.stopPropagation();
     event.preventDefault();
 
     var target = event.target;
-    console.log("target", target);
     var removalClick = false;
     // it's only a removal click if the clicked item is a highlight
     var id = $(target).attr("id");
@@ -594,15 +591,8 @@ var RelationFinder = (function() { var pub = {};
       }
       // actually remove the node from positive, add to negative
       var ind = currentSelectorToEdit.positive_nodes.indexOf(nodeToRemove);
-      console.log("ind", ind);
-      var positive_nodes = currentSelectorToEdit.positive_nodes;
-      console.log("positive_nodes before", positive_nodes);
-      positive_nodes.splice(ind, 1);
-      console.log("positive_nodes after", positive_nodes);
-      currentSelectorToEdit.positive_nodes = positive_nodes;
-      console.log(currentSelectorToEdit.positive_nodes);
+      currentSelectorToEdit.positive_nodes.splice(ind, 1);
       currentSelectorToEdit.negative_nodes.push(nodeToRemove);
-      console.log("removed node, ", nodeToRemove, currentSelectorToEdit);
     }
     // we've done all our highlight stuff, know we no longer need that
     // dehighlight our old list
@@ -658,8 +648,6 @@ var RelationFinder = (function() { var pub = {};
         currentSelectorToEdit.positive_nodes.push(deepestCommonAncestor);
       }
     }
-
-    console.log("ready to make new selector with pos nodes: ",currentSelectorToEdit.positive_nodes);
 
     var newSelector = synthesizeSelector(currentSelectorToEdit.positive_nodes, currentSelectorToEdit.negative_nodes, currentSelectorToEdit.columns);
     currentSelectorToEdit = newSelector;

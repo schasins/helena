@@ -180,8 +180,7 @@ var RecorderUI = (function() {
 
   pub.updateDisplayedRelation = function(relationObj){
     var $relDiv = $("#new_script_content").find("#output_preview");
-    console.log("updatedisplayedrelation");
-    console.log($relDiv.html());
+    $relDiv.html("");
 
     var textRelation = relationObj.demonstrationTimeRelationText();
     var table = DOMCreationUtilities.arrayOfArraysToTable(textRelation);
@@ -1336,6 +1335,7 @@ var WebAutomationLanguage = (function() {
 
     var pagesToRelations = {};
     this.processLikelyRelation = function(data){
+      console.log(data);
       chrome.tabs.remove(data.tab_id); // no longer need the tab from which we got this info
       pagesProcessed[data.url] = true;
 

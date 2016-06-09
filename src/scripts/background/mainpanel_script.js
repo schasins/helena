@@ -162,12 +162,24 @@ var RecorderUI = (function() {
     }
   };
 
-  pub.showRelationEditor = function(tabId){
+  pub.showRelationEditor = function(relation, tabId){
     var div = $("#new_script_content");
     DOMCreationUtilities.replaceContent(div, $("#relation_editing"));
-    console.log("putting in new html");
-    console.log(div.html());
-    console.log("****");
+
+    // let's highlight the appropriate next_type
+    var currNextType = relation.nextType;
+    var checkedNode = div.find("#next_type_"+currNextType); // remember we have to keep the NextTypes (in utilities) in line with the ids in the mainpanel html
+    checkedNode.attr("checked", true);
+    var radioButtons = div.find('#next_type input[type=radio]');
+    for (var i = 0; i < radioButtons.length; i++){
+      radioButtons[i].name = radioButtons[i].name+"_current"; // name must be different from the name of other buttonsets, and since we've copied from elsewhere on the page, we need to change this
+    }
+    var nextTypeButtonset = div.find("#next_type").buttonset();
+    radioButtons.change(function(){
+      relation.nextType = parseInt(this.value);
+    });
+
+    // ready button
     var readyButton = div.find("#relation_editing_ready");
     readyButton.button();
     // once ready button clicked, we'll already have updated the relation selector info based on messages the content panel has been sending, so we can just go back to looking at the program preview
@@ -816,7 +828,7 @@ var WebAutomationLanguage = (function() {
   }
 
   var relationCounter = 0;
-  pub.Relation = function(relationId, name, selector, selectorVersion, excludeFirst, columns, demonstrationTimeRelation, numRowsInDemo, url){
+  pub.Relation = function(relationId, name, selector, selectorVersion, excludeFirst, columns, demonstrationTimeRelation, numRowsInDemo, url, nextType, nextButtonSelector){
     this.id = relationId;
     this.selector = selector;
     this.selectorVersion = selectorVersion;
@@ -825,6 +837,8 @@ var WebAutomationLanguage = (function() {
     this.demonstrationTimeRelation = demonstrationTimeRelation;
     this.numRowsInDemo = numRowsInDemo;
     this.url = url;
+    this.nextType = nextType;
+    this.nextButtonSelector = nextButtonSelector;
     if (name === undefined || name === null){
       relationCounter += 1;
       this.name = "relation_"+relationCounter;
@@ -908,7 +922,11 @@ var WebAutomationLanguage = (function() {
 
     this.clearRunningState = function(){
       this.pageRelationsInfo = {};
-    }
+    };
+
+    this.messageRelationRepresentation = function(){
+      return {selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns, next_type: this.nextType, next_button_selector: this.nextButtonSelector};
+    };
 
     this.getNextRow = function(pageVar, callback){ // has to be called on a page, since a relation selector can be applied to many pages.  higher-level tool must control where to apply
       // todo: this is a very simplified version that assumes there's only one page of results.  add the rest soon.
@@ -929,7 +947,7 @@ var WebAutomationLanguage = (function() {
           prinfo.currentRowsCounter = 0;
           callback(true);
         });
-        utilities.sendMessage("mainpanel", "content", "getRelationItems", {selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns}, null, null, [pageVar.currentTabId()]);
+        utilities.sendMessage("mainpanel", "content", "getRelationItems", this.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);
         // todo: for above.  need to figure out the appropriate tab_id
         // how should we decide on tab id?  should we just send to all tabs, have them all check if it looks listy on the relevant tab?
         // this might be useful for later attempts to apply relation finders to new pages with different urls, so user doesn't have to show them, that sort of thing
@@ -965,8 +983,8 @@ var WebAutomationLanguage = (function() {
       // we need to open up the new tab that we'll use for showing and editing the relation, and we need to set up a listener to update the selector associated with this relation, based on changes the user makes over at the content script
       tabReached = false;
       chrome.tabs.create({url: this.url, active: true}, function(tab){
-        RecorderUI.showRelationEditor(tab.id);
-        var sendSelectorInfo = function(){utilities.sendMessage("mainpanel", "content", "editRelation", {selector: relation.selector, selector_version: relation.selectorVersion, exclude_first: relation.excludeFirst, columns: relation.columns}, null, null, [tab.id]);};
+        RecorderUI.showRelationEditor(relation, tab.id);
+        var sendSelectorInfo = function(){utilities.sendMessage("mainpanel", "content", "editRelation", relation.messageRelationRepresentation(), null, null, [tab.id]);};
         var sendSelectorInfoUntilAnswer = function(){
           if (tabReached){ return; } 
           sendSelectorInfo(); 
@@ -985,6 +1003,8 @@ var WebAutomationLanguage = (function() {
       this.columns = msg.columns;
       this.demonstrationTimeRelation = msg.demonstration_time_relation;
       this.numRowsInDemo = msg.num_rows_in_demo;
+      this.nextType = msg.next_type;
+      this.nextButtonSelector = msg.next_button_selector;
       RecorderUI.updateDisplayedRelation(this);
     };
   }
@@ -1337,7 +1357,7 @@ var WebAutomationLanguage = (function() {
       chrome.tabs.remove(data.tab_id); // no longer need the tab from which we got this info
       pagesProcessed[data.url] = true;
 
-      var rel = new WebAutomationLanguage.Relation(data.relation_id, data.name, data.selector, data.selector_version, data.exclude_first, data.columns, data.first_page_relation, data.num_rows_in_demonstration, data.url);
+      var rel = new WebAutomationLanguage.Relation(data.relation_id, data.name, data.selector, data.selector_version, data.exclude_first, data.columns, data.first_page_relation, data.num_rows_in_demonstration, data.url, data.next_type, data.next_button_selector);
       pagesToRelations[data.url] = rel;
       this.relations.push(rel);
 

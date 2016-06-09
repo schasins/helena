@@ -551,7 +551,7 @@ var RelationFinder = (function() { var pub = {};
   };
 
   pub.highlightSelector = function(selectorObj){
-    highlightRelation(selectorObj.relation);
+    pub.highlightRelation(selectorObj.relation);
   };
 
   pub.sendSelector = function(selectorObj){
@@ -663,12 +663,5 @@ var RelationFinder = (function() { var pub = {};
     currentSelectorToEdit = newSelector;
     pub.newSelectorGuess(currentSelectorToEdit);
   }
-
-  NextTypes = {
-    NONE: 1,
-    NEXTBUTTON: 2,
-    MOREBUTTON: 3,
-    SCROLLFORMORE: 4
-  };
 
 return pub;}());

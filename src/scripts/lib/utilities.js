@@ -154,5 +154,11 @@ var ServerTranslationUtilities = (function() { var pub = {};
     }
   };
 
-
 return pub; }());
+
+var NextTypes = {
+  NONE: 1,
+  NEXTBUTTON: 2,
+  MOREBUTTON: 3,
+  SCROLLFORMORE: 4
+};

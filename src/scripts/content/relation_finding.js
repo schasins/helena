@@ -2,10 +2,6 @@
  * Author: S. Chasins
  **********************************************************************/
 
-/**********************************************************************
- * Message handling
- **********************************************************************/
-
 var RelationFinder = (function() { var pub = {};
 
   /**********************************************************************
@@ -114,6 +110,7 @@ var RelationFinder = (function() { var pub = {};
   // exclude_first tells us whether to skip the first row, as we often do when we have headers
   // suffixes tell us how to find subcomponents of a row in the relation
   pub.interpretRelationSelectorHelper = function(feature_dict, exclude_first, subcomponents_function){
+    // console.log("interpretRelationSelectorHelper", feature_dict, exclude_first, subcomponents_function);
     var candidates = getAllCandidates();
     var list = [];
     for (i=0;i<candidates.length;i++){
@@ -121,8 +118,8 @@ var RelationFinder = (function() { var pub = {};
       var candidate_ok = true;
       for (var feature in feature_dict){
         var value = getFeature(candidate,feature);
-        var acceptable_values = feature_dict[feature]["values"];
-        var pos = feature_dict[feature]["pos"];
+        var acceptable_values = feature_dict[feature].values;
+        var pos = feature_dict[feature].pos;
         var candidate_feature_match = featureMatch(feature, value, acceptable_values);
         if ((pos && !candidate_feature_match) || (!pos && candidate_feature_match)){
           candidate_ok = false;
@@ -469,7 +466,8 @@ var RelationFinder = (function() { var pub = {};
  **********************************************************************/
 
   var colors = ["#9EE4FF","#9EB3FF", "#BA9EFF", "#9EFFEA", "#E4FF9E", "#FFBA9E", "#FF8E61"];
-  function highlightRelation(arrayOfArrays){
+  pub.highlightRelation = function(arrayOfArrays, display){
+    var nodes = [];
     for (var i = 0; i < arrayOfArrays.length ; i++){
       for (var j = 0; j < arrayOfArrays[i].length; j++){
         var node = arrayOfArrays[i][j];
@@ -478,14 +476,17 @@ var RelationFinder = (function() { var pub = {};
         if (j >= colors.length){
           colors.append("#000000".replace(/0/g,function(){return (~~(Math.random()*16)).toString(16);}));
         }
-        highlightNodeC(node, colors[j]);
+        var node = highlightNodeC(node, colors[j], display);
+        nodes.push(node);
       }
     }
+    return nodes;
   }
 
   var highlightCount = 0;
   var highlights = {};
-  function highlightNodeC(target, color) {
+  function highlightNodeC(target, color, display) {
+    if (display === undefined){ display = true;}
     highlightCount +=1;
     $target = $(target);
     var offset = $target.offset();
@@ -501,11 +502,14 @@ var RelationFinder = (function() { var pub = {};
     newDiv.css('z-index', 1000);
     newDiv.css('background-color', color);
     newDiv.css('opacity', .4);
+    if (display === false){
+      newDiv.css('display', 'none');
+    }
     //newDiv.css('pointer-events', 'none');
     $(document.body).append(newDiv);
     var html = $target.html();
     highlights[idName] = target;
-    return idName;
+    return newDiv;
   }
 
   function dehighlightNode(id) {
@@ -635,12 +639,15 @@ var RelationFinder = (function() { var pub = {};
         return;
       }
       // drat, the ancestor has actually changed.
-      // let's assume that all the items in our current positive nodes list will have *corresponding* parent nodes...
+      // let's assume that all the items in our current positive nodes list will have *corresponding* parent nodes...  (based on difference in depth.  not really a good assumption, but we already assume that we have fixed xpaths to get to subcomponents, so we're already making that assumption)
       var xpath = nodeToXPath(newAncestor);
       var xpathlen = xpath.split("/").length;
+      var xpathO = nodeToXPath(origAncestor);
+      var xpathlenO = xpath.split("/").length;
+      var depthDiff = xpathlenO - xpathlen;
       for (var i = 0; i < currentSelectorToEdit.positive_nodes.length; i++){
         var ixpath = nodeToXPath(currentSelectorToEdit.positive_nodes[i]);
-        var components = ixpath.split("/").slice(0, xpathlen);
+        var components = ixpath.split("/").slice(0, components.length - depthDiff);
         var newxpath = components.join("/");
         currentSelectorToEdit.positive_nodes[i] = xPathToNodes(newxpath)[0];
       }

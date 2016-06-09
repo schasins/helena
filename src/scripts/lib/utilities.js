@@ -135,3 +135,22 @@ var DOMCreationUtilities = (function() { var pub = {};
     }
 
 return pub; }());
+
+var ServerTranslationUtilities = (function() { var pub = {};
+
+  pub.JSONifyRelation = function(relation){
+    relation.selector = JSON.stringify(relation.selector);
+    for (var k = 0; k < relation.columns.length; k++){
+      relation.columns[k].suffix = JSON.stringify(relation.columns[k].suffix); // is this the best place to deal with going between our object attributes and the server strings?
+    }
+  };
+
+  pub.unJSONifyRelation = function(relation){
+    relation.selector = JSON.parse(relation.selector);
+    for (var k = 0; k < relation.columns.length; k++){
+      relation.columns[k].suffix = JSON.parse(relation.columns[k].suffix); // is this the best place to deal with going between our object attributes and the server strings?
+    }
+  };
+
+
+return pub; }());

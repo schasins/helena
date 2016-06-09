@@ -36,6 +36,7 @@ var timeoutInfo = {startTime: 0, startIndex: 0, events: null};
 
 /* Addon hooks */
 var addonStartup = [];
+var addonStartRecording = [];
 var addonPreRecord = [];
 var addonPostRecord = [];
 var addonPreReplay = [];
@@ -751,6 +752,13 @@ function updateParams(newParams) {
 var handlers = {
   'recording': function(v) {
     recording = v;
+    console.log("recording: ", v);
+    if (v === RecordState.RECORDING){
+      /* handle any startup the addons need once a tab knows it's recording */
+      for (var i = 0, ii = addonStartRecording.length; i < ii; ++i) {
+        addonStartRecording[i]();
+      }
+    }
   },
   'params': updateParams,
   'dom': function(v) {

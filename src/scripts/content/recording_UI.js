@@ -8,13 +8,13 @@
 
 var RecordingHandlers = (function() { var pub = {};
   function targetFromEvent(event){
-    var $target = $(event.target);
-    return $target.get(0);
+    return event.target;
   }
 
   pub.mouseoverHandler = function(event){
     if (currentlyRecording()){
       Tooltip.scrapingTooltip(targetFromEvent(event));
+      RelationPreview.relationHighlight(targetFromEvent(event));
     }
     if (currentlyScraping()){
       Highlight.highlight(targetFromEvent(event));
@@ -24,6 +24,7 @@ var RecordingHandlers = (function() { var pub = {};
   pub.mouseoutHandler = function(event){
     if (currentlyRecording()){
       Tooltip.removeScrapingTooltip();
+      RelationPreview.relationUnhighlight();
     }
     if (currentlyScraping()){
       Highlight.unhighlight(targetFromEvent(event));
@@ -204,4 +205,74 @@ var Visualization = (function() { var pub = {};
 
 return pub;}());
 
+/**********************************************************************
+ * We may want to give users previews of the relations we can find on their pages.  When hover, highlight.
+ **********************************************************************/
 
+var RelationPreview = (function() { var pub = {};
+  var knownRelations = [];
+  function setup(){
+    console.log("running setup");
+    $.post('https://visual-pbd-scraping-server.herokuapp.com/allpagerelations', { url: window.location.href }, function(resp){ 
+      console.log(resp);
+      knownRelations = resp.relations;
+      preprocessKnownRelations();
+    });
+  }
+  // we need to tell the record+replay layer what we want to do when a tab leanrs it's recording
+  addonStartRecording.push(setup);
+
+  var knownRelationsInfo = [];
+  function preprocessKnownRelations(){
+    // first let's apply each of our possible relations to see which nodes appear in them
+    // then let's make a set of highlight nodes for each relation, so we can toggle them between hidden and displayed based on user's hover behavior.
+    for (var i = 0; i < knownRelations.length; i++){
+      var selectorObj = knownRelations[i];
+      ServerTranslationUtilities.unJSONifyRelation(selectorObj);
+      var relationOutput = RelationFinder.interpretRelationSelector(selectorObj);
+      var nodeList = _.flatten(relationOutput);
+      var highlightNodes = RelationFinder.highlightRelation(relationOutput, false);
+      knownRelationsInfo.push({selectorObj: selectorObj, nodes: nodeList, highlightNodes: highlightNodes, highlighted: false});
+    }  
+  }
+
+  pub.relationHighlight = function(node){
+    // for now we'll just pick whichever node includes the current node and has the largest number of nodes on the current page
+    var winningRelation = null;
+    var winningRelationSize = 0;
+    for (var i = 0; i < knownRelationsInfo.length; i++){
+      var relationInfo = knownRelationsInfo[i];
+      if (relationInfo.nodes.indexOf(node) > -1){
+        if (relationInfo.nodes.length > winningRelationSize){
+          winningRelation = relationInfo;
+          winningRelationSize = relationInfo.nodes.length;
+        }
+      }
+    }
+    if (winningRelation !== null){
+      // cool, we have a relation to highlight
+      winningRelation.highlighted = true;
+      for (var i = 0; i < winningRelation.highlightNodes.length; i++){
+        var n = winningRelation.highlightNodes[i];
+        n.css("display", "block");
+      }
+      // but remember we don't want to highlight the node currently being hovered in the same way
+      var hoveredNodeIndex = winningRelation.nodes.indexOf(node);
+      winningRelation.highlightNodes[hoveredNodeIndex].css("display", "none"); // the way flatten works and the order in which we append nodes in highlightRelation means the indexes will align
+    }
+
+  };
+
+  pub.relationUnhighlight = function(){
+    for (var i = 0; i < knownRelationsInfo.length; i++){
+      var relationInfo = knownRelationsInfo[i];
+      if (relationInfo.highlighted){
+        for (var j = 0; j < relationInfo.highlightNodes.length; j++){
+          var node = relationInfo.highlightNodes[j];
+          node.css("display", "none");
+        }
+      }
+    }
+  };
+
+return pub;}());

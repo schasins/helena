@@ -451,6 +451,9 @@ var RelationFinder = (function() { var pub = {};
     newMsg.selector_version = 1; // right now they're all 1
     newMsg.columns = currBestSelector.columns;
     newMsg.first_page_relation = currBestSelector.relation;
+    // we always guess that there are no more items (no more pages), and user has to correct it if this is not the case
+    newMsg.next_type = NextTypes.NONE;
+    newMsg.next_button_selector = null;
 
     utilities.sendMessage("content", "mainpanel", "likelyRelation", newMsg);
   }
@@ -660,5 +663,12 @@ var RelationFinder = (function() { var pub = {};
     currentSelectorToEdit = newSelector;
     pub.newSelectorGuess(currentSelectorToEdit);
   }
+
+  NextTypes = {
+    NONE: 1,
+    NEXTBUTTON: 2,
+    MOREBUTTON: 3,
+    SCROLLFORMORE: 4
+  };
 
 return pub;}());

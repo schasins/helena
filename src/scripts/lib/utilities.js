@@ -140,6 +140,7 @@ var ServerTranslationUtilities = (function() { var pub = {};
 
   pub.JSONifyRelation = function(relation){
     relation.selector = JSON.stringify(relation.selector);
+    relation.next_button_selector = JSON.stringify(relation.next_button_selector);
     for (var k = 0; k < relation.columns.length; k++){
       relation.columns[k].suffix = JSON.stringify(relation.columns[k].suffix); // is this the best place to deal with going between our object attributes and the server strings?
     }
@@ -147,6 +148,7 @@ var ServerTranslationUtilities = (function() { var pub = {};
 
   pub.unJSONifyRelation = function(relation){
     relation.selector = JSON.parse(relation.selector);
+    relation.next_button_selector = JSON.parse(relation.next_button_selector);
     for (var k = 0; k < relation.columns.length; k++){
       relation.columns[k].suffix = JSON.parse(relation.columns[k].suffix); // is this the best place to deal with going between our object attributes and the server strings?
     }

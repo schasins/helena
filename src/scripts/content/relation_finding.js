@@ -533,9 +533,11 @@ var RelationFinder = (function() { var pub = {};
  **********************************************************************/
 
   var currentSelectorToEdit = null;
+  var currentlyEditing = false;
   pub.editRelation = function(msg){
     // utilities.sendMessage("mainpanel", "content", "editRelation", {selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns}, null, null, [tab.id]);};
     currentSelectorToEdit = msg;
+    currentlyEditing = true;
     document.addEventListener('click', editingClick, true);
     pub.setRelation(currentSelectorToEdit)
     pub.highlightSelector(currentSelectorToEdit);
@@ -570,6 +572,8 @@ var RelationFinder = (function() { var pub = {};
   }
 
   function editingClick(event){
+    if (!currentlyEditing){ return; }
+
     event.stopPropagation();
     event.preventDefault();
 
@@ -662,6 +666,37 @@ var RelationFinder = (function() { var pub = {};
     var newSelector = synthesizeSelector(currentSelectorToEdit.positive_nodes, currentSelectorToEdit.negative_nodes, currentSelectorToEdit.columns);
     currentSelectorToEdit = newSelector;
     pub.newSelectorGuess(currentSelectorToEdit);
+  }
+
+/**********************************************************************
+ * Handling next buttons
+ **********************************************************************/
+
+  var listeningForNextButtonClick = false;
+  $(document.addEventListener('click', nextButtonSelectorClick, true));
+  pub.nextButtonSelector = function(){
+    // ok, now we're listening for a next button click
+    listeningForNextButtonClick = true;
+    currentlyEditing = false;
+  };
+
+  function nextButtonSelectorClick(event){
+    if (!listeningForNextButtonClick){ return; }
+    listeningForNextButtonClick = false;
+    currentlyEditing = true;
+
+    event.stopPropagation();
+    event.preventDefault();
+    
+    var next_or_more_button = $(event.target);
+    var data = {};
+    data["tag"] = next_or_more_button.prop("tagName");
+    data["text"] = next_or_more_button.text();
+    data["id"] = next_or_more_button.attr("id");
+    data["xpath"] = nodeToXPath(event.target);
+    data["frame_id"] = SimpleRecord.getFrameId();
+    
+    utilities.sendMessage("content", "mainpanel", "nextButtonSelector", {selector: data});
   }
 
 return pub;}());

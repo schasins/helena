@@ -12,6 +12,7 @@ utilities.listenForMessage("background", "content", "tabID", function(msg){tabID
 utilities.listenForMessage("mainpanel", "content", "getRelationItems", function(msg){RelationFinder.getRelationItems(msg);});
 utilities.listenForMessage("mainpanel", "content", "editRelation", function(msg){RelationFinder.editRelation(msg);});
 utilities.sendMessage("content", "background", "requestTabID", {});
+utilities.listenForMessage("mainpanel", "content", "nextButtonSelector", function(msg){RelationFinder.nextButtonSelector(msg);});
 
 /**********************************************************************
  * The various node representations we may need

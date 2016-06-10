@@ -177,6 +177,19 @@ var RecorderUI = (function() {
     var nextTypeButtonset = div.find("#next_type").buttonset();
     radioButtons.change(function(){
       relation.nextType = parseInt(this.value);
+      if (relation.nextType === NextTypes.NEXTBUTTON || relation.nextType === NextTypes.MOREBUTTON){
+        // ok, we need the user to actually show us the button
+        var buttonType = "next";
+        if (relation.nextType === NextTypes.MOREBUTTON){ buttonType = "more";}
+        var expl = div.find("#next_type_explanation");
+        expl.html("Please click on the '"+buttonType+"' button now.");
+
+        utilities.listenForMessageOnce("content", "mainpanel", "nextButtonSelector", function(data){
+          relation.nextButtonSelector = data.selector;
+          expl.html("");
+        });
+        utilities.sendMessage("mainpanel", "content", "nextButtonSelector", null, null, null, [tabId]);
+      }
     });
 
     // ready button

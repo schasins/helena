@@ -489,7 +489,7 @@ var RelationFinder = (function() { var pub = {};
   }
 
   var highlightCount = 0;
-  var highlights = {};
+  var highlights = [];
   function highlightNodeC(target, color, display) {
     if (display === undefined){ display = true;}
     highlightCount +=1;
@@ -513,21 +513,18 @@ var RelationFinder = (function() { var pub = {};
     //newDiv.css('pointer-events', 'none');
     $(document.body).append(newDiv);
     var html = $target.html();
-    highlights[idName] = target;
+    highlights.push(target);
     return newDiv;
   }
 
-  function dehighlightNode(id) {
-    console.log("dehighlightNode");
-    $('#' + id).remove();
+  function clearHighlight(highlightNode){
+    highlights = _.without(highlights, highlightNode);
+    highlightNode.remove();
   }
 
   function clearHighlights(){
-    console.log("clearHighlights");
-    for (var key in highlights){
-      dehighlightNode(key);
-    }
-    highlights = {};
+    _.each(highlights, function(highlight){highlight.remove()});
+    highlights = [];
   }
 
 /**********************************************************************
@@ -556,7 +553,7 @@ var RelationFinder = (function() { var pub = {};
   };
 
   pub.highlightSelector = function(selectorObj){
-    pub.highlightRelation(selectorObj.relation);
+    return pub.highlightRelation(selectorObj.relation);
   };
 
   pub.sendSelector = function(selectorObj){
@@ -568,9 +565,10 @@ var RelationFinder = (function() { var pub = {};
     selectorObj.relation = relation; // restore the relation
   };
 
+  var currentSelectorHighlightNodes = [];
   pub.newSelectorGuess = function(selectorObj){
     pub.setRelation(selectorObj);
-    pub.highlightSelector(selectorObj);
+    currentSelectorHighlightNodes = pub.highlightSelector(selectorObj);
     pub.sendSelector(selectorObj);
   }
 
@@ -614,7 +612,7 @@ var RelationFinder = (function() { var pub = {};
     }
     // we've done all our highlight stuff, know we no longer need that
     // dehighlight our old list
-    clearHighlights();
+    _.each(currentSelectorHighlightNodes, clearHighlight);
 
     if (!removalClick){
       // ok, so we're trying to add a node.  is the node another cell in an existing row?  or another row?  could be either.
@@ -757,7 +755,7 @@ var RelationFinder = (function() { var pub = {};
 
   function unHighlightNextOrMoreButton(){
     if (nextOrMoreButtonHighlight !== null){
-      nextOrMoreButtonHighlight.remove();
+      clearHighlight(nextOrMoreButtonHighlight);
     }
   }
 

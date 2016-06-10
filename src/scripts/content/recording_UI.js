@@ -231,7 +231,7 @@ var RelationPreview = (function() { var pub = {};
       ServerTranslationUtilities.unJSONifyRelation(selectorObj);
       var relationOutput = RelationFinder.interpretRelationSelector(selectorObj);
       var nodeList = _.flatten(relationOutput);
-      var highlightNodes = RelationFinder.highlightRelation(relationOutput, false);
+      var highlightNodes = RelationFinder.highlightRelation(relationOutput, false, false);
       knownRelationsInfo.push({selectorObj: selectorObj, nodes: nodeList, highlightNodes: highlightNodes, highlighted: false});
     }  
   }
@@ -256,9 +256,6 @@ var RelationPreview = (function() { var pub = {};
         var n = winningRelation.highlightNodes[i];
         n.css("display", "block");
       }
-      // but remember we don't want to highlight the node currently being hovered in the same way
-      var hoveredNodeIndex = winningRelation.nodes.indexOf(node);
-      winningRelation.highlightNodes[hoveredNodeIndex].css("display", "none"); // the way flatten works and the order in which we append nodes in highlightRelation means the indexes will align
     }
 
   };

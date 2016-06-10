@@ -471,7 +471,7 @@ var RelationFinder = (function() { var pub = {};
  **********************************************************************/
 
   var colors = ["#9EE4FF","#9EB3FF", "#BA9EFF", "#9EFFEA", "#E4FF9E", "#FFBA9E", "#FF8E61"];
-  pub.highlightRelation = function(arrayOfArrays, display){
+  pub.highlightRelation = function(arrayOfArrays, display, pointerEvents){
     var nodes = [];
     for (var i = 0; i < arrayOfArrays.length ; i++){
       for (var j = 0; j < arrayOfArrays[i].length; j++){
@@ -481,7 +481,7 @@ var RelationFinder = (function() { var pub = {};
         if (j >= colors.length){
           colors.append("#000000".replace(/0/g,function(){return (~~(Math.random()*16)).toString(16);}));
         }
-        var node = highlightNodeC(node, colors[j], display);
+        var node = highlightNodeC(node, colors[j], display, pointerEvents);
         nodes.push(node);
       }
     }
@@ -490,8 +490,9 @@ var RelationFinder = (function() { var pub = {};
 
   var highlightCount = 0;
   var highlights = [];
-  function highlightNodeC(target, color, display) {
+  function highlightNodeC(target, color, display, pointerEvents) {
     if (display === undefined){ display = true;}
+    if (pointerEvents === undefined){ pointerEvents = false;}
     highlightCount +=1;
     $target = $(target);
     var offset = $target.offset();
@@ -510,7 +511,9 @@ var RelationFinder = (function() { var pub = {};
     if (display === false){
       newDiv.css('display', 'none');
     }
-    //newDiv.css('pointer-events', 'none');
+    if (pointerEvents === false){
+      newDiv.css('pointer-events', 'none');
+    }
     $(document.body).append(newDiv);
     var html = $target.html();
     highlights.push(target);
@@ -545,7 +548,21 @@ var RelationFinder = (function() { var pub = {};
     if (msg.next_type === NextTypes.NEXTBUTTON || msg.next_type === NextTypes.MOREBUTTON){
       highlightNextOrMoreButton(msg.next_button_selector);
     }
+
+    // we want to highlight the currently hovered node
+    document.addEventListener('mouseenter', highlightHovered, true);
   };
+
+  var currentHoverHighlight = null;
+  function highlightHovered(event){
+    var prevHoverHighlight = currentHoverHighlight;
+    var color = "#9D00FF";
+    if (listeningForNextButtonClick){
+      color = "#E04343";
+    }
+    if (prevHoverHighlight) {prevHoverHighlight.remove(); prevHoverHighlight = null;}
+    currentHoverHighlight = highlightNodeC(event.target, color);
+  }
 
   pub.setRelation = function(selectorObj){
     selectorObj.relation = pub.interpretRelationSelector(selectorObj);
@@ -553,7 +570,7 @@ var RelationFinder = (function() { var pub = {};
   };
 
   pub.highlightSelector = function(selectorObj){
-    return pub.highlightRelation(selectorObj.relation);
+    pub.highlightRelation(selectorObj.relation, true, true); // we want to allow clicks on the highlights (see editingClick)
   };
 
   pub.sendSelector = function(selectorObj){

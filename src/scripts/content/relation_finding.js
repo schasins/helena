@@ -439,10 +439,15 @@ var RelationFinder = (function() { var pub = {};
     if (bestSelectorIsNew) {
       newMsg.relation_id = null;
       newMsg.name = null;
+      // we always guess that there are no more items (no more pages), and user has to correct it if this is not the case
+      newMsg.next_type = NextTypes.NONE;
+      newMsg.next_button_selector = null;
     }
     else {
       newMsg.relation_id = currBestSelector.id;
       newMsg.name = currBestSelector.name;
+      newMsg.next_type = currBestSelector.next_type;
+      newMsg.next_button_selector = currBestSelector.next_button_selector;
     }
     console.log(currBestSelector);
     newMsg.exclude_first = currBestSelector.exclude_first;
@@ -451,9 +456,6 @@ var RelationFinder = (function() { var pub = {};
     newMsg.selector_version = 1; // right now they're all 1
     newMsg.columns = currBestSelector.columns;
     newMsg.first_page_relation = currBestSelector.relation;
-    // we always guess that there are no more items (no more pages), and user has to correct it if this is not the case
-    newMsg.next_type = NextTypes.NONE;
-    newMsg.next_button_selector = null;
 
     utilities.sendMessage("content", "mainpanel", "likelyRelation", newMsg);
   }
@@ -533,11 +535,9 @@ var RelationFinder = (function() { var pub = {};
  **********************************************************************/
 
   var currentSelectorToEdit = null;
-  var currentlyEditing = false;
   pub.editRelation = function(msg){
     // utilities.sendMessage("mainpanel", "content", "editRelation", {selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns}, null, null, [tab.id]);};
     currentSelectorToEdit = msg;
-    currentlyEditing = true;
     document.addEventListener('click', editingClick, true);
     pub.setRelation(currentSelectorToEdit)
     pub.highlightSelector(currentSelectorToEdit);
@@ -545,6 +545,9 @@ var RelationFinder = (function() { var pub = {};
     msg.positive_nodes = [findCommonAncestor(currentSelectorToEdit.relation[0]),findCommonAncestor(currentSelectorToEdit.relation[1])];
     msg.negative_nodes = [];
     pub.sendSelector(currentSelectorToEdit);
+    if (msg.next_type === NextTypes.NEXTBUTTON || msg.next_type === NextTypes.MOREBUTTON){
+      highlightNextOrMoreButton(msg.next_button_selector);
+    }
   };
 
   pub.setRelation = function(selectorObj){
@@ -572,7 +575,11 @@ var RelationFinder = (function() { var pub = {};
   }
 
   function editingClick(event){
-    if (!currentlyEditing){ return; }
+    if (listeningForNextButtonClick){
+      // don't want to do normal editing click...
+      nextButtonSelectorClick(event);
+      return;
+    }
 
     event.stopPropagation();
     event.preventDefault();
@@ -673,30 +680,87 @@ var RelationFinder = (function() { var pub = {};
  **********************************************************************/
 
   var listeningForNextButtonClick = false;
-  $(document.addEventListener('click', nextButtonSelectorClick, true));
   pub.nextButtonSelector = function(){
     // ok, now we're listening for a next button click
     listeningForNextButtonClick = true;
-    currentlyEditing = false;
+    pub.clearNextButtonSelector(); // remove an old one if there is one
+  };
+
+  pub.clearNextButtonSelector = function(){
+    // we just want to unhighlight it if there is one...
+    unHighlightNextOrMoreButton();
   };
 
   function nextButtonSelectorClick(event){
-    if (!listeningForNextButtonClick){ return; }
     listeningForNextButtonClick = false;
-    currentlyEditing = true;
 
     event.stopPropagation();
     event.preventDefault();
     
     var next_or_more_button = $(event.target);
     var data = {};
-    data["tag"] = next_or_more_button.prop("tagName");
-    data["text"] = next_or_more_button.text();
-    data["id"] = next_or_more_button.attr("id");
-    data["xpath"] = nodeToXPath(event.target);
-    data["frame_id"] = SimpleRecord.getFrameId();
+    data.tag = next_or_more_button.prop("tagName");
+    data.text = next_or_more_button.text();
+    data.id = next_or_more_button.attr("id");
+    data.xpath = nodeToXPath(event.target);
+    data.frame_id = SimpleRecord.getFrameId();
     
     utilities.sendMessage("content", "mainpanel", "nextButtonSelector", {selector: data});
+    highlightNextOrMoreButton(data);
   }
+
+  function findNextButton(next_button_data){
+    console.log(next_button_data);
+    var next_or_more_button_tag = next_button_data.tag;
+    var next_or_more_button_text = next_button_data.text;
+    var next_or_more_button_id = next_button_data.id;
+    var next_or_more_button_xpath = next_button_data.xpath;
+    var button = null;
+    var candidate_buttons = $(next_or_more_button_tag).filter(function(){ return $(this).text() === next_or_more_button_text;});
+    //hope there's only one button
+    if (candidate_buttons.length === 1){
+      button = candidate_buttons[0];
+    }
+    else{
+      //if not and demo button had id, try using the id
+      if (next_or_more_button_id !== undefined && next_or_more_button_id !== ""){
+        button = $("#"+next_or_more_button_id);
+      }
+      else{
+        //see which candidate has the right text and closest xpath
+        var min_distance = 999999;
+        var min_candidate = null;
+        for (var i=0; i<candidate_buttons.length; i++){
+          candidate_xpath = nodeToXPath(candidate_buttons[i]);
+          var distance = MiscUtilities.levenshteinDistance(candidate_xpath,next_or_more_button_xpath);
+          if (distance<min_distance){
+            min_distance = distance;
+            min_candidate = candidate_buttons[i];
+          }
+        }
+        if (min_candidate === null){
+          console.log("couldn't find an appropriate 'more' button");
+          console.log(next_or_more_button_tag, next_or_more_button_id, next_or_more_button_text, next_or_more_button_xpath);
+        }
+        button = min_candidate;
+      }
+    }
+    return button;
+  }
+
+  var nextOrMoreButtonHighlight = null;
+  function highlightNextOrMoreButton(selector){
+    console.log(selector);
+    var button = findNextButton(selector);
+    nextOrMoreButtonHighlight = highlightNodeC(button, "#E04343", true);
+  }
+
+  function unHighlightNextOrMoreButton(){
+    if (nextOrMoreButtonHighlight !== null){
+      nextOrMoreButtonHighlight.remove();
+    }
+  }
+
+
 
 return pub;}());

@@ -48,6 +48,7 @@
   "web_accessible_resources": [					
                 "scripts/lib/utilities.js", 
 								"scripts/lib/jquery.js", 
+                "scripts/lib/stableStringify.js", 
 								"scripts/lib/underscore-min.js", 
 								"scripts/lib/underscore-min.map",
                 "scripts/lib/record-replay/content_dom.js",

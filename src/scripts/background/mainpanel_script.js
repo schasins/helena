@@ -190,6 +190,9 @@ var RecorderUI = (function() {
         });
         utilities.sendMessage("mainpanel", "content", "nextButtonSelector", null, null, null, [tabId]);
       }
+      else{
+        utilities.sendMessage("mainpanel", "content", "clearNextButtonSelector", null, null, null, [tabId]);
+      }
     });
 
     // ready button
@@ -938,7 +941,7 @@ var WebAutomationLanguage = (function() {
     };
 
     this.messageRelationRepresentation = function(){
-      return {selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns, next_type: this.nextType, next_button_selector: this.nextButtonSelector};
+      return {id: this.id, name: this.name, selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns, next_type: this.nextType, next_button_selector: this.nextButtonSelector, url: this.url, num_rows_in_demonstration: this.numRowsInDemo};
     };
 
     this.getNextRow = function(pageVar, callback){ // has to be called on a page, since a relation selector can be applied to many pages.  higher-level tool must control where to apply
@@ -985,9 +988,9 @@ var WebAutomationLanguage = (function() {
     this.saveToServer = function(){
       // sample: $($.post('http://localhost:3000/saverelation', { relation: {name: "test", url: "www.test2.com/test-test2", selector: "test2", selector_version: 1, num_rows_in_demonstration: 10}, columns: [{name: "col1", xpath: "a[1]/div[1]", suffix: "div[1]"}] } ));
       // todo: this should really be stable stringified (the selector), since we'll be using it to test equality of different relations
-      var rel = { relation: {name: this.name, url: this.url, selector: this.selector, selector_version: this.selectorVersion, num_rows_in_demonstration: this.numRowsInDemo}, columns: _.map(this.columns, function(colObj){return {name: colObj.name, xpath: colObj.xpath, suffix: colObj.suffix};}) };
+      var rel = this.messageRelationRepresentation();
       ServerTranslationUtilities.JSONifyRelation(rel);
-      $.post('http://visual-pbd-scraping-server.herokuapp.com/saverelation', rel);
+      $.post('http://visual-pbd-scraping-server.herokuapp.com/saverelation', {relation: rel});
     }
 
     var tabReached = false;
@@ -1011,7 +1014,7 @@ var WebAutomationLanguage = (function() {
     this.selectorFromContentScript = function(msg){
       tabReached = true;
       this.selector = msg.selector;
-      this.selectorVersion = msg.selectorVersion;
+      this.selectorVersion = msg.selector_version;
       this.excludeFirst = msg.exclude_first;
       this.columns = msg.columns;
       this.demonstrationTimeRelation = msg.demonstration_time_relation;

@@ -874,16 +874,12 @@ var WebAutomationLanguage = (function() {
     this.firstRowXpathsInOrder = function(){
       console.log(relation.demonstrationTimeRelation[0]);
       console.log(_.map(relation.demonstrationTimeRelation[0], function(cell){ return cell.xpath;}));
-      return this.parameterizeableXpaths();
+      return relation.parameterizeableXpaths();
     }
 
-    function genParameterizeableXpaths(){
+    this.parameterizeableXpaths = function(){
       // for now, will only parameterize on the first row
       return _.map(relation.demonstrationTimeRelation[0], function(cell){ return cell.xpath;});
-    }
-    var parameterizeableXpaths = genParameterizeableXpaths(); // for now we're assuming that the demonstrationtimerelation never changes in a single relation object.  if it does, we'll have to refresh this
-    this.parameterizeableXpaths = function(){
-      return parameterizeableXpaths;
     }
 
     function domain(url){
@@ -900,18 +896,27 @@ var WebAutomationLanguage = (function() {
     }
 
     var xpathsToColumnObjects = {};
-    function processColumns(){
-      console.log("columns", relation.columns);
+    this.processColumns = function(){
+      newXpathsToColumnObjects = {};
       for (var i = 0; i < relation.columns.length; i++){
-        var xpath = relation.columns[i].xpath;
-        if (relation.columns[i].name === null || relation.columns[i].name === undefined){
-          relation.columns[i].name = relation.name+"_item_"+(i+1); // a filler name that we'll use for now
-        }
-        relation.columns[i].index = i; // should later look at whether this index is good enough
-        xpathsToColumnObjects[xpath] = relation.columns[i];
+        processColumn(relation.columns[i], i, xpathsToColumnObjects[relation.columns[i].xpath]); // should later look at whether this index is good enough
+        newXpathsToColumnObjects[relation.columns[i].xpath] = relation.columns[i];
       }
+      xpathsToColumnObjects = newXpathsToColumnObjects
+    };
+    this.processColumns();
+
+    function processColumn(colObject, index, oldColObject){
+      if (colObject.name === null || colObject.name === undefined){
+        if (oldColObject && oldColObject.name){
+          colObject.name = oldColObject.name;
+        }
+        else{
+          colObject.name = relation.name+"_item_"+(index+1); // a filler name that we'll use for now
+        }
+      }
+      colObject.index = index;
     }
-    processColumns();
 
     this.nameColumnsAndRelation = function(){
       // should eventually consider looking at existing columns to suggest columns names
@@ -1017,6 +1022,7 @@ var WebAutomationLanguage = (function() {
       this.selectorVersion = msg.selector_version;
       this.excludeFirst = msg.exclude_first;
       this.columns = msg.columns;
+      this.processColumns();
       this.demonstrationTimeRelation = msg.demonstration_time_relation;
       this.numRowsInDemo = msg.num_rows_in_demo;
       this.nextType = msg.next_type;

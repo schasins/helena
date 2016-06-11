@@ -481,54 +481,14 @@ var RelationFinder = (function() { var pub = {};
         if (j >= colors.length){
           colors.append("#000000".replace(/0/g,function(){return (~~(Math.random()*16)).toString(16);}));
         }
-        var node = highlightNodeC(node, colors[j], display, pointerEvents);
+        var node = Highlight.highlightNode(node, colors[j], display, pointerEvents);
         nodes.push(node);
       }
     }
     return nodes;
   }
 
-  var highlightCount = 0;
-  var highlights = [];
-  function highlightNodeC(target, color, display, pointerEvents) {
-    if (display === undefined){ display = true;}
-    if (pointerEvents === undefined){ pointerEvents = false;}
-    highlightCount +=1;
-    $target = $(target);
-    var offset = $target.offset();
-    var boundingBox = target.getBoundingClientRect();
-    var newDiv = $('<div/>');
-    var idName = 'vpbd-hightlight-' + highlightCount;
-    newDiv.attr('id', idName);
-    newDiv.css('width', boundingBox.width);
-    newDiv.css('height', boundingBox.height);
-    newDiv.css('top', offset.top);
-    newDiv.css('left', offset.left);
-    newDiv.css('position', 'absolute');
-    newDiv.css('z-index', 1000);
-    newDiv.css('background-color', color);
-    newDiv.css('opacity', .4);
-    if (display === false){
-      newDiv.css('display', 'none');
-    }
-    if (pointerEvents === false){
-      newDiv.css('pointer-events', 'none');
-    }
-    $(document.body).append(newDiv);
-    var html = $target.html();
-    highlights.push(target);
-    return newDiv;
-  }
 
-  function clearHighlight(highlightNode){
-    highlights = _.without(highlights, highlightNode);
-    highlightNode.remove();
-  }
-
-  function clearHighlights(){
-    _.each(highlights, function(highlight){highlight.remove()});
-    highlights = [];
-  }
 
 /**********************************************************************
  * Everything we need for editing a relation selector
@@ -561,7 +521,7 @@ var RelationFinder = (function() { var pub = {};
       color = "#E04343";
     }
     if (prevHoverHighlight) {prevHoverHighlight.remove(); prevHoverHighlight = null;}
-    currentHoverHighlight = highlightNodeC(event.target, color);
+    currentHoverHighlight = Highlight.highlightNode(event.target, color);
   }
 
   pub.setRelation = function(selectorObj){
@@ -767,7 +727,7 @@ var RelationFinder = (function() { var pub = {};
   function highlightNextOrMoreButton(selector){
     console.log(selector);
     var button = findNextButton(selector);
-    nextOrMoreButtonHighlight = highlightNodeC(button, "#E04343", true);
+    nextOrMoreButtonHighlight = Highlight.highlightNode(button, "#E04343", true);
   }
 
   function unHighlightNextOrMoreButton(){

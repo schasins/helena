@@ -192,6 +192,57 @@ var MiscUtilities = (function() { var pub = {};
     return matrix[b.length][a.length];
   };
 
+  pub.targetFromEvent = function(event){
+    return event.target; // this used to be fancier.  unclear if this will always be necessary
+  }
+
+return pub; }());
+
+
+var Highlight = (function() { var pub = {};
+
+  var highlightCount = 0;
+  var highlights = [];
+  pub.highlightNode = function(target, color, display, pointerEvents) {
+    if (display === undefined){ display = true;}
+    if (pointerEvents === undefined){ pointerEvents = false;}
+    highlightCount +=1;
+    $target = $(target);
+    var offset = $target.offset();
+    var boundingBox = target.getBoundingClientRect();
+    var newDiv = $('<div/>');
+    var idName = 'vpbd-hightlight-' + highlightCount;
+    newDiv.attr('id', idName);
+    newDiv.css('width', boundingBox.width);
+    newDiv.css('height', boundingBox.height);
+    newDiv.css('top', offset.top);
+    newDiv.css('left', offset.left);
+    newDiv.css('position', 'absolute');
+    newDiv.css('z-index', 1000);
+    newDiv.css('background-color', color);
+    newDiv.css('opacity', .4);
+    if (display === false){
+      newDiv.css('display', 'none');
+    }
+    if (pointerEvents === false){
+      newDiv.css('pointer-events', 'none');
+    }
+    $(document.body).append(newDiv);
+    var html = $target.html();
+    highlights.push(target);
+    return newDiv;
+  }
+
+  pub.clearHighlight = function(highlightNode){
+    highlights = _.without(highlights, highlightNode);
+    highlightNode.remove();
+  }
+
+  pub.clearAllHighlights = function(){
+    _.each(highlights, function(highlight){highlight.remove()});
+    highlights = [];
+  }
+
 return pub; }());
 
 var NextTypes = {

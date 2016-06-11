@@ -7,17 +7,14 @@
  **********************************************************************/
 
 var RecordingHandlers = (function() { var pub = {};
-  function targetFromEvent(event){
-    return event.target;
-  }
 
   pub.mouseoverHandler = function(event){
     if (currentlyRecording()){
-      Tooltip.scrapingTooltip(targetFromEvent(event));
-      RelationPreview.relationHighlight(targetFromEvent(event));
+      Tooltip.scrapingTooltip(MiscUtilities.targetFromEvent(event));
+      RelationPreview.relationHighlight(MiscUtilities.targetFromEvent(event));
     }
     if (currentlyScraping()){
-      Highlight.highlight(targetFromEvent(event));
+      Scraping.scrapingMousein(event);
     }
   }
 
@@ -27,7 +24,7 @@ var RecordingHandlers = (function() { var pub = {};
       RelationPreview.relationUnhighlight();
     }
     if (currentlyScraping()){
-      Highlight.unhighlight(targetFromEvent(event));
+      Scraping.scrapingMousein(event);
     }
   }
 
@@ -62,46 +59,8 @@ function currentlyScraping(){
 }
 
 /**********************************************************************
- * Highlighting, tooltips, for giving user feedback about current node
+ * Tooltips, for giving user feedback about current node
  **********************************************************************/
-
-var Highlight = (function() { var pub = {};
-  var highlightColorDefault = "#E04343";
-  var currNodes = [];
-  pub.highlight = function(target, highlightColor){
-    if(highlightColor === undefined) { highlightColor = highlightColorDefault;}
-    $target = $(target);
-    $target.data("stored_background_color", window.getComputedStyle(target, null).getPropertyValue('background-color'));
-    $target.data("stored_outline", window.getComputedStyle(target, null).getPropertyValue('outline'));
-    currNodes.push(target);
-    $target.css('background-color', highlightColor);
-    $target.css('outline', highlightColor+' 1px solid');
-  }
-
-  pub.unhighlight = function(target){
-    $target = $(target);
-    targetString = $target.text(); // is this actually an ok identifier?
-    $target.css('background-color', $target.data("stored_background_color"));
-    $target.css('outline', $target.data("stored_outline"));
-    var index = currNodes.indexOf(target);
-    currNodes.splice(index, 1);
-  }
-
-  pub.unhighlightIfHighlighted = function(target){
-    var index = currNodes.indexOf(target);
-    if (index > -1){
-      Highlight.unhighlight(target);
-      return true;
-    }
-    return false;
-  }
-
-  pub.unhighlightRemaining = function(){
-    for (var i = 0; i < currNodes.length; i++){
-      Highlight.unhighlight(currNodes[i]);
-    }
-  }
-return pub;}());
 
 var Tooltip = (function() { var pub = {};
   var tooltipColorDefault = "#DBDBDB";
@@ -156,17 +115,25 @@ var Scraping = (function() { var pub = {};
   }
 
   // functions for letting the record and replay layer know whether to run the additional handler above
+  var currentHighlightNode = null
   pub.startProcessingScrape = function(){
     additional_recording_handlers_on.scrape = true;
-    Highlight.highlight(mostRecentMousemoveTarget);
+    currentHighlightNode = Highlight.highlightNode(mostRecentMousemoveTarget, "#E04343", true, false); // want highlight shown now, want clicks to fall through
   }
 
   pub.stopProcessingScrape = function(){
     additional_recording_handlers_on.scrape = false;
-    console.log(additional_recording_handlers_on);
-    console.log(currentlyScraping());
-    Highlight.unhighlightRemaining();
+    Highlight.clearHighlight(currentHighlightNode);
   }
+
+  pub.scrapingMousein = function(event){
+    Highlight.clearHighlight(currentHighlightNode);
+    currentHighlightNode = Highlight.highlightNode(MiscUtilities.targetFromEvent(event), "#E04343", true, false);
+  };
+
+  pub.scrapingMouseout = function(event){
+    Highlight.clearHighlight(currentHighlightNode);
+  };
 
   // clicks during scraping mode are special.  don't want to follow links for example
   document.addEventListener('click', scrapingClick, true);
@@ -189,12 +156,8 @@ return pub;}());
 var Visualization = (function() { var pub = {};
   $(function(){
     additional_recording_handlers.visualization = function(node, eventMessage){
-      var currentlyHighlighted = Highlight.unhighlightIfHighlighted(node);
       html2canvas(node, {
         onrendered: function(canvas) { 
-          if (currentlyHighlighted){
-            Highlight.highlight(node);
-          }
           updateExistingEvent(eventMessage, "additional.visualization", canvas.toDataURL());
         }
       });

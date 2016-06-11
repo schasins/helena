@@ -831,7 +831,7 @@ var WebAutomationLanguage = (function() {
 
     this.toStringLines = function(){
       var relation = this.relation;
-      var varNames = _.map(relation.columnObjects, function(columnObject){return columnObject.name;});
+      var varNames = _.map(relation.columns, function(columnObject){return columnObject.name;});
       var prefix = "for "+varNames.join(", ")+" in "+this.pageVar.toString()+"."+this.relation.name+":";
       var statementStrings = _.reduce(this.bodyStatements, function(acc, statement){return acc.concat(statement.toStringLines());}, []);
       statementStrings = _.map(statementStrings, function(line){return ("&nbsp&nbsp&nbsp&nbsp "+line);});

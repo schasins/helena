@@ -15,7 +15,8 @@
     "webRequest",
     "storage",
     "unlimitedStorage",
-    "webRequestBlocking"
+    "webRequestBlocking",
+    "system.display" 
   ],
   "background": {
     "page": "pages/background.html"

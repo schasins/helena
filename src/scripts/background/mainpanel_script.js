@@ -29,12 +29,32 @@ var RecorderUI = (function() {
     div.find("#start_recording").click(RecorderUI.startRecording);
   };
 
+  var recordingWindowId = null;
   pub.startRecording = function(){
     var div = $("#new_script_content");
     DOMCreationUtilities.replaceContent(div, $("#recording"));
     div.find("#stop_recording").click(RecorderUI.stopRecording);
 
-    SimpleRecord.startRecording();
+    chrome.windows.getCurrent(function (currWindowInfo){
+      var right = currWindowInfo.left + currWindowInfo.width;
+      chrome.system.display.getInfo(function(displayInfoLs){
+        for (var i = 0; i < displayInfoLs.length; i++){
+          var bounds = displayInfoLs[i].bounds;
+          bounds.right = bounds.left + bounds.width;
+          console.log(bounds);
+          if (bounds.left <= right && bounds.right >= right){
+            // we've found the right display
+            var top = currWindowInfo.top - 40; // - 40 because it doesn't seem to count the menu bar and I'm not looking for a more accurate solution at the moment
+            var left = right; // let's have it adjacent to the control panel
+            chrome.windows.create({url: "pages/newRecordingWindow.html", focused: true, left: left, top: top, width: (bounds.right - right), height: (bounds.top + bounds.height - top)}, function(win){
+              SimpleRecord.startRecording();
+              recordingWindowId = win.id;
+              console.log("Only recording in window: ", recordingWindowId);
+            });
+          }
+        }
+      });
+    });
   };
 
   function activateButton(div, selector, handler){
@@ -45,7 +65,7 @@ var RecorderUI = (function() {
 
   pub.stopRecording = function(){
     var trace = SimpleRecord.stopRecording();
-    var program = ReplayScript.setCurrentTrace(trace);
+    var program = ReplayScript.setCurrentTrace(trace, recordingWindowId);
     var scriptString = program.toString();
     program.relevantRelations(); // now that we have a script, let's set some processing in motion that will figure out likely relations
     var div = $("#new_script_content");
@@ -350,9 +370,9 @@ var ReplayScript = (function() {
 
   // controls the sequence of transformations we do when we get a trace
 
-  pub.setCurrentTrace = function(trace){
+  pub.setCurrentTrace = function(trace, windowId){
     console.log(trace);
-    trace = processTrace(trace);
+    trace = processTrace(trace, windowId);
     trace = prepareForDisplay(trace);
     trace = markUnnecessaryLoads(trace);
     trace = associateNecessaryLoadsWithIDs(trace);
@@ -368,9 +388,20 @@ var ReplayScript = (function() {
 
   // functions for each transformation
 
-  function processTrace(trace){
+  function processTrace(trace, windowId){
+    console.log(trace);
     trace = sanitizeTrace(trace);
+    console.log(trace);
+    console.log(trace.length);
+    trace = windowFilter(trace, windowId);
+    console.log(trace);
+    console.log(trace.length);
     return trace;
+  }
+
+  // strip out events that weren't performed in the window we created for recording
+  function windowFilter(trace, windowId){
+    return _.filter(trace, function(event){return (event.data && event.data.windowId === windowId) || (event.frame && event.frame.windowId === windowId);});
   }
 
   // strip out the 'stopped' events

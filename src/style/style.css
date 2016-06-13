@@ -125,3 +125,11 @@ h4 {
 #next_type_explanation{
 	background-color: #E04343;
 }
+
+.big{
+	font-size: 24px;
+}
+
+.center{
+	text-align: center;
+}

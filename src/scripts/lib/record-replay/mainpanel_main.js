@@ -12,6 +12,7 @@ var PortManager = (function PortManagerClosure() {
     this.portIdToPort = {};
     this.portIdToTabId = {};
     this.portIdToPortInfo = {};
+    this.portIdToWindowId = {};
     this.tabIdToPortIds = {};
     this.tabIdToTabInfo = {};
     this.tabIdToTab = {};
@@ -29,6 +30,9 @@ var PortManager = (function PortManagerClosure() {
     },
     getTabId: function _getTabId(portId) {
       return this.portIdToTabId[portId];
+    },
+    getWindowId: function _getTabId(portId) {
+      return this.portIdToWindowId[portId];
     },
     getTabInfo: function _getTabInfo(tabId) {
       var tabInfo = this.tabIdToTabInfo[tabId];
@@ -97,10 +101,12 @@ var PortManager = (function PortManagerClosure() {
       var tabId = sender.tab.id;
       this.tabIdToTab[tabId] = sender.tab;
       portLog.log('adding tab:', tabId, sender.tab);
+      var windowId = sender.tab.windowId;
 
       this.portIdToTabId[portId] = tabId;
       this.portIdToPortInfo[portId] = value;
       value.portId = portId;
+      this.portIdToWindowId[portId] = windowId;
 
       var portIds = this.tabIdToPortIds[tabId];
       if (!portIds) {
@@ -246,6 +252,7 @@ var Record = (function RecordClosure() {
       if (portId) {
         var ports = this.ports;
         var tab = ports.getTabId(portId);
+        var win = ports.getWindowId(portId);
         var tabInfo = ports.getTabInfo(tab);
         // TODO: this is broken, maybe
         var topURL = tabInfo.top.URL;
@@ -272,6 +279,7 @@ var Record = (function RecordClosure() {
         e.frame.topFrame = topFrame;
         e.frame.iframeIndex = iframeIndex;
         e.frame.tab = tab;
+        e.frame.windowId = win;
       }
 
       /* Save timing info */
@@ -1461,7 +1469,6 @@ function addWebRequestEvent(details, type) {
   data.method = details.method;
   data.parentFrameId = details.parentFrameId;
   data.tabId = details.tabId;
-  data.tabId = details.tabId;
   data.type = details.type;
   data.url = details.url;
   data.reqTimeStamp = details.timeStamp;
@@ -1472,6 +1479,11 @@ function addWebRequestEvent(details, type) {
   v.type = type;
 
   addBackgroundEvent(v);
+
+  // let's also figure out the window that should be associated with this web request, add that info once we get it
+  chrome.tabs.get(details.tabId, function (tab) {
+    v.data.windowId = tab.windowId;
+  });
 }
 
 var filter = {urls: ['http://*/*', 'https://*/*'],

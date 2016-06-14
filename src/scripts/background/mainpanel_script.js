@@ -490,6 +490,32 @@ var ReplayScript = (function() {
     return false;
   }
 
+  function postSegmentationInvisibilityDetectionAndMerging(segments){
+    // noticed that we see cases of users doing stray keypresses while over non-targets (as when about to scrape, must hold keys), then get confused when there are screenshots of whole page (or other node) in the control panel
+    // so this merging isn't essential or especially foundational, but this detects the cases that are usually just keypresses that won't be parameterized or changed, and it can make the experience less confusing for users if we don't show them
+    var outputSegments = [];
+    for (var i = 0; i < segments.length; i++){
+      var segment = segments[i];
+      var merge = false;
+      if (WebAutomationLanguage.statementType(segment[0]) === StatementTypes.KEYBOARD){
+        // ok, it's keyboard events
+        console.log(segment[0].target);
+        if (segment[0].target.snapshot.value === undefined && segment.length < 20){
+          // yeah, the user probably doesn't want to see this...
+          merge = true;
+        }
+      }
+      var currentOutputLength = outputSegments.length;
+      if (merge && currentOutputLength > 0){
+        outputSegments[currentOutputLength - 1] = outputSegments[currentOutputLength - 1].concat(segments[i]);
+      }
+      else{
+        outputSegments.push(segments[i]);
+      }
+    }
+    return outputSegments;
+  }
+
   function segment(trace){
     var allSegments = [];
     var currentSegment = [];
@@ -508,6 +534,7 @@ var ReplayScript = (function() {
         currentSegmentVisibleEvent = ev; // if this were an invisible event, we wouldn't have needed to start a new block, so it's always ok to put this in for the current segment's visible event
       }});
     allSegments.push(currentSegment); // put in that last segment
+    allSegments = postSegmentationInvisibilityDetectionAndMerging(allSegments);
     return allSegments;
   }
 

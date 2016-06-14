@@ -6,6 +6,7 @@ function setUp(){
   //utilities.listenForMessage("content", "mainpanel", "moreItems", moreItems);
   utilities.listenForMessage("content", "mainpanel", "scrapedData", RecorderUI.processScrapedData);
   utilities.listenForMessage("content", "mainpanel", "likelyRelation", RecorderUI.processLikelyRelation);
+  utilities.listenForMessage("content", "mainpanel", "requestCurrentRecordingWindow", RecorderUI.sendCurrentRecordingWindow);
   
   //handle user interactions with the mainpanel
   //$("button").button(); 
@@ -49,6 +50,7 @@ var RecorderUI = (function() {
             chrome.windows.create({url: "pages/newRecordingWindow.html", focused: true, left: left, top: top, width: (bounds.right - right), height: (bounds.top + bounds.height - top)}, function(win){
               SimpleRecord.startRecording();
               recordingWindowId = win.id;
+              pub.sendCurrentRecordingWindow();
               console.log("Only recording in window: ", recordingWindowId);
             });
           }
@@ -56,6 +58,10 @@ var RecorderUI = (function() {
       });
     });
   };
+
+  pub.sendCurrentRecordingWindow = function(){
+    utilities.sendMessage("mainpanel", "content", "currentRecordingWindow", {window_id: recordingWindowId}); // the tabs will check whether they're in the window that's actually recording to figure out what UI stuff to show
+  }
 
   function activateButton(div, selector, handler){
     var button = div.find(selector);

@@ -7,13 +7,17 @@
  **********************************************************************/
 
 var tabID = "setme";
+var windowId = "setme";
+var currentRecordingWindow = null;
 utilities.listenForMessage("mainpanel", "content", "likelyRelation", function(msg){RelationFinder.likelyRelation(msg);});
-utilities.listenForMessage("background", "content", "tabID", function(msg){tabID = msg; console.log("tab id: ", msg);});
+utilities.listenForMessage("background", "content", "tabID", function(msg){tabID = msg.tab_id; windowId = msg.window_id; console.log("tab id: ", msg);});
 utilities.listenForMessage("mainpanel", "content", "getRelationItems", function(msg){RelationFinder.getRelationItems(msg);});
 utilities.listenForMessage("mainpanel", "content", "editRelation", function(msg){RelationFinder.editRelation(msg);});
 utilities.sendMessage("content", "background", "requestTabID", {});
 utilities.listenForMessage("mainpanel", "content", "nextButtonSelector", function(msg){RelationFinder.nextButtonSelector(msg);});
 utilities.listenForMessage("mainpanel", "content", "clearNextButtonSelector", function(msg){RelationFinder.clearNextButtonSelector(msg);});
+utilities.listenForMessage("mainpanel", "content", "currentRecordingWindow", function(msg){currentRecordingWindow = msg.window_id;});
+utilities.sendMessage("content", "mainpanel", "requestCurrentRecordingWindow", {});
 
 /**********************************************************************
  * The various node representations we may need

@@ -1481,9 +1481,12 @@ function addWebRequestEvent(details, type) {
   addBackgroundEvent(v);
 
   // let's also figure out the window that should be associated with this web request, add that info once we get it
-  chrome.tabs.get(details.tabId, function (tab) {
-    v.data.windowId = tab.windowId;
-  });
+  // -1 means the request is not associated with a particular tab
+  if (details.tabId > -1){
+    chrome.tabs.get(details.tabId, function (tab) {
+      v.data.windowId = tab.windowId;
+    });
+  }
 }
 
 var filter = {urls: ['http://*/*', 'https://*/*'],

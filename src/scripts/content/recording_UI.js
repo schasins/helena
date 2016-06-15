@@ -156,9 +156,16 @@ return pub;}());
 var Visualization = (function() { var pub = {};
   $(function(){
     additional_recording_handlers.visualization = function(node, eventMessage){
+      if (node.html2canvasDataUrl){
+        // yay, we've already done the 'screenshot', need not do it again
+        console.log("cached visualization");
+        updateExistingEvent(eventMessage, "additional.visualization", node.html2canvasDataUrl);
+      }
       html2canvas(node, {
         onrendered: function(canvas) { 
-          updateExistingEvent(eventMessage, "additional.visualization", canvas.toDataURL());
+          var dataUrl = canvas.toDataURL();
+          node.html2canvasDataUrl = dataUrl;
+          updateExistingEvent(eventMessage, "additional.visualization", dataUrl);
         }
       });
       return null;

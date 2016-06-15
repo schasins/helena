@@ -630,7 +630,7 @@ var WebAutomationLanguage = (function() {
     if (statement.currentNode instanceof WebAutomationLanguage.VariableUse){
       return statement.currentNode.toString();
     }
-    return "<img src='"+statement.trace[0].additional.visualization+"'>";
+    return "<img src='"+statement.trace[0].additional.visualization+"' style='max-height: 150px; max-width: 350px;'>";
   }
 
   function outputPagesRepresentation(statement){

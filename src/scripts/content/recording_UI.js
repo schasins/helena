@@ -159,12 +159,17 @@ var Visualization = (function() { var pub = {};
       if (node.html2canvasDataUrl){
         // yay, we've already done the 'screenshot', need not do it again
         updateExistingEvent(eventMessage, "additional.visualization", node.html2canvasDataUrl);
+        return;
       }
+      if (node.waitingForRender){
+        setTimeout(function(){additional_recording_handlers.visualization(node, eventMessage);}, 100);
+        return;
+      }
+      // ok, looks like this is actually the first time seeing this, better actually canvasize it
+      node.waitingForRender = true;
       html2canvas(node, {
         onrendered: function(canvas) { 
-          console.log(canvas);
           canvas = identifyTransparentEdges(canvas);
-          console.log(canvas);
           var dataUrl = canvas.toDataURL();
           node.html2canvasDataUrl = dataUrl;
           updateExistingEvent(eventMessage, "additional.visualization", dataUrl);
@@ -243,7 +248,6 @@ var Visualization = (function() { var pub = {};
     tempCanvas.height = (bottom - top);
     tContext.drawImage(canvas, left, top);
 
-    console.log(left, right, top, bottom);
     return tempCanvas;
   }
 

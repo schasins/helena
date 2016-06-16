@@ -246,7 +246,11 @@ var Visualization = (function() { var pub = {};
         tContext = tempCanvas.getContext("2d");
     tempCanvas.width = (right - left);
     tempCanvas.height = (bottom - top);
-    tContext.drawImage(canvas, left, top);
+    tContext.drawImage(canvas, left, top, tempCanvas.width, tempCanvas.height, 0, 0, tempCanvas.width, tempCanvas.height);
+
+    console.log(canvas.width, canvas.height);
+    console.log(left, right, top, bottom);
+    console.log(tempCanvas.width, tempCanvas.height);
 
     return tempCanvas;
   }

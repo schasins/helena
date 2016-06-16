@@ -191,6 +191,10 @@ var RecorderUI = (function() {
       editRelationButton.button();
       editRelationButton.click(function(){relation.editSelector();});
       $relDiv.append(editRelationButton);
+      var removeRelationButton = $("<button>This Table Is Not Relevant</button>");
+      removeRelationButton.button();
+      removeRelationButton.click(function(){ReplayScript.prog.removeRelation(relation);});
+      $relDiv.append(removeRelationButton);
     }
   };
 
@@ -651,8 +655,16 @@ var WebAutomationLanguage = (function() {
       var xpaths = relation.parameterizeableXpaths();
       var index = xpaths.indexOf(statement.currentNode);
       if (index > -1){
+        statement.relation = relation;
         statement.currentNode = new WebAutomationLanguage.VariableUse(relation.getParameterizeableXpathColumnObject(xpaths[index]), relation, pageVar);
       }
+  }
+
+  function unParameterizeNodeWithRelation(statement, relation){
+    if (statement.relation === relation){
+      statement.relation = null;
+      statement.currentNode = statement.origNode;
+    }
   }
 
   function currentNodeXpath(statement){
@@ -714,6 +726,9 @@ var WebAutomationLanguage = (function() {
     this.parameterizeForRelation = function(){
       return; // loads don't get changed based on relations
     };
+    this.unParameterizeForRelation = function(){
+      return; // loads don't get changed based on relations
+    };
 
     this.args = function(){
       var args = [];
@@ -739,6 +754,7 @@ var WebAutomationLanguage = (function() {
     this.outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
     // for now, assume the ones we saw at record time are the ones we'll want at replay
     this.currentNode = this.node;
+    this.origNode = this.node;
 
     this.toStringLines = function(){
       var nodeRep = nodeRepresentation(this);
@@ -756,6 +772,9 @@ var WebAutomationLanguage = (function() {
 
     this.parameterizeForRelation = function(relation){
       parameterizeNodeWithRelation(this, relation, this.pageVar);
+    };
+    this.unParameterizeForRelation = function(relation){
+      unParameterizeNodeWithRelation(this, relation);
     };
 
     this.args = function(){
@@ -780,6 +799,7 @@ var WebAutomationLanguage = (function() {
     this.pageUrl = ev.frame.topURL;
     // for now, assume the ones we saw at record time are the ones we'll want at replay
     this.currentNode = this.node;
+    this.origNode = this.node;
 
     this.toStringLines = function(){
       var nodeRep = nodeRepresentation(this);
@@ -797,6 +817,9 @@ var WebAutomationLanguage = (function() {
 
     this.parameterizeForRelation = function(relation){
       parameterizeNodeWithRelation(this, relation, this.pageVar);
+    };
+    this.unParameterizeForRelation = function(relation){
+      unParameterizeNodeWithRelation(this, relation);
     };
 
     this.args = function(){
@@ -833,6 +856,7 @@ var WebAutomationLanguage = (function() {
     this.outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
     // for now, assume the ones we saw at record time are the ones we'll want at replay
     this.currentNode = this.node;
+    this.origNode = this.node;
     this.currentTypedString = this.typedString;
 
     this.toStringLines = function(){
@@ -851,6 +875,9 @@ var WebAutomationLanguage = (function() {
 
     this.parameterizeForRelation = function(relation){
       parameterizeNodeWithRelation(this, relation, this.pageVar);
+    };
+    this.unParameterizeForRelation = function(relation){
+      unParameterizeNodeWithRelation(this, relation);
     };
 
     this.args = function(){
@@ -879,6 +906,9 @@ var WebAutomationLanguage = (function() {
       return [];
     };
     this.parameterizeForRelation = function(relation){
+      return;
+    };
+    this.unParameterizeForRelation = function(relation){
       return;
     };
     this.args = function(){
@@ -910,6 +940,9 @@ var WebAutomationLanguage = (function() {
 
     this.parameterizeForRelation = function(relation){
       _.each(this.bodyStatements, function(statement){statement.parameterizeForRelation(relation);});
+    };
+    this.unParameterizeForRelation = function(relation){
+      _.each(this.bodyStatements, function(statement){statement.unParameterizeForRelation(relation);});
     };
   }
 
@@ -1498,6 +1531,40 @@ var WebAutomationLanguage = (function() {
 
       RecorderUI.updateDisplayedScript();
     };
+
+    this.removeRelation = function(relationObj){
+      this.relations = _.without(this.relations, relationObj);
+
+      // now let's actually remove any loops that were trying to use this relation
+      this.loopyStatements = removeLoopsForRelation(this.loopyStatements, relationObj);
+
+      RecorderUI.updateDisplayedScript();
+      RecorderUI.updateDisplayedRelations();
+    };
+
+    function removeLoopsForRelation(loopyStatements, relation){
+      var outputStatements = [];
+      for (var i = 0; i < loopyStatements.length; i++){
+        if (loopyStatements[i] instanceof WebAutomationLanguage.LoopStatement){
+          if (loopyStatements[i].relation === relation){
+            // ok, we want to remove this loop; let's pop the body statements back out into our outputStatements
+            var bodyStatements = removeLoopsForRelation(loopyStatements[i].bodyStatements, relation);
+            outputStatements = outputStatements.concat(bodyStatements);
+          }
+          else{
+            // we want to keep this loop, but we'd better descend and check the loop body still
+            loopyStatements[i].bodyStatements = removeLoopsForRelation(loopyStatements[i].bodyStatements, relation);
+            outputStatements.push(loopyStatements[i]);
+          }
+        }
+        else{
+          // not a loop statement
+          loopyStatements[i].unParameterizeForRelation(relation);
+          outputStatements.push(loopyStatements[i]);
+        }
+      }
+      return outputStatements;
+    }
 
   }
 

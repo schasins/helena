@@ -205,11 +205,6 @@ var RelationFinder = (function() { var pub = {};
       var index = parseInt(xpath_list[i].index); // at this component of the xpath, what index?
       var candidateNode = findSiblingAtLevelIIndexJ(xpath_list, i, index + 1, suffixes); // try one index over
       if (candidateNode !== null) {return candidateNode;}
-      if (index > 0){
-        // ok, adding 1 to our index didn't work.  but we started above 0, so let's try subtracting 1
-        var candidateNode = findSiblingAtLevelIIndexJ(xpath_list, i, index - 1, suffixes); // subtracting
-        if (candidateNode !== null) {return candidateNode;}
-      }
       xpath_list[i].index = index; // set it back to the original index since we may be using it later
     }
     return null;

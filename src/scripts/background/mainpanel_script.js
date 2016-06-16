@@ -164,6 +164,8 @@ var RecorderUI = (function() {
         (function(){
           var xpath = xpaths[j];
           var columnTitle = $("<input></input>");
+          console.log(xpath);
+          console.log(relation);
           columnTitle.val(relation.getParameterizeableXpathColumnObject(xpath).name);
           columnTitle.change(function(){console.log(columnTitle.val(), xpath); relation.setParameterizeableXpathNodeName(xpath, columnTitle.val()); RecorderUI.updateDisplayedScript();});
           var td = $("<td></td>");

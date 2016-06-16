@@ -13,7 +13,7 @@ var RecordingHandlers = (function() { var pub = {};
       Tooltip.scrapingTooltip(MiscUtilities.targetFromEvent(event));
       RelationPreview.relationHighlight(MiscUtilities.targetFromEvent(event));
     }
-    if (currentlyScraping()){
+    if (currentlyScraping() && currentlyRecording()){
       Scraping.scrapingMousein(event);
     }
   }
@@ -23,7 +23,7 @@ var RecordingHandlers = (function() { var pub = {};
       Tooltip.removeScrapingTooltip();
       RelationPreview.relationUnhighlight();
     }
-    if (currentlyScraping()){
+    if (currentlyScraping() && currentlyRecording()){
       Scraping.scrapingMousein(event);
     }
   }
@@ -35,7 +35,7 @@ var RecordingHandlers = (function() { var pub = {};
   }
 
   pub.checkScrapingOff = function(event){
-    if (currentlyScraping() && !(Scraping.scrapingCriteria(event))){ // this is for keyup, so user is exiting the scraping mode
+    if (currentlyScraping() && currentlyRecording() && !(Scraping.scrapingCriteria(event))){ // this is for keyup, so user is exiting the scraping mode
       Scraping.stopProcessingScrape();
     }
   }
@@ -55,7 +55,7 @@ function currentlyRecording(){
 }
 
 function currentlyScraping(){
-  return currentlyRecording() && additional_recording_handlers_on.scrape;
+  return additional_recording_handlers_on.scrape;
 }
 
 /**********************************************************************

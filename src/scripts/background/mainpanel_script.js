@@ -330,9 +330,11 @@ var EventM = (function() {
   };
 
   pub.getDOMOutputLoadEvents = function(ev){
+    if (ev.type !== "dom") {return false;}
     return ev.additionalDataTmp.display.causesLoads;
   };
   pub.setDOMOutputLoadEvents = function(ev, val){
+    if (ev.type !== "dom") {return false;}
     ev.additionalDataTmp.display.causesLoads = val;
   };
   pub.addDOMOutputLoadEvent = function(ev, val){
@@ -685,13 +687,48 @@ var WebAutomationLanguage = (function() {
   function cleanTrace(trace){
     var cleanTrace = [];
     for (var i = 0; i < trace.length; i++){
-      var displayData = EventM.getDisplayInfo(trace[i]);
-      EventM.clearDisplayInfo(trace[i]);
-      cleanTrace.push(clone(trace[i]));
-      // now restore the true trace object
-      EventM.setDisplayInfo(trace[i], displayData);
+      cleanTrace.push(cleanEvent(trace[i]));
     }
     return cleanTrace;
+  }
+
+  function cleanEvent(ev){
+      var displayData = EventM.getDisplayInfo(ev);
+      EventM.clearDisplayInfo(ev);
+      var cleanEvent = clone(ev);
+      // now restore the true trace object
+      EventM.setDisplayInfo(ev, displayData);
+      return cleanEvent;
+  }
+
+  function proposeCtrlAdditions(statement){
+    if (statement.outputPageVars.length > 0){
+      var counter = 0;
+      var lastIndex = _.reduce(statement.trace, function(acc, ev){counter += 1; if (EventM.getDOMOutputLoadEvents(ev).length > 0) {return counter;} else {return acc;}}, 0);
+
+      var ctrlKeyDataFeatures = {altKey: false, bubbles: true, cancelable: true, charCode: 0, ctrlKey: true, keyCode: 17, keyIdentifier: "U+00A2", keyLocation: 1, metaKey: false, shiftKey: false, timeStamp: 1466118461375, type: "keydown"};
+
+      var ctrlDown = cleanEvent(statement.trace[0]); // clones
+      ctrlDown.data = ctrlKeyDataFeatures;
+      ctrlDown.meta.dispatchType = "KeyboardEvent";
+
+      var ctrlUp = cleanEvent(statement.trace[0]);
+      ctrlUp.data = clone(ctrlKeyDataFeatures);
+      ctrlUp.data.ctrlKey = false;
+      ctrlUp.data.type = "keyup";
+      ctrlUp.meta.dispatchType = "KeyboardEvent";
+
+      statement.trace.splice(lastIndex, 0, ctrlUp);
+      statement.trace.splice(0, 0, ctrlDown);
+
+      console.log(ctrlUp, ctrlDown);
+
+      for (var i = 0; i < lastIndex + 1; i++){ // lastIndex + 1 because we just added two new events!
+        if (statement.trace[i].data){
+          statement.trace[i].data.ctrlKey = true; // of course may already be true, which is fine
+        }
+      }
+    }
   }
 
   // the actual statements
@@ -742,7 +779,6 @@ var WebAutomationLanguage = (function() {
   };
   pub.ClickStatement = function(trace){
     this.trace = trace;
-    this.cleanTrace = cleanTrace(trace);
 
     // find the record-time constants that we'll turn into parameters
     var ev = firstVisibleEvent(trace);
@@ -755,6 +791,11 @@ var WebAutomationLanguage = (function() {
     // for now, assume the ones we saw at record time are the ones we'll want at replay
     this.currentNode = this.node;
     this.origNode = this.node;
+
+    // we may do clicks that should open pages in new tabs but didn't open new tabs during recording
+    proposeCtrlAdditions(this);
+    this.cleanTrace = cleanTrace(this.trace);
+
 
     this.toStringLines = function(){
       var nodeRep = nodeRepresentation(this);
@@ -1302,6 +1343,8 @@ var WebAutomationLanguage = (function() {
         // however, because we're only running these basic blocks, any uses of relation items (in invisible events) that happen before the for loop will not get parameterized, 
         // since their statement arguments won't be changed, and they won't be part of the trace that does have statement arguments changed (and thus get the whole trace parameterized for that)
         // I don't see right now how this could cause issues, but it's worth thinking about
+
+        console.log("runnableTrace", runnableTrace);
 
         SimpleRecord.replay(runnableTrace, config, function(replayObject){
           // use what we've observed in the replay to update page variables

@@ -1445,6 +1445,11 @@ var WebAutomationLanguage = (function() {
       chrome.tabs.remove(data.tab_id); // no longer need the tab from which we got this info
       pagesProcessed[data.url] = true;
 
+      if (data.num_rows_in_demonstration === 1 && data.next_type === NextTypes.NONE){
+        // what's the point of showing a relation with only one row?
+        return this.relations;
+      }
+
       var rel = new WebAutomationLanguage.Relation(data.relation_id, data.name, data.selector, data.selector_version, data.exclude_first, data.columns, data.first_page_relation, data.num_rows_in_demonstration, data.url, data.next_type, data.next_button_selector);
       pagesToRelations[data.url] = rel;
       this.relations.push(rel);

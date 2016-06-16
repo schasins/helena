@@ -158,11 +158,13 @@ var Visualization = (function() { var pub = {};
     additional_recording_handlers.visualization = function(node, eventMessage){
       if (node.html2canvasDataUrl){
         // yay, we've already done the 'screenshot', need not do it again
-        console.log("cached visualization");
         updateExistingEvent(eventMessage, "additional.visualization", node.html2canvasDataUrl);
       }
       html2canvas(node, {
         onrendered: function(canvas) { 
+          console.log(canvas);
+          canvas = identifyTransparentEdges(canvas);
+          console.log(canvas);
           var dataUrl = canvas.toDataURL();
           node.html2canvasDataUrl = dataUrl;
           updateExistingEvent(eventMessage, "additional.visualization", dataUrl);
@@ -172,6 +174,78 @@ var Visualization = (function() { var pub = {};
     };
   additional_recording_handlers_on.visualization = true;
   }); //run once page loaded, because else runs before r+r content script
+
+  function identifyTransparentEdges(canvas){
+    var context = canvas.getContext("2d");
+    var imgData = context.getImageData(0,0,canvas.width,canvas.height);
+    var data = imgData.data;
+
+    // what rows and columns are empty?
+
+    var columnsEmpty = [];
+    for (var i = 0; i < canvas.width; i++){
+      columnsEmpty.push(true);
+    }
+    var rowsEmpty = [];
+    for (var i = 0; i < canvas.height; i++){
+      rowsEmpty.push(true);
+    }
+
+    for(var i=0; i<data.length; i+=4) {
+      var currX = (i / 4) % canvas.width,
+        currY = ((i / 4) - currX) / canvas.width;
+      var alpha = data[i+3];
+      if (alpha > 0){
+        columnsEmpty[currX] = false;
+        rowsEmpty[currY] = false;
+      }
+    }
+
+    // how far should we crop?
+
+    var left = 0;
+    var i = left;
+    while (columnsEmpty[i]){
+      left = i;
+      i += 1;
+    }
+
+    var right = canvas.width - 1;
+    var i = right;
+    while (columnsEmpty[i]){
+      right = i;
+      i -= 1;
+    }
+
+    var top = 0;
+    var i = top;
+    while (rowsEmpty[i]){
+      top = i;
+      i += 1;
+    }
+    
+    var bottom = canvas.height - 1;
+    var i = bottom;
+    while (rowsEmpty[i]){
+      bottom = i;
+      i -= 1;
+    }
+
+    if (left === 0 && right === (canvas.width - 1) && top === 0 && bottom === (canvas.height - 1)){
+      // no need to do any cropping
+      return canvas;
+    }
+
+    // use a temporary canvas to crop
+    var tempCanvas = document.createElement("canvas"),
+        tContext = tempCanvas.getContext("2d");
+    tempCanvas.width = (right - left);
+    tempCanvas.height = (bottom - top);
+    tContext.drawImage(canvas, left, top);
+
+    console.log(left, right, top, bottom);
+    return tempCanvas;
+  }
 
 return pub;}());
 

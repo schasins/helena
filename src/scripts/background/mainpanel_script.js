@@ -147,6 +147,10 @@ var RecorderUI = (function() {
     var relationObjects = ReplayScript.prog.relations;
     $div = $("#new_script_content").find("#relations");
     $div.html("");
+    if (relationObjects.length === 0){
+      $div.html("No relevant tables identified on the webpages.");
+      return;
+    }
     for (var i = 0; i < relationObjects.length; i++){
       var $relDiv = $("<div class=relation_preview></div>");
       $div.append($relDiv);

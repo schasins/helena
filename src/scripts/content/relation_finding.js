@@ -393,7 +393,13 @@ var RelationFinder = (function() { var pub = {};
     return alternativeRel;
   }
 
+  var processedLikelyRelationRequest = false;
   pub.likelyRelation = function(msg){
+    if (processedLikelyRelationRequest){
+      // should only even send a likely relation once from one page, since it gets closed after we get the answer we wanted
+      // may end up sending multiples if we're sent the inciting message multiple times because the page loads slowly
+      return;
+    }
     var nodes = [];
     var xpaths = msg.xpaths;
     for (var i = 0; i < xpaths.length; i++){
@@ -453,6 +459,7 @@ var RelationFinder = (function() { var pub = {};
     newMsg.first_page_relation = currBestSelector.relation;
 
     utilities.sendMessage("content", "mainpanel", "likelyRelation", newMsg);
+    processedLikelyRelationRequest = true;
   }
 
   pub.getRelationItems = function(msg){

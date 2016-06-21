@@ -1525,6 +1525,10 @@ var WebAutomationLanguage = (function() {
     this.processLikelyRelation = function(data){
       console.log(data);
       chrome.tabs.remove(data.tab_id); // no longer need the tab from which we got this info
+      if (pagesProcessed[data.url]){
+        // we already have an answer for this page.  must have gotten sent multiple times even though that shouldn't happen
+        return this.relations;
+      }
       pagesProcessed[data.url] = true;
 
       if (data.num_rows_in_demonstration === 1 && data.next_type === NextTypes.NONE){

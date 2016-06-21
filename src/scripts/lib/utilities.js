@@ -251,3 +251,34 @@ var NextTypes = {
   MOREBUTTON: 3,
   SCROLLFORMORE: 4
 };
+
+var TraceManipulationUtilities = (function() { var pub = {};
+
+  pub.lastTopLevelCompletedEvent = function(trace){
+    for (var i = trace.length - 1; i >= 0; i--){
+      var ev = trace[i];
+      if (ev.type === "completed" && ev.data.type === "main_frame"){
+        return ev;
+      }
+    }
+  }
+
+  pub.lastTopLevelCompletedEventTabId = function(trace){
+    var ev = pub.lastTopLevelCompletedEvent(trace);
+    return ev.data.tabId;
+  }
+
+  pub.tabsInTrace = function(trace){
+    var tabs = [];
+    for (var i = 0; i < trace.length; i++){
+      var ev = trace[i];
+      if (ev.type === "completed" && ev.data.type === "main_frame"){
+        if (tabs.indexOf(ev.data.tabId) === -1){
+          tabs.push(ev.data.tabId);
+        }
+      }
+    }
+    return tabs;
+  }
+
+return pub; }());

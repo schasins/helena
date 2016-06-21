@@ -405,6 +405,7 @@ var RelationFinder = (function() { var pub = {};
     for (var i = 0; i < xpaths.length; i++){
       nodes.push(xPathToNodes(xpaths[i])[0]);
     }
+
     var selectorData = synthesizeSelectorForSubsetThatProducesLargestRelation(nodes);
     var relationData = _.map(selectorData.relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
     selectorData.relation = relationData;

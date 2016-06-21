@@ -5,7 +5,6 @@ function setUp(){
   //utilities.listenForMessage("content", "mainpanel", "nextButtonData", processNextButtonData);
   //utilities.listenForMessage("content", "mainpanel", "moreItems", moreItems);
   utilities.listenForMessage("content", "mainpanel", "scrapedData", RecorderUI.processScrapedData);
-  utilities.listenForMessage("content", "mainpanel", "likelyRelation", RecorderUI.processLikelyRelation);
   utilities.listenForMessage("content", "mainpanel", "requestCurrentRecordingWindow", RecorderUI.sendCurrentRecordingWindow);
   
   //handle user interactions with the mainpanel
@@ -136,11 +135,6 @@ var RecorderUI = (function() {
     for (var i = 0; i < xpaths.length; i++){
       $div.append($('<div class="first_row_elem">'+scraped[xpaths[i]]+'</div>'));
     }
-  };
-
-  pub.processLikelyRelation = function(data){
-    var relationObjects = ReplayScript.prog.processLikelyRelation(data);
-    pub.updateDisplayedRelations();
   };
 
   pub.updateDisplayedRelations = function(){
@@ -743,6 +737,7 @@ var WebAutomationLanguage = (function() {
     var ev = firstVisibleEvent(trace);
     this.url = ev.data.url;
     this.outputPageVar = EventM.getLoadOutputPageVar(ev);
+    this.outputPageVars = [this.outputPageVar]; // this will make it easier to work with for other parts of the code
     // for now, assume the ones we saw at record time are the ones we'll want at replay
     this.currentUrl = this.url;
 
@@ -1226,6 +1221,8 @@ var WebAutomationLanguage = (function() {
     this.relations = [];
     this.loopyStatements = [];
 
+    var program = this;
+
     // add an output statement to the end if there are any scrape statements in the program.  should have a list of all scrape statements, treat them as cells in one row
     var scrapeStatements = _.filter(this.statements, function(statement){return statement instanceof WebAutomationLanguage.ScrapeStatement;});
     if (scrapeStatements.length > 0){ this.statements.push(new WebAutomationLanguage.OutputRowStatement(scrapeStatements));}
@@ -1492,39 +1489,88 @@ var WebAutomationLanguage = (function() {
       $.post('http://visual-pbd-scraping-server.herokuapp.com/retrieverelations', { pages: reqList }, function(resp){that.processServerRelations(resp);});
     }
 
-    this.processServerRelations = function(resp){
+    this.processServerRelations = function(resp, currentStartIndex){
+      if (currentStartIndex === undefined){currentStartIndex = 0;}
       // we're ready to try these relations on the current pages
-      console.log(resp); 
-      var resps = resp.pages;
-      for (var i = 0; i < resps.length; i++){
-        var url = resps[i].url;
-        var suggestedRelations = [resps[i].relations.same_domain_best_relation, resps[i].relations.same_url_best_relation];
-        for (var j = 0; j < suggestedRelations.length; j++){
-          if (suggestedRelations[j] === null){ continue; }
-          ServerTranslationUtilities.unJSONifyRelation(suggestedRelations[j]); // is this the best place to deal with going between our object attributes and the server strings?
-        }
-        (function(){
-          var curl = url; // closure copy
-          var csuggestedRelations = suggestedRelations;
-          chrome.tabs.create({url: curl, active: false}, function(tab){
-            console.log(tab.id);
-            pagesProcessed[curl] = false;
-            var getLikelyRelationFunc = function(){utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[curl], url:curl, serverSuggestedRelations: csuggestedRelations}, null, null, [tab.id]);};
+      // to do this, we'll have to actually replay the script
+
+      // let's find all the statements that should open new pages (where we'll need to try relations)
+      for (var i = currentStartIndex; i < program.statements.length; i++){
+        if (program.statements[i].outputPageVars && program.statements[i].outputPageVars.length > 0){
+          // todo: for now this code assumes there's exactly one outputPageVar.  this may not always be true!  but dealing with it now is a bad use of time
+          var targetPageUrl = program.statements[i].outputPageVars[0].recordTimeUrl; // it was a pageVariable object, and we've grabbed the url from there
+          console.log("processServerrelations going for index:", i, targetPageUrl);
+          // note that we're here grabbing urls from the pageVars, whereas above (to get the urls to send to the server) we just used the pageurls associated with statement objects.  make sure these will always align. otherwise could run into trouble.
+
+          // this is one of the points to which we'll have to replay
+          var statementSlice = program.statements.slice(0, i + 1);
+          var trace = [];
+          _.each(statementSlice, function(statement){trace = trace.concat(statement.trace);});
+          _.each(trace, function(ev){EventM.clearDisplayInfo(ev);}); // strip the display info back out from the event objects
+
+          var nextIndex = i + 1;
+
+          // ok, we have a slice of the statements that should produce one of our pages. let's replay
+          SimpleRecord.replay(trace, null, function(replayObj){
+            // continuation
+            console.log("replayobj", replayObj);
+
+            // what's the tab that now has the target page?
+            var replayTrace = replayObj.record.events;
+            var lastCompletedEventTabId = TraceManipulationUtilities.lastTopLevelCompletedEventTabId(replayTrace);
+            // what tabs did we make in the interaction in general?
+            var tabsToCloseAfter = TraceManipulationUtilities.tabsInTrace(replayTrace);
+
+            // and what are the server-suggested relations we want to send?
+            var resps = resp.pages;
+            var suggestedRelations = null;
+            for (var i = 0; i < resps.length; i++){
+              var url = resps[i].url;
+              if (url === targetPageUrl){
+                suggestedRelations = [resps[i].relations.same_domain_best_relation, resps[i].relations.same_url_best_relation];
+                for (var j = 0; j < suggestedRelations.length; j++){
+                  if (suggestedRelations[j] === null){ continue; }
+                  ServerTranslationUtilities.unJSONifyRelation(suggestedRelations[j]); // is this the best place to deal with going between our object attributes and the server strings?
+                }
+              }
+            }
+            if (suggestedRelations === null){
+              console.log("Panic!  We found a page in our outputPageVars that wasn't in our request to the server for relations that might be relevant on that page.");
+            }
+
+            // let's get some info from the pages, and when we get that info back we can come back and deal with more script segments
+            pagesProcessed[targetPageUrl] = false;
+            var getLikelyRelationFunc = function(){utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[targetPageUrl], url: targetPageUrl, serverSuggestedRelations: suggestedRelations}, null, null, [lastCompletedEventTabId]);};
             var getLikelyRelationFuncUntilAnswer = function(){
-              console.log(pagesProcessed);
-              if (pagesProcessed[curl]){ return; } 
+              if (pagesProcessed[targetPageUrl]){ return; } 
               getLikelyRelationFunc(); 
               setTimeout(getLikelyRelationFuncUntilAnswer, 1000);}
+
+            // what should we do once we get the response back, having tested the various relations on the actual pages?
+            utilities.listenForMessageOnce("content", "mainpanel", "likelyRelation", function(data){
+              // no longer need the tabs from which we got this info
+              for (var i = 0; i < tabsToCloseAfter.length; i++){
+                chrome.tabs.remove(tabsToCloseAfter[i]); 
+              }
+              // handle the actual data the page sent us
+              program.processLikelyRelation(data);
+              // update the control panel display
+              RecorderUI.updateDisplayedRelations();
+              // now let's go through this process all over again for the next page, if there is one
+              console.log("going to processServerRelations with nextIndex: ", nextIndex);
+              program.processServerRelations(resp, nextIndex);
+            });
             setTimeout(getLikelyRelationFuncUntilAnswer, 500); // give it a while to attach the listener
           });
-        }());
+
+          return;
+        }
       }
     };
 
     var pagesToRelations = {};
     this.processLikelyRelation = function(data){
       console.log(data);
-      chrome.tabs.remove(data.tab_id); // no longer need the tab from which we got this info
       if (pagesProcessed[data.url]){
         // we already have an answer for this page.  must have gotten sent multiple times even though that shouldn't happen
         return this.relations;

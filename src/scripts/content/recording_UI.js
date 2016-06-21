@@ -9,11 +9,12 @@
 var RecordingHandlers = (function() { var pub = {};
 
   pub.mouseoverHandler = function(event){
-    console.log(currentlyRecording(), currentlyScraping());
     if (currentlyRecording()){
       Tooltip.scrapingTooltip(MiscUtilities.targetFromEvent(event));
       RelationPreview.relationHighlight(MiscUtilities.targetFromEvent(event));
     }
+    // just a backup in case the checks on keydown and keyup fail to run, as seems to happen sometimes with focus issues
+    pub.updateScraping(event);
     if (currentlyScraping() && currentlyRecording()){
       Scraping.scrapingMousein(event);
     }
@@ -24,15 +25,20 @@ var RecordingHandlers = (function() { var pub = {};
       Tooltip.removeScrapingTooltip();
       RelationPreview.relationUnhighlight();
     }
+    // just a backup in case the checks on keydown and keyup fail to run, as seems to happen sometimes with focus issues
+    pub.updateScraping(event);
     if (currentlyScraping() && currentlyRecording()){
       Scraping.scrapingMousein(event);
     }
   }
 
+  pub.updateScraping = function(event){
+    pub.checkScrapingOn(event);
+    pub.checkScrapingOff(event);
+  }
+
   pub.checkScrapingOn = function(event){
-    console.log("checkScrapingOn", event);
-    console.log(Scraping.scrapingCriteria(event));
-    if (Scraping.scrapingCriteria(event)){ 
+    if (!currentlyScraping() && Scraping.scrapingCriteria(event)){ 
       Scraping.startProcessingScrape();
     }
   }
@@ -183,7 +189,7 @@ var Visualization = (function() { var pub = {};
       }
       // ok, looks like this is actually the first time seeing this, better actually canvasize it
       node.waitingForRender = true;
-      console.log("going to render: ", node);
+      // console.log("going to render: ", node);
       html2canvas(node, {
         onrendered: function(canvas) { 
           canvas = identifyTransparentEdges(canvas);
@@ -265,9 +271,9 @@ var Visualization = (function() { var pub = {};
     tempCanvas.height = (bottom - top);
     tContext.drawImage(canvas, left, top, tempCanvas.width, tempCanvas.height, 0, 0, tempCanvas.width, tempCanvas.height);
 
-    console.log(canvas.width, canvas.height);
-    console.log(left, right, top, bottom);
-    console.log(tempCanvas.width, tempCanvas.height);
+    // console.log(canvas.width, canvas.height);
+    // console.log(left, right, top, bottom);
+    // console.log(tempCanvas.width, tempCanvas.height);
 
     return tempCanvas;
   }

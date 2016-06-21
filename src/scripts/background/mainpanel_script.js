@@ -642,6 +642,9 @@ var WebAutomationLanguage = (function() {
     if (statement.currentNode instanceof WebAutomationLanguage.VariableUse){
       return statement.currentNode.toString();
     }
+    if (statement.trace[0].additional.visualization === "whole page"){
+      return "whole page";
+    }
     return "<img src='"+statement.trace[0].additional.visualization+"' style='max-height: 150px; max-width: 350px;'>";
   }
 
@@ -901,8 +904,7 @@ var WebAutomationLanguage = (function() {
     this.currentTypedString = this.typedString;
 
     this.toStringLines = function(){
-      var nodeRep = nodeRepresentation(this);
-      return [outputPagesRepresentation(this)+"type("+this.pageVar.toString()+",, "+nodeRep+", '"+this.typedString+"')"];
+      return [outputPagesRepresentation(this)+"type("+this.pageVar.toString()+", "+this.typedString+"')"];
     };
 
     this.pbvs = function(){

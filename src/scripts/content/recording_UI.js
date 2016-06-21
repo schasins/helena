@@ -9,6 +9,7 @@
 var RecordingHandlers = (function() { var pub = {};
 
   pub.mouseoverHandler = function(event){
+    console.log(currentlyRecording(), currentlyScraping());
     if (currentlyRecording()){
       Tooltip.scrapingTooltip(MiscUtilities.targetFromEvent(event));
       RelationPreview.relationHighlight(MiscUtilities.targetFromEvent(event));
@@ -29,6 +30,8 @@ var RecordingHandlers = (function() { var pub = {};
   }
 
   pub.checkScrapingOn = function(event){
+    console.log("checkScrapingOn", event);
+    console.log(Scraping.scrapingCriteria(event));
     if (Scraping.scrapingCriteria(event)){ 
       Scraping.startProcessingScrape();
     }
@@ -98,14 +101,14 @@ return pub;}());
  **********************************************************************/
 
 var Scraping = (function() { var pub = {};
-  $(function(){
-    additional_recording_handlers.scrape = function(node, eventMessage){
-      if (eventMessage.data.type !== "click") {return true;} //only actually scrape on clicks, but still want to record that we're in scraping mode
-      var data = NodeRep.nodeToMainpanelNodeRepresentation(node,false);
-      utilities.sendMessage("content", "mainpanel", "scrapedData", data);
-      return data;
-    };
-  }); //run once page loaded, because else runs before r+r content script
+
+  // note that this line must run after the r+r content script runs (to produce the additional_recording_handlers object)
+  additional_recording_handlers.scrape = function(node, eventMessage){
+    if (eventMessage.data.type !== "click") {return true;} //only actually scrape on clicks, but still want to record that we're in scraping mode
+    var data = NodeRep.nodeToMainpanelNodeRepresentation(node,false);
+    utilities.sendMessage("content", "mainpanel", "scrapedData", data);
+    return data;
+  };
 
   // must keep track of current hovered node so we can highlight it when the user enters scraping mode
   var mostRecentMousemoveTarget = null;
@@ -156,6 +159,14 @@ return pub;}());
 var Visualization = (function() { var pub = {};
   $(function(){
     additional_recording_handlers.visualization = function(node, eventMessage){
+      if (eventMessage instanceof KeyboardEvent){
+        // ignore below.  this was when we were also checking if there was no node.value;  but in general we're having issues with trying to screenshot things for keyboard events when we really shouldn't so for now changing presentation so that there is no 'target node' for typing in the user-facing representation of the script
+        // for now we're using this to determine whether the user is actually typing text into a particular node or not.  since no node.value, probably not, and we are likely to be 'focus'ed on something big, so don't want to freeze the page by screenshoting
+        // this is a weird case to include, but practical.  we'll still raise the events on the right nodes, but it will be easier for the user to interact with the recording phase if we don't show the node
+        // may want to send a different message in future
+        updateExistingEvent(eventMessage, "additional.visualization", "whole page");
+        return;
+      }
       if (node.html2canvasDataUrl){
         // yay, we've already done the 'screenshot', need not do it again
         updateExistingEvent(eventMessage, "additional.visualization", node.html2canvasDataUrl);
@@ -165,8 +176,14 @@ var Visualization = (function() { var pub = {};
         setTimeout(function(){additional_recording_handlers.visualization(node, eventMessage);}, 100);
         return;
       }
+      if (node === document.body){
+        // never want to screenshot the whole page...can really freeze the page, and we have an easier way to refer to it
+        updateExistingEvent(eventMessage, "additional.visualization", "whole page");
+        return;
+      }
       // ok, looks like this is actually the first time seeing this, better actually canvasize it
       node.waitingForRender = true;
+      console.log("going to render: ", node);
       html2canvas(node, {
         onrendered: function(canvas) { 
           canvas = identifyTransparentEdges(canvas);

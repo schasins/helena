@@ -1583,14 +1583,16 @@ var WebAutomationLanguage = (function() {
       }
       pagesProcessed[data.url] = true;
 
-      if (data.num_rows_in_demonstration === 1 && data.next_type === NextTypes.NONE){
+      if (data.num_rows_in_demonstration < 2 && data.next_type === NextTypes.NONE){
         // what's the point of showing a relation with only one row?
-        return this.relations;
+        pagesToRelations[data.url] = null;
+      }
+      else{
+        var rel = new WebAutomationLanguage.Relation(data.relation_id, data.name, data.selector, data.selector_version, data.exclude_first, data.columns, data.first_page_relation, data.num_rows_in_demonstration, data.url, data.next_type, data.next_button_selector);
+        pagesToRelations[data.url] = rel;
+        this.relations.push(rel);
       }
 
-      var rel = new WebAutomationLanguage.Relation(data.relation_id, data.name, data.selector, data.selector_version, data.exclude_first, data.columns, data.first_page_relation, data.num_rows_in_demonstration, data.url, data.next_type, data.next_button_selector);
-      pagesToRelations[data.url] = rel;
-      this.relations.push(rel);
 
       if (_.difference(_.keys(pagesToNodes), _.keys(pagesToRelations)).length === 0) { // pagesToRelations now has all the pages from pagesToNodes
         // awesome, all the pages have gotten back to us

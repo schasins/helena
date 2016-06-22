@@ -250,8 +250,9 @@ function recordEvent(eventData) {
           {field: 'meta.endEventId', value: lastRecordEvent.meta.pageEventId}
         ]
       },
-      state: recording
+      state: lastRecordEvent.meta.recordState
     };
+    console.log('Update:', update);
     port.postMessage(update);
   }, 0);
 

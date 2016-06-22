@@ -1240,7 +1240,7 @@ var WebAutomationLanguage = (function() {
     // just for replaying the straight-line recording, primarily for debugging
     this.replayOriginal = function(){
       var trace = [];
-      _.each(this.statements, function(statement){trace = trace.concat(statement.trace);});
+      _.each(this.statements, function(statement){trace = trace.concat(statement.cleanTrace);});
       _.each(trace, function(ev){EventM.clearDisplayInfo(ev);}); // strip the display info back out from the event objects
 
       SimpleRecord.replay(trace, null, function(){console.log("Done replaying.");});
@@ -1505,8 +1505,8 @@ var WebAutomationLanguage = (function() {
           // this is one of the points to which we'll have to replay
           var statementSlice = program.statements.slice(0, i + 1);
           var trace = [];
-          _.each(statementSlice, function(statement){trace = trace.concat(statement.trace);});
-          _.each(trace, function(ev){EventM.clearDisplayInfo(ev);}); // strip the display info back out from the event objects
+          _.each(statementSlice, function(statement){trace = trace.concat(statement.cleanTrace);});
+          //_.each(trace, function(ev){EventM.clearDisplayInfo(ev);}); // strip the display info back out from the event objects
 
           var nextIndex = i + 1;
 
@@ -1549,16 +1549,22 @@ var WebAutomationLanguage = (function() {
             // what should we do once we get the response back, having tested the various relations on the actual pages?
             utilities.listenForMessageOnce("content", "mainpanel", "likelyRelation", function(data){
               // no longer need the tabs from which we got this info
+              var closedTabsCount = 0;
               for (var i = 0; i < tabsToCloseAfter.length; i++){
-                chrome.tabs.remove(tabsToCloseAfter[i]); 
+                chrome.tabs.remove(tabsToCloseAfter[i], function(){
+                  closedTabsCount += 1;
+                  if (closedTabsCount === tabsToCloseAfter.length){
+                    // cool, all the tabs are closed, we're ready to continue
+                    // handle the actual data the page sent us
+                    program.processLikelyRelation(data);
+                    // update the control panel display
+                    RecorderUI.updateDisplayedRelations();
+                    // now let's go through this process all over again for the next page, if there is one
+                    console.log("going to processServerRelations with nextIndex: ", nextIndex);
+                    program.processServerRelations(resp, nextIndex);
+                  }
+                }); 
               }
-              // handle the actual data the page sent us
-              program.processLikelyRelation(data);
-              // update the control panel display
-              RecorderUI.updateDisplayedRelations();
-              // now let's go through this process all over again for the next page, if there is one
-              console.log("going to processServerRelations with nextIndex: ", nextIndex);
-              program.processServerRelations(resp, nextIndex);
             });
             setTimeout(getLikelyRelationFuncUntilAnswer, 500); // give it a while to attach the listener
           });

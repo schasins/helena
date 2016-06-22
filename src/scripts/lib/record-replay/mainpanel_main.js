@@ -994,6 +994,7 @@ var Replay = (function ReplayClosure() {
 
       /* check if the script finished */
       console.log("index", index);
+      console.log(events[index]);
       console.log("events.length", events.length);
       console.log(events);
       if (index >= events.length) {
@@ -1069,7 +1070,8 @@ var Replay = (function ReplayClosure() {
         var replayPort = this.getMatchingPort(v);
         if (!replayPort){
           var that = this;
-          setTimeout(function(){that.simulateDomEvent(v);}, 500);
+          //setTimeout(function(){that.simulateDomEvent(v);}, 500);
+          this.setNextTimeout(500);
           // it may be that the target tab just isn't ready yet, hasn't been added to our mappings yet.  may need to try again in a moment.
           return;
         }
@@ -1099,6 +1101,8 @@ var Replay = (function ReplayClosure() {
 
         /* we hopefully found a matching port, lets dispatch to that port */
         var type = v.data.type;
+
+        console.log("this.getStatus()", this.getStatus());
 
         try {
           if (this.getStatus() == ReplayState.REPLAYING) {

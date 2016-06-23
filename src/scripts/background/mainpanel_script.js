@@ -1065,7 +1065,9 @@ var WebAutomationLanguage = (function() {
     this.nameColumnsAndRelation();
 
     this.getParameterizeableXpathColumnObject = function(xpath){
-      return xpathsToColumnObjects[xpath];
+      var obj = xpathsToColumnObjects[xpath];
+      if (!obj){ console.log("Ack!  No column object for that xpath: ", xpathsToColumnObjects, xpath);}
+      return obj;
     };
     // user can give us better names
     this.setParameterizeableXpathNodeName = function(xpath, v){

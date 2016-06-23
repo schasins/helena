@@ -434,7 +434,7 @@ var RelationFinder = (function() { var pub = {};
       var children = parent.children();
       var index = jqueryIndexOf(children, tr); // using this as the number to exclude
       var featureDict = tableFeatureDict(tableParent);
-      var selector = Selector(featureDict, index, [], rowNodes, []);
+      var selector = Selector(featureDict, index, columnsFromNodeAndSubnodes(tr,$(tr).find("td, th")), rowNodes, []);
       var relation = pub.interpretRelationSelector(selector);
       selector.relation = relation;
       var score = relation.length * relation[0].length;

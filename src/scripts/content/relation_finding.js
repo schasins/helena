@@ -141,10 +141,42 @@ var RelationFinder = (function() { var pub = {};
   };
 
   pub.interpretRelationSelector = function(selector){
+    if (selector.selector.table === true){
+      // let's go ahead and sidetrack off to the table extraction routine
+      return pub.interpretTableSelector(selector.selector, selector.exclude_first);
+    }
     var suffixes = _.pluck(selector.columns, "suffix");
     console.log("interpretRelationSelector", selector);
     return pub.interpretRelationSelectorHelper(selector.selector, selector.exclude_first, makeSubcomponentFunction(suffixes));
   };
+
+  pub.interpretTableSelector = function(featureDict, excludeFirst){
+    // we don't use this for nested tables!  this is just for very simple tables, otherwise we'd graduate to the standard approach
+    var nodes = xPathToNodes(featureDict.xpath);
+    var table = null;
+    if (nodes.length > 0){
+      // awesome, we have something at the exact xpath
+      table = $(nodes[0]);
+    }
+    else {
+      // ok, I guess we'll have to see which table on the page is closest
+      var tables = $("table");
+      var bestTableScore = Number.POSITIVE_INFINITY;
+
+      _.each(tables, function(t){
+        var distance = MiscUtilities.levenshteinDistance(nodeToXPath(t), featureDict.xpath);
+        if (distance < bestTableScore){
+          bestTableScore = distance;
+          table = $(t);
+        }
+      })
+    }
+
+    // ok, now we know which table to use
+    var rows = table.find("tr");
+    var cells = _.map(rows, function(row){return $(row).find("td, th");});
+    return cells.slice(excludeFirst, cells.length);
+  }
 
 /**********************************************************************
  * How to actually synthesize the selectors used by the relation-finder above
@@ -345,6 +377,83 @@ var RelationFinder = (function() { var pub = {};
     return selector;
   }
 
+  function tableFeatureDict(tableNode){
+    return {table: true, xpath: nodeToXPath(tableNode)};
+  }
+
+  function jqueryIndexOf(list, item){
+    for (var i = 0; i < list.length; i++){
+      if (list[i] === item){
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  function synthesizeSelectorForWholeSetTable(rowNodes){
+    var parents = $(rowNodes[0]).parents();
+    var trs = [];
+    for (var i = 0; i < parents.length; i++){
+      if (parents[i].tagName === "TR"){
+        trs.push(parents[i]);
+        // for the time being, we're choosing not to deal with nested tables;  may ultimately want to return and do more; todo.
+        break;
+      }
+    }
+
+    if (trs.length === 0){
+      return null;
+    }
+
+    var parentLists = _.map(rowNodes, function(rowNode){return $(rowNode).parents();});
+    var acceptedTrs = [];  // there could in fact be multiple, if we have nested tables...not totally sure how want to do multiples, but for now we'll just assume we want the one with the most cells
+    _.each(trs, function(tr){
+      var allInRow = _.reduce(parentLists, function(acc, parentList) {return acc && jqueryIndexOf(parentList, tr) > -1;}, true);
+      if (allInRow){
+        acceptedTrs.push(tr);
+      }
+    });
+
+    if (acceptedTrs.length === 0){
+      return null;
+    }
+
+    var bestScore = 0;
+    var bestSelector = null;
+    for (var i = 0; i < acceptedTrs.length; i++){
+      var tr = acceptedTrs[i];
+      var parents = $(tr).parents();
+      var tableParent = null;
+      for (var j = 0; j < parents.length; j++){
+        if (parents[j].tagName === "TABLE"){
+          tableParent = parents[j];
+          break;
+        }
+      }
+      var parent = $(tr).parent();
+      var children = parent.children();
+      var index = jqueryIndexOf(children, tr); // using this as the number to exclude
+      var featureDict = tableFeatureDict(tableParent);
+      var selector = Selector(featureDict, index, [], rowNodes, []);
+      var relation = pub.interpretRelationSelector(selector);
+      selector.relation = relation;
+      var score = relation.length * relation[0].length;
+      if (score > bestScore){
+        bestScore = score;
+        bestSelector = selector;
+      }
+    }
+
+    // let's just double check and make sure that all our target nodes are actually included here
+    // in future we'll actually want to have ways to descend into the td elements, but bad use of time right now;  todo.
+    var allNodesInFirstRow = _.reduce(rowNodes, function(acc, node){return acc && (jqueryIndexOf(bestSelector.relation[0], node) > -1);}, true);
+    if (!allNodesInFirstRow){
+      return null;
+    }
+
+    return bestSelector;
+  }
+
   function numMatchedXpaths(targetXpaths, firstRow){
     var firstRowXpaths = _.pluck(firstRow, "xpath");
     var matchedXpaths = _.intersection([targetXpaths, firstRowXpaths]);
@@ -406,7 +515,12 @@ var RelationFinder = (function() { var pub = {};
       nodes.push(xPathToNodes(xpaths[i])[0]);
     }
 
-    var selectorData = synthesizeSelectorForSubsetThatProducesLargestRelation(nodes);
+    // if this is actually in an html table, let's take a shortcut, since some sites use massive tables and trying to run the other approach would take forever
+    var selectorData = synthesizeSelectorForWholeSetTable(nodes);
+    if (selectorData === null){
+      // ok, no table, we have to do the standard, possibly slow approach
+      selectorData = synthesizeSelectorForSubsetThatProducesLargestRelation(nodes);
+    }
     var relationData = _.map(selectorData.relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
     selectorData.relation = relationData;
 

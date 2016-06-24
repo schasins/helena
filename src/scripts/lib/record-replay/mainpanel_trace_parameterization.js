@@ -119,9 +119,10 @@ function ParameterizedTrace(trace){
 			console.log("Freak out: tabs.");
 		}
 		if (!tabs[parameter_name]){
-			console.log("!tabs[parameter_name]");
+			console.log("warning, may be trying to give argument for something that hasn't been parameterized: !tabs[parameter_name]");
 			console.log(parameter_name, value);
 			console.log(this);
+			return;
 		}
 		tabs[parameter_name].value = value;
 	};
@@ -138,9 +139,10 @@ function ParameterizedTrace(trace){
 			console.log("Freak out.");
 		}
 		if (!frames[parameter_name]){
-			console.log("!frames[parameter_name]");
+			console.log("warning, may be trying to give argument for something that hasn't been parameterized: !frames[parameter_name]");
 			console.log(parameter_name, value);
 			console.log(this);
+			return;
 		}
 		frames[parameter_name].value = value;
 	};

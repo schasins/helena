@@ -802,7 +802,10 @@ var WebAutomationLanguage = (function() {
 
     this.pbvs = function(){
       var pbvs = [];
-      pbvs.push({type:"tab", value: originalTab(this)});
+      if (currentTab(this)){
+        // do we actually know the target tab already?  if yes, go ahead and paremterize that
+        pbvs.push({type:"tab", value: originalTab(this)});
+      }
       if (this.node !== this.currentNode){
         pbvs.push({type:"node", value: this.node});
       }
@@ -847,7 +850,10 @@ var WebAutomationLanguage = (function() {
 
     this.pbvs = function(){
       var pbvs = [];
-      pbvs.push({type:"tab", value: originalTab(this)});
+      if (currentTab(this)){
+        // do we actually know the target tab already?  if yes, go ahead and paremterize that
+        pbvs.push({type:"tab", value: originalTab(this)});
+      }
       if (this.node !== this.currentNode){
         pbvs.push({type:"node", value: this.node});
       }
@@ -904,7 +910,10 @@ var WebAutomationLanguage = (function() {
 
     this.pbvs = function(){
       var pbvs = [];
-      pbvs.push({type:"tab", value: originalTab(this)});
+      if (currentTab(this)){
+        // do we actually know the target tab already?  if yes, go ahead and paremterize that
+        pbvs.push({type:"tab", value: originalTab(this)});
+      }
       if (this.node !== this.currentNode){
         pbvs.push({type:"node", value: this.node});
       }
@@ -1250,8 +1259,8 @@ var WebAutomationLanguage = (function() {
 
     function updatePageVars(recordTimeTrace, replayTimeTrace){
       // we should see corresponding 'completed' events in the traces
-      var recCompleted = _.filter(recordTimeTrace, function(ev){return ev.type === "completed";}); // todo: for now doing this for all completed events, but may ultimately want to restrict to top-level urls or some other restriction
-      var repCompleted = _.filter(replayTimeTrace, function(ev){return ev.type === "completed";});
+      var recCompleted = _.filter(recordTimeTrace, function(ev){return ev.type === "completed" && ev.data.type === "main_frame";}); // now only doing this for top-level completed events.  will see if this is sufficient
+      var repCompleted = _.filter(replayTimeTrace, function(ev){return ev.type === "completed" && ev.data.type === "main_frame";});
       console.log(recCompleted, repCompleted);
       // should have same number of top-level load events.  if not, might be trouble
       if (recCompleted.length !== repCompleted.length){
@@ -1345,7 +1354,7 @@ var WebAutomationLanguage = (function() {
         // since their statement arguments won't be changed, and they won't be part of the trace that does have statement arguments changed (and thus get the whole trace parameterized for that)
         // I don't see right now how this could cause issues, but it's worth thinking about
 
-        console.log("runnableTrace", runnableTrace);
+        console.log("runnableTrace", runnableTrace, config);
 
         SimpleRecord.replay(runnableTrace, config, function(replayObject){
           // use what we've observed in the replay to update page variables

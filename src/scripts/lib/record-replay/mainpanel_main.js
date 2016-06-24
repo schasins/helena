@@ -843,6 +843,11 @@ var Replay = (function ReplayClosure() {
         var currEventTabID = v.frame.tab;
         var currEventIndex = this.index;
 
+        var recordTimeCompletedEvents = _.filter(recordTimeEvents, function(ev){return ev.type === "completed";});
+        var replayTimeCompletedEvents = _.filter(replayTimeEventsSoFar, function(ev){return ev.type === "completed";});
+        console.log("recordTimeCompletedEvents", recordTimeCompletedEvents);
+        console.log("replayTimeEventsSoFar", replayTimeEventsSoFar);
+
         for (var i = currEventIndex-1; i >= 0; i--){
           var e = recordTimeEvents[i];
           var completedCounter = 0;

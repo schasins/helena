@@ -846,7 +846,7 @@ var Replay = (function ReplayClosure() {
         var recordTimeCompletedEvents = _.filter(recordTimeEvents, function(ev){return ev.type === "completed";});
         var replayTimeCompletedEvents = _.filter(replayTimeEventsSoFar, function(ev){return ev.type === "completed";});
         console.log("recordTimeCompletedEvents", recordTimeCompletedEvents);
-        console.log("replayTimeEventsSoFar", replayTimeEventsSoFar);
+        console.log("replayTimeCompletedEvents", replayTimeCompletedEvents);
 
         for (var i = currEventIndex-1; i >= 0; i--){
           var e = recordTimeEvents[i];
@@ -998,10 +998,8 @@ var Replay = (function ReplayClosure() {
       var index = this.index;
 
       /* check if the script finished */
-      console.log("index", index);
+      console.log("index", index, events.length);
       console.log(events[index]);
-      console.log("events.length", events.length);
-      console.log(events);
       if (index >= events.length) {
         //no more events to actively replay, but may need to wait for some
         console.log("waiting for observed events");
@@ -1076,7 +1074,7 @@ var Replay = (function ReplayClosure() {
         if (!replayPort){
           var that = this;
           //setTimeout(function(){that.simulateDomEvent(v);}, 500);
-          this.setNextTimeout(500);
+          this.setNextTimeout(1000);
           // it may be that the target tab just isn't ready yet, hasn't been added to our mappings yet.  may need to try again in a moment.
           return;
         }

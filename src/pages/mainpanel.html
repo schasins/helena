@@ -18,6 +18,7 @@
 	<script type="text/javascript" src="../scripts/lib/record-replay/mainpanel_main.js"></script>
 	<script type="text/javascript" src="../scripts/lib/record-replay/mainpanel_simple_record.js"></script>
 	<script type="text/javascript" src="../scripts/lib/record-replay/mainpanel_trace_parameterization.js"></script>
+	<script type="text/javascript" src="../scripts/background/output_handling.js"></script>
 	<script type="text/javascript" src="../scripts/background/mainpanel_script.js"></script>
 	
 	<link href='https://fonts.googleapis.com/css?family=Montserrat' rel='stylesheet' type='text/css'>
@@ -82,8 +83,14 @@
 			</div>
 
 			<div id="script_running" class="new_script_message_stage">
-				<button id="pause">Pause Script</button> 
-				<button id="resume">Resume Script</button>
+				<div>
+					<button id="pause">Pause Script</button> 
+					<button id="resume">Resume Script</button>
+				</div>
+				<div>
+					<button id="download">Download Data</button> 
+					Note that the downloaded dataset may be slightly out of date if we haven't saved all the data yet.
+				</div>
 				<div id="output_preview"><table></table></div>
 			</div>
 

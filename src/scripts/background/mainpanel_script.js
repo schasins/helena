@@ -100,6 +100,8 @@ var RecorderUI = (function() {
     activateButton(div, "#resume", RecorderUI.resumeRun);
     div.find("#resume").button("option", "disabled", true); // shouldn't be able to resume before we even pause
 
+    activateButton(div, "#download", ReplayScript.prog.download);
+
     // actually start the script running
     ReplayScript.prog.run();
   };
@@ -968,6 +970,7 @@ var WebAutomationLanguage = (function() {
         cells.push(scrapeStatment.currentNodeCurrentValue);
       });
       RecorderUI.addNewRowToOutput(cells);
+      ReplayScript.prog.currentDataset.addRow(cells); // todo: is replayscript.prog really the best way to access the prog object so that we can get the current dataset object, save data to server?
     };
   }
 
@@ -1223,6 +1226,10 @@ var WebAutomationLanguage = (function() {
       return this.name;
     }
 
+    this.clearRunningState = function(){
+      this.setCurrentTabId(undefined);
+    };
+
   };
 
   // the whole program
@@ -1230,6 +1237,7 @@ var WebAutomationLanguage = (function() {
   pub.Program = function(statements){
     this.statements = statements;
     this.relations = [];
+    this.pageVars = _.uniq(_.map(_.filter(statements, function(s){return s.pageVar;}), function(statement){return statement.pageVar;}));                                                                                                                                                                                 
     this.loopyStatements = [];
 
     var program = this;
@@ -1377,10 +1385,21 @@ var WebAutomationLanguage = (function() {
       }
     }
 
+    this.currentDataset = null;
     this.run = function(){
+      this.currentDataset = new OutputHandler.Dataset();
       _.each(this.relations, function(relation){relation.clearRunningState();});
-      runBasicBlock(this.loopyStatements, function(){console.log("Done with script execution.");});
+      _.each(this.pageVars, function(pageVar){pageVar.clearRunningState();});
+      runBasicBlock(this.loopyStatements, function(){
+        program.currentDataset.closeDataset();
+        console.log("Done with script execution.");});
     };
+
+    this.download = function(){
+      if (this.currentDataset){
+        this.currentDataset.downloadDataset();
+      }
+    }
 
     function paramName(statementIndex, paramType){ // assumes we can't have more than one of a single paramtype from a single statement.  should be true
       return "s"+statementIndex+"_"+paramType;

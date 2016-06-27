@@ -276,7 +276,13 @@ var RecorderUI = (function() {
 
   pub.addNewRowToOutput = function(listOfCellTexts){
     var div = $("#new_script_content").find("#output_preview").find("table");
-    div.append(DOMCreationUtilities.arrayOfTextsToTableRow(listOfCellTexts));
+    var l = div.children().length;
+    if (l === 500){
+      $("#new_script_content").find("#output_preview").append($("<div>This dataset is too big for us to display.  The preview here shows the first 500 rows.  To see the whole dataset, just click the download button above.</div>"));
+    }
+    else if (l < 500){
+      div.append(DOMCreationUtilities.arrayOfTextsToTableRow(listOfCellTexts));
+    }
   };
 
   return pub;

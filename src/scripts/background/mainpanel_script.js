@@ -392,6 +392,7 @@ var ReplayScript = (function() {
     trace = associateNecessaryLoadsWithIDs(trace);
     trace = parameterizePages(trace);
     trace = addCausalLinks(trace);
+    trace = removeEventsBeforeFirstVisibleLoad(trace);
     pub.trace = trace;
 
     segmentedTrace = segment(trace);
@@ -463,6 +464,16 @@ var ReplayScript = (function() {
       }
     });
     return trace;
+  }
+
+  function removeEventsBeforeFirstVisibleLoad(trace){
+    for (var i = 0; i < trace.length; i++){
+      var ev = trace[i];
+      if (EventM.getVisible(ev)){
+        // we've found the first visible event
+        return trace.slice(i, trace.length);
+      }
+    }
   }
 
   // helper function.  returns whether two events should be allowed in the same statement, based on visibility, statement type, statement page, statement target

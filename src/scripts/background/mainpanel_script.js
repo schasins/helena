@@ -670,7 +670,7 @@ var WebAutomationLanguage = (function() {
 
   function currentNodeXpath(statement){
     if (statement.currentNode instanceof WebAutomationLanguage.VariableUse){
-      return statement.currentNode.currentValue();
+      return statement.currentNode.currentXPath();
     }
     return statement.currentNode; // this means currentNode better be an xpath if it's not a variable use!
   }
@@ -864,9 +864,18 @@ var WebAutomationLanguage = (function() {
 
     this.parameterizeForRelation = function(relation){
       parameterizeNodeWithRelation(this, relation, this.pageVar);
+      // this is cool because now we don't need to actually run scraping interactions to get the value, so let's update the cleanTrace to reflect that
+      for (var i = this.cleanTrace.length - 1; i >= 0; i--){
+        if (this.cleanTrace[i].additional && this.cleanTrace[i].additional.scrape){
+          this.cleanTrace.splice(i, 1);
+        }
+      }
+      console.log("shortened cleantrace", this.cleanTrace);
     };
     this.unParameterizeForRelation = function(relation){
       unParameterizeNodeWithRelation(this, relation);
+      // have to go back to actually running the scraping interactions...
+      this.cleanTrace = cleanTrace(trace);
     };
 
     this.args = function(){
@@ -877,11 +886,18 @@ var WebAutomationLanguage = (function() {
     };
 
     this.postReplayProcessing = function(trace, temporaryStatementIdentifier){
-      // find the scrape that corresponds to this scrape statement based on temporarystatementidentifier
-      for (var i = 0; i < trace.length; i++){
-        if (EventM.getTemporaryStatementIdentifier(trace[i]) === temporaryStatementIdentifier && trace[i].additional && trace[i].additional.scrape && trace[i].additional.scrape.text){
-          this.currentNodeCurrentValue = trace[i].additional.scrape.text;
-          return;
+      if (this.currentNode instanceof WebAutomationLanguage.VariableUse){
+        // this scrape statement is parameterized, so we can just grab the current value from the node...
+        this.currentNodeCurrentValue = this.currentNode.currentText();
+      }
+      else{
+        // it's not just a relation item, so relation extraction hasn't extracted it, so we have to actually look at the trace
+        // find the scrape that corresponds to this scrape statement based on temporarystatementidentifier
+        for (var i = 0; i < trace.length; i++){
+          if (EventM.getTemporaryStatementIdentifier(trace[i]) === temporaryStatementIdentifier && trace[i].additional && trace[i].additional.scrape && trace[i].additional.scrape.text){
+            this.currentNodeCurrentValue = trace[i].additional.scrape.text;
+            return;
+          }
         }
       }
     };
@@ -1138,11 +1154,18 @@ var WebAutomationLanguage = (function() {
       }
     }
 
-    this.getCurrentValue = function(pageVar, columnObject){
+    this.getCurrentXPath = function(pageVar, columnObject){
       var pname = pageVar.name;
       var prinfo = this.pageRelationsInfo[pname];
-      if (prinfo === undefined){ console.log("Bad!  Shouldn't be calling getCurrentValue on a pageVar for which we haven't yet called getNextRow."); return null; }
-      return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index].xpath; // in the current row, value at the index associated with nodeName
+      if (prinfo === undefined){ console.log("Bad!  Shouldn't be calling getCurrentXPath on a pageVar for which we haven't yet called getNextRow."); return null; }
+      return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index].xpath; // in the current row, xpath at the index associated with nodeName
+    }
+
+    this.getCurrentText = function(pageVar, columnObject){
+      var pname = pageVar.name;
+      var prinfo = this.pageRelationsInfo[pname];
+      if (prinfo === undefined){ console.log("Bad!  Shouldn't be calling getCurrentText on a pageVar for which we haven't yet called getNextRow."); return null; }
+      return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index].text; // in the current row, value at the index associated with nodeName
     }
 
     this.saveToServer = function(){
@@ -1196,8 +1219,12 @@ var WebAutomationLanguage = (function() {
       return this.columnObject.name;
     };
 
-    this.currentValue = function(){
-      return this.relation.getCurrentValue(this.pageVar, this.columnObject);
+    this.currentXPath = function(){
+      return this.relation.getCurrentXPath(this.pageVar, this.columnObject);
+    };
+
+    this.currentText = function(){
+      return this.relation.getCurrentText(this.pageVar, this.columnObject);
     };
   }
 

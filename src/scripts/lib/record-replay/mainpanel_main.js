@@ -848,6 +848,8 @@ var Replay = (function ReplayClosure() {
         console.log("recordTimeCompletedEvents", recordTimeCompletedEvents);
         console.log("replayTimeCompletedEvents", replayTimeCompletedEvents);
 
+        // todo: sometimes it seems like doing this loading time thing gives us the wrong answer.  when that happens, may want to revisit it after a while, clear the tabMapping mappings that were made with this, if we keep looking for a port and failing...
+
         for (var i = currEventIndex-1; i >= 0; i--){
           var e = recordTimeEvents[i];
           var completedCounter = 0;
@@ -860,7 +862,7 @@ var Replay = (function ReplayClosure() {
               var completedCounterReplay = 0;
               for (var j = replayTimeEventsSoFar.length - 1; j >= 0; j--){
                 var e2 = replayTimeEventsSoFar[j];
-                if (e2.type === "completed" && e.data.type === "main_frame"){
+                if (e2.type === "completed" && e2.data.type === "main_frame"){
                   completedCounterReplay++;
                   if (completedCounter === completedCounterReplay){
                     //this is the replay-time completed event that lines up with e
@@ -888,6 +890,7 @@ var Replay = (function ReplayClosure() {
         console.log(v, portMapping, tabMapping);
         console.log("Freak out.  We don't know what port to use to replay this event.");
         // it may be the tab just isn't ready yet, not added to our mappings yet.  try again in a few.
+        this.setNextTimeout(500);
         return null;
       }
       console.log(replayPort);

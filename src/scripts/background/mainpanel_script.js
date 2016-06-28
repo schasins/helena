@@ -952,9 +952,10 @@ var WebAutomationLanguage = (function() {
     this.pageVar = EventM.getDOMInputPageVar(ev);
     this.node = ev.target.xpath;
     this.pageUrl = ev.frame.topURL;
-    var textEntryEvents = _.filter(trace, function(ev){statementToEventMapping.keyboard.indexOf(WebAutomationLanguage.statementType(ev)) > -1;});
-    var lastTextEntryEvent = textEntryEvents[-1];
-    this.typedString = ev.meta.deltas.value;
+    var acceptableEventTypes = statementToEventMapping.keyboard;
+    var textEntryEvents = _.filter(trace, function(ev){return WebAutomationLanguage.statementType(ev) === StatementTypes.KEYBOARD;});
+    var lastTextEntryEvent = textEntryEvents[textEntryEvents.length - 1];
+    this.typedString = lastTextEntryEvent.target.snapshot.value;
     var domEvents = _.filter(trace, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
     var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
     this.outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
@@ -964,7 +965,7 @@ var WebAutomationLanguage = (function() {
     this.currentTypedString = this.typedString;
 
     this.toStringLines = function(){
-      return [outputPagesRepresentation(this)+"type("+this.pageVar.toString()+", "+this.typedString+"')"];
+      return [outputPagesRepresentation(this)+"type("+this.pageVar.toString()+", '"+this.currentTypedString+"')"];
     };
 
     this.pbvs = function(){

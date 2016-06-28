@@ -77,6 +77,7 @@
 				<div id="relations_container">
 					<div class="title">Relevant Tables</div>
 					<div id="relations"></div>
+					<button id="relation_upload" class="top_margin">Upload an Additional Table</button>
 				</div>
 				<button id="run">Run Script</button> 
 				<button id="replay">Replay Original Recorded Script</button> (for testing)
@@ -116,6 +117,14 @@
 
 				<button id="relation_editing_ready">I'm ready!</button>
 				<div id="output_preview"><table></table></div>
+			</div>
+
+			<div id="upload_relation">
+				<input type="file" id="upload_data"/>				
+				<button id="upload_done">Done</button> 
+				<button id="upload_cancel">Cancel</button>
+				<output id="upload_file_name"></output>
+				<div id="upload_data_table">	</div>
 			</div>
 
 		</div>

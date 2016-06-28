@@ -71,15 +71,8 @@ var RecorderUI = (function() {
   pub.stopRecording = function(){
     var trace = SimpleRecord.stopRecording();
     var program = ReplayScript.setCurrentTrace(trace, recordingWindowId);
-    var scriptString = program.toString();
     program.relevantRelations(); // now that we have a script, let's set some processing in motion that will figure out likely relations
-    var div = $("#new_script_content");
-    DOMCreationUtilities.replaceContent(div, $("#script_preview")); // let's put in the script_preview node
-    var scriptPreviewDiv = div.find("#program_representation");
-    DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
-
-    activateButton(div, "#run", RecorderUI.run);
-    activateButton(div, "#replay", RecorderUI.replayOriginal);
+    pub.showProgramPreview();
   };
 
   pub.showProgramPreview = function(){
@@ -87,6 +80,7 @@ var RecorderUI = (function() {
     DOMCreationUtilities.replaceContent(div, $("#script_preview")); // let's put in the script_preview node
     activateButton(div, "#run", RecorderUI.run);
     activateButton(div, "#replay", RecorderUI.replayOriginal);
+    activateButton(div, '#relation_upload', RecorderUI.uploadRelation);
     RecorderUI.updateDisplayedScript();
     RecorderUI.updateDisplayedRelations();
   };
@@ -144,7 +138,7 @@ var RecorderUI = (function() {
     $div = $("#new_script_content").find("#relations");
     $div.html("");
     if (relationObjects.length === 0){
-      $div.html("No relevant tables identified on the webpages.");
+      $div.html("No relevant tables identified on the webpages yet.");
       return;
     }
     for (var i = 0; i < relationObjects.length; i++){
@@ -284,6 +278,36 @@ var RecorderUI = (function() {
       div.append(DOMCreationUtilities.arrayOfTextsToTableRow(listOfCellTexts));
     }
   };
+
+  var currentUploadRelation = null;
+  pub.uploadRelation = function(){
+    console.log("going to upload a relation.");
+    var div = $("#new_script_content");
+    DOMCreationUtilities.replaceContent(div, $("#upload_relation"));
+    $('#upload_data').on("change", pub.handleNewUploadedRelation); // and let's actually process changes
+    activateButton(div, "#upload_done", function(){if (currentUploadRelation !== null){ ReplayScript.prog.tryAddingRelation(currentUploadRelation);} RecorderUI.showProgramPreview();}); // ok, we're actually using this relation.  the program better get parameterized
+    activateButton(div, "#upload_cancel", RecorderUI.showProgramPreview); // don't really need to do anything here
+  };
+
+  pub.handleNewUploadedRelation = function(event){
+    console.log("New list uploaded.");
+    var fileReader = new FileReader();
+    fileReader.onload = function (event) {
+      var str = event.target.result;
+      // ok, we have the file contents.  let's display them
+      currentUploadRelation = new WebAutomationLanguage.TextRelation(str);
+      var csvData = currentUploadRelation.relation;
+      var sampleData = csvData;
+      if (sampleData.length > 100) {
+        var sampleData = csvData.slice(0,100); // only going to show a sample
+        sampleData.push(new Array(csvData[0].length).fill("...")); // to indicate to user that it's a sample
+      }
+      var tableElement = DOMCreationUtilities.arrayOfArraysToTable(sampleData);
+      $("#upload_data_table").append(tableElement);
+    }
+    // now that we know how to handle reading data, let's actually read some
+    fileReader.readAsText(event.target.files[0]);
+  }
 
   return pub;
 }());
@@ -1029,6 +1053,58 @@ var WebAutomationLanguage = (function() {
     };
   }
 
+  // used for relations that only have text in cells, as when user uploads the relation
+  pub.TextRelation = function(csvFileContents){
+    this.relation = $.csv.toArrays(csvFileContents);
+
+    this.demonstrationTimeRelationText = function(){
+      return this.relation;
+    }
+
+    this.firstRowXpathsInOrder = function(){
+      return Array.apply(null, {length: this.relation[0].length}).map(Number.call, Number); // we'll just use indexes instead of xpaths for this type of relation, which is purely a text relation
+    }
+
+    this.parameterizeableXpaths = function(){
+      return this.firstRowXpathsInOrder();
+    }
+
+    var xpathsToColumnObjects = {};
+    this.processColumns = function(){
+      newXpathsToColumnObjects = {};
+      var indexes = this.firstRowXpathsInOrder();
+      for (var i = 0; i < indexes.length; i++){
+        newXpathsToColumnObjects[indexes[i]] = {index: i, name: "filler", xpath: i}; // todo: don't actually want to put filler here
+      }
+      xpathsToColumnObjects = newXpathsToColumnObjects
+    };
+    this.processColumns();
+
+    this.getParameterizeableXpathColumnObject = function(xpath){
+      var obj = xpathsToColumnObjects[xpath];
+      if (!obj){ console.log("Ack!  No column object for that xpath: ", xpathsToColumnObjects, xpath);}
+      return obj;
+    };
+    // user can give us better names
+    this.setParameterizeableXpathNodeName = function(xpath, v){
+      var columnObj = xpathsToColumnObjects[xpath];
+      columnObj.name = v;
+    };
+
+    this.usedByStatement = function(statement){
+      if (!(statement instanceof WebAutomationLanguage.TypeStatement)){
+        return false;
+      }
+      // todo: actually fill this in!
+      return false;
+    };
+
+    var currentRowsCounter = 0;
+    this.clearRunningState = function(){
+      currentRowsCounter = 0;
+    };
+  }
+
   var relationCounter = 0;
   pub.Relation = function(relationId, name, selector, selectorVersion, excludeFirst, columns, demonstrationTimeRelation, numRowsInDemo, url, nextType, nextButtonSelector){
     this.id = relationId;
@@ -1058,8 +1134,6 @@ var WebAutomationLanguage = (function() {
     }
 
     this.firstRowXpathsInOrder = function(){
-      console.log(relation.demonstrationTimeRelation[0]);
-      console.log(_.map(relation.demonstrationTimeRelation[0], function(cell){ return cell.xpath;}));
       return relation.parameterizeableXpaths();
     }
 
@@ -1708,6 +1782,43 @@ var WebAutomationLanguage = (function() {
 
       RecorderUI.updateDisplayedScript();
     };
+
+    this.tryAddingRelation = function(relation){
+      var relationUsed = tryAddingRelationHelper(relation, this.loopyStatements, this);
+      // for now we'll add it whether or not it actually get used, but this may not be the best way...
+      this.relations.push(relation);
+    }
+
+    function tryAddingRelationHelper(relation, loopyStatements, parent){ // parent will be either the full program or a loop statement
+      for (var i = 0; i < loopyStatements.length; i++){
+        var statement = loopyStatements[i];
+        if (statement instanceof WebAutomationLanguage.LoopStatement){
+          var used = tryAddingRelationHelper(relation, statement.bodyStatements, statement);
+          if (used) {return used;} // if we've already found a use for it, we won't try to use it twice.  so at least for now, as long as we only want one use, we should stop checking here, not continue
+        }
+        if (relation.usedByStatement(statement)){
+          // ok, let's assume the rest of this loop's body should be nested
+          var bodyStatementLs = loopyStatements.slice(i, loopyStatements.length);
+          for (var j = 0; j < bodyStatementLs.length; j++){
+            bodyStatementLs[j].parameterizeForRelation(relation);
+          }
+          var loopStatement = new WebAutomationLanguage.LoopStatement(relation, bodyStatementLs, loopyStatements[i].pageVar);
+          // awesome, we have our new loop statement, which should now be the final statement in the parent
+          var newStatements = loopyStatements.slice(0,i);
+          newStatements.push(loopStatement);
+          if (parent instanceof WebAutomationLanguage.Program){
+            // parent is a whole program, so go ahead and update this.loopystatments
+            parent.loopyStatements = newStatements;
+          }
+          else{
+            // parent is a loop statement, so update bodyStatements
+            parent.bodyStatements = newStatements;
+          }
+          return true;;
+        }
+      }
+      return false;
+    }
 
     this.removeRelation = function(relationObj){
       this.relations = _.without(this.relations, relationObj);

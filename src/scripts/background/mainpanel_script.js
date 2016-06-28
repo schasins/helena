@@ -956,6 +956,7 @@ var WebAutomationLanguage = (function() {
     var textEntryEvents = _.filter(trace, function(ev){return WebAutomationLanguage.statementType(ev) === StatementTypes.KEYBOARD;});
     var lastTextEntryEvent = textEntryEvents[textEntryEvents.length - 1];
     this.typedString = lastTextEntryEvent.target.snapshot.value;
+    this.typedStringLower = this.typedString.toLowerCase();
     var domEvents = _.filter(trace, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
     var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
     this.outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
@@ -1054,6 +1055,19 @@ var WebAutomationLanguage = (function() {
     };
   }
 
+  function usedByTextStatement(statement, parameterizeableStrings){
+    if (!(statement instanceof WebAutomationLanguage.TypeStatement)){
+      return false;
+    }
+    for (var i = 0; i < parameterizeableStrings.length; i++){
+      var lowerString = parameterizeableStrings[i].toLowerCase();
+      if (statement.typedStringLower.indexOf(lowerString) > -1){
+        return true;
+      }
+    }
+    return false;
+  }
+
   // used for relations that only have text in cells, as when user uploads the relation
   pub.TextRelation = function(csvFileContents){
     this.relation = $.csv.toArrays(csvFileContents);
@@ -1093,11 +1107,7 @@ var WebAutomationLanguage = (function() {
     };
 
     this.usedByStatement = function(statement){
-      if (!(statement instanceof WebAutomationLanguage.TypeStatement)){
-        return false;
-      }
-      // todo: actually fill this in!
-      return false;
+      return usedByTextStatement(statement, this.relation[0]);
     };
 
     var currentRowsCounter = 0;
@@ -1199,9 +1209,16 @@ var WebAutomationLanguage = (function() {
       if (!((statement instanceof WebAutomationLanguage.ScrapeStatement) || (statement instanceof WebAutomationLanguage.ClickStatement) || (statement instanceof WebAutomationLanguage.TypeStatement))){
         return false;
       }
-      // for now we're only saying the relation is used if the nodes in the relation are used
-      // todo: ultimately should also say it's used if the text contents of a node is typed
-      return (this.url === statement.pageUrl && this.parameterizeableXpaths().indexOf(statement.node) > -1);
+      if (this.url === statement.pageUrl && this.parameterizeableXpaths().indexOf(statement.node) > -1){
+        return true;
+      }
+      var firstRowTexts = _.pluck(this.demonstrationTimeRelation[0], "text");
+      console.log("firstRowTexts", firstRowTexts);
+      if (usedByTextStatement(statement, firstRowTexts)){
+        return true;
+      }
+      // ok, neither the node nor the typed text looks like this relation's cells
+      return false;
     };
 
     this.clearRunningState = function(){

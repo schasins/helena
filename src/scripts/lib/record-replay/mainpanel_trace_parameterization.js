@@ -88,7 +88,7 @@ function ParameterizedTrace(trace){
 			// oh cool, that substring appears in this node by the end of the typing.  let's try to find where we start and finish typing it
 			// assumption is that we're typing from begining of string to end.  below won't work well if we're hopping all around 
 
-			// what's the first place where we see everything that appears left of our target string?
+			// what's the last place where we see everything that appears left of our target string, but none of the target string?
 			var left = typed_value_lower.slice(0, target_string_index);
 			var first_key_event_index = char_indexes[0];
 
@@ -97,9 +97,13 @@ function ParameterizedTrace(trace){
 				var event = trace[i];
 				if (event.type === "dom" && event.data.type === last_event_type){
 					// cool, we're on the last event in a particular key sequence.  does it have the whole left in the value yet?
-					if (event.target.snapshot.value.toLowerCase().indexOf(left) > -1){
-						start_target_typing_index = i + 1;
+					var lowerCurrString = event.target.snapshot.value.toLowerCase();
+					if (lowerCurrString.indexOf(left + original_string[0])){
+						// oops, gone too far!  we've started the target string
 						break;
+					}
+					if (lowerCurrString.indexOf(left) > -1){
+						start_target_typing_index = i + 1;
 					}
 				}
 			}
@@ -138,9 +142,6 @@ function ParameterizedTrace(trace){
 			.concat([param_event])
 			.concat(trace.slice(stop_target_typing_index, trace.length));
 			console.log("putting a hole in for a string", original_string_initial_case);
-		}
-		else{
-			throw ("why didn't we find");
 		}
 	}
 	

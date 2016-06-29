@@ -39,6 +39,7 @@ function ParameterizedTrace(trace){
 	var data_carrier_type = "textInput";
 	
 	this.parameterizeTypedString = function(parameter_name, original_string){
+		console.log("parameterizing string ",parameter_name, original_string);
 		var curr_string = "";
 		var char_indexes = [];
 		var started_char = false;
@@ -60,29 +61,71 @@ function ParameterizedTrace(trace){
 			}
 			else{
 				//no more entries into this string, have a non-key event
-				processString(parameter_name, original_string, curr_string, char_indexes);
-				curr_string_chars = [];
+				// todo: should also break into a new segment if we switch nodes
+				console.log("processString", curr_string);
+				processString(parameter_name, original_string, curr_string, char_indexes, i - 1);
+				curr_string = "";
 			}
+		}
+		// and let's check whatever we had at the end if it hadn't been checked yet
+		if (curr_string.length > 0){
+			processString(parameter_name, original_string, curr_string, char_indexes, trace.length - 1);
 		}
 	};
 	
-	function processString(parameter_name, original_string, string, char_indexes){
+	function processString(parameter_name, original_string, string, char_indexes, last_key_index){
+		// the string we got as an argument was based on the keypresses, but recreating all the logic around that is a terrible pain
+		// let's try using the value of the node
+		var typed_value = trace[last_key_index].target.snapshot.value; // obviously this approach is limited to nodes with value attributes, as is current top-level tool
+
 		var original_string_initial_case = original_string;
 		original_string = original_string.toLowerCase();
-		string = string.toLowerCase();
-		var orig_i = string.indexOf(original_string);
-		if (orig_i > -1){
-			//we've found the target string in the typed text, must param
-			var one_key_start_index = char_indexes[orig_i];
-			var post_char_index = char_indexes[orig_i + original_string.length - 1] + 
-				char_indexes[orig_i+1] - char_indexes[orig_i];
-			var text_input_event = null;
-			for (var i = one_key_start_index; i++ ; i < post_char_index){
+
+		typed_value_lower = typed_value.toLowerCase();
+
+		var target_string_index = typed_value_lower.indexOf(original_string);
+		if (target_string_index > -1){
+			// oh cool, that substring appears in this node by the end of the typing.  let's try to find where we start and finish typing it
+			// assumption is that we're typing from begining of string to end.  below won't work well if we're hopping all around 
+
+			// what's the first place where we see everything that appears left of our target string?
+			var left = typed_value_lower.slice(0, target_string_index);
+			var first_key_event_index = char_indexes[0];
+
+			var start_target_typing_index = first_key_event_index;
+			for (var i = first_key_event_index; i < last_key_index; i++){
+				var event = trace[i];
+				if (event.type === "dom" && event.data.type === last_event_type){
+					// cool, we're on the last event in a particular key sequence.  does it have the whole left in the value yet?
+					if (event.target.snapshot.value.toLowerCase().indexOf(left) > -1){
+						start_target_typing_index = i + 1;
+						break;
+					}
+				}
+			}
+			// what's the first place where we see the whole target string?
+			var stop_target_typing_index = last_key_index; // we know it's there by the last key, so that's a safe bet
+			for (var i = start_target_typing_index; i < last_key_index; i++){
+				var event = trace[i];
+				if (event.type === "dom" && event.data.type === last_event_type){
+					// cool, we're on the last event in a particular key sequence.  does it have the whole left in the value yet?
+					if (event.target.snapshot.value.toLowerCase().indexOf(original_string) > -1){
+						stop_target_typing_index = i + 1;
+						break;
+					}
+				}
+			}
+
+			// ok, so we type our target from start_target_typing_index to stop_target_typing_index
+			for (var i = start_target_typing_index; i < stop_target_typing_index; i++){
 				var event = trace[i];
 				if (event.type === "dom" && event.data.type === "textInput"){
 					text_input_event = event;
 					break;
 				}
+			}
+			if (text_input_event === null){
+				console.log("uh oh, one of our assumptions broken. no textinput event.");
 			}
 			//now make our param event
 			var param_event = {"type": "string_parameterize", 
@@ -91,9 +134,13 @@ function ParameterizedTrace(trace){
 			"orig_value": original_string_initial_case,
 			"value": ""};
 			//now remove the unnecessary events, replace with param event
-			trace = trace.slice(0,one_key_start_index)
+			trace = trace.slice(0,start_target_typing_index)
 			.concat([param_event])
-			.concat(trace.slice(post_char_index, trace.length));
+			.concat(trace.slice(stop_target_typing_index, trace.length));
+			console.log("putting a hole in for a string", original_string_initial_case);
+		}
+		else{
+			throw ("why didn't we find");
 		}
 	}
 	
@@ -101,6 +148,7 @@ function ParameterizedTrace(trace){
 		for (var i=0; i< trace.length; i++){
 			var event = trace[i];
 			if (event.type === "string_parameterize" && event.parameter_name === parameter_name){
+				console.log("use string", string);
 				event.value = string;
 			}
 		}
@@ -257,6 +305,8 @@ function ParameterizedTrace(trace){
 				}
 			}
 			else if (cloned_trace[i].type === "string_parameterize"){
+				console.log("Correcting string to ", cloned_trace[i].value);
+				console.log(cloned_trace[i]);
 				var new_event = cloned_trace[i].text_input_event;
 				new_event.data.data = cloned_trace[i].value;
 				deltaReplace(new_event.meta.deltas, "value", cloned_trace[i].orig_value, cloned_trace[i].value);

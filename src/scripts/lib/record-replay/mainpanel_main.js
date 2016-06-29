@@ -890,7 +890,6 @@ var Replay = (function ReplayClosure() {
         console.log(v, portMapping, tabMapping);
         console.log("Freak out.  We don't know what port to use to replay this event.");
         // it may be the tab just isn't ready yet, not added to our mappings yet.  try again in a few.
-        this.setNextTimeout(500);
         return null;
       }
       console.log(replayPort);
@@ -1037,8 +1036,9 @@ var Replay = (function ReplayClosure() {
         this.finish();
       }
       else{
-        var replayer = this;
-        setTimeout(function(){replayer.waitForObservedEvents();},500);
+        //var replayer = this;
+        //setTimeout(function(){replayer.waitForObservedEvents();},500);
+        this.setNextTimeout(500);
       }
     },
     simulateCompletedEvent: function _simulateCompletedEvent(e){

@@ -152,16 +152,16 @@ var RecorderUI = (function() {
       }
       var table = DOMCreationUtilities.arrayOfArraysToTable(textRelation);
 
-      var xpaths = relation.firstRowXpathsInOrder();
+      var columns = relation.columns;
       var tr = $("<tr></tr>");
-      for (var j = 0; j < xpaths.length; j++){
+      for (var j = 0; j < columns.length; j++){
         (function(){
-          var xpath = xpaths[j];
+          var xpath = columns[j].xpath;
           var columnTitle = $("<input></input>");
           console.log(xpath);
           console.log(relation);
-          columnTitle.val(relation.getParameterizeableXpathColumnObject(xpath).name);
-          columnTitle.change(function(){console.log(columnTitle.val(), xpath); relation.setParameterizeableXpathNodeName(xpath, columnTitle.val()); RecorderUI.updateDisplayedScript();});
+          columnTitle.val(columns[j].name);
+          columnTitle.change(function(){console.log(columnTitle.val(), xpath); relation.setColumnName(columns[j], columnTitle.val()); RecorderUI.updateDisplayedScript();});
           var td = $("<td></td>");
           td.append(columnTitle);
           tr.append(td);
@@ -239,14 +239,14 @@ var RecorderUI = (function() {
     var textRelation = relationObj.demonstrationTimeRelationText();
     var table = DOMCreationUtilities.arrayOfArraysToTable(textRelation);
 
-    var xpaths = relationObj.firstRowXpathsInOrder();
+    var columns = relationObj.columns;
     var tr = $("<tr></tr>");
-    for (var j = 0; j < xpaths.length; j++){
+    for (var j = 0; j < columns.length; j++){
       (function(){
-        var xpath = xpaths[j];
+        var xpath = columns[j].xpath;
         var columnTitle = $("<input></input>");
-        columnTitle.val(relationObj.getParameterizeableXpathColumnObject(xpath).name);
-        columnTitle.change(function(){console.log(columnTitle.val(), xpath); relationObj.setParameterizeableXpathNodeName(xpath, columnTitle.val()); RecorderUI.updateDisplayedScript();});
+        columnTitle.val(columns[j].name);
+        columnTitle.change(function(){console.log(columnTitle.val(), xpath); relationObj.setColumnName(columns[j], columnTitle.val()); RecorderUI.updateDisplayedScript();});
         var td = $("<td></td>");
         td.append(columnTitle);
         tr.append(td);
@@ -694,11 +694,14 @@ var WebAutomationLanguage = (function() {
   }
 
   function parameterizeNodeWithRelation(statement, relation, pageVar){
-      var xpaths = relation.parameterizeableXpaths();
-      var index = xpaths.indexOf(statement.currentNode);
-      if (index > -1){
-        statement.relation = relation;
-        statement.currentNode = new WebAutomationLanguage.VariableUse(relation.getParameterizeableXpathColumnObject(xpaths[index]), relation, pageVar);
+      var columns = relation.columns;
+      for (var i = 0; i < columns.length; i++){
+        var firstRowXpath = columns[i].firstRowXpath;
+        if (firstRowXpath === statement.currentNode){
+          statement.relation = relation;
+          statement.currentNode = new WebAutomationLanguage.VariableUse(columns[i], relation, pageVar);
+          return;
+        }
       }
   }
 
@@ -966,7 +969,14 @@ var WebAutomationLanguage = (function() {
     this.currentTypedString = this.typedString;
 
     this.toStringLines = function(){
-      return [outputPagesRepresentation(this)+"type("+this.pageVar.toString()+", '"+this.currentTypedString+"')"];
+      var stringRep = "";
+      if (this.currentTypedString instanceof WebAutomationLanguage.Concatenate){
+        stringRep = this.currentTypedString.toString();
+      }
+      else{
+        stringRep = "'"+this.currentTypedString+"'";
+      }
+      return [outputPagesRepresentation(this)+"type("+this.pageVar.toString()+", "+stringRep+")"];
     };
 
     this.pbvs = function(){
@@ -978,19 +988,53 @@ var WebAutomationLanguage = (function() {
       if (this.node !== this.currentNode){
         pbvs.push({type:"node", value: this.node});
       }
+      if (this.typedString !== this.currentTypedString){
+        pbvs.push({type:"typedString", value: this.typedString});
+      }
       return pbvs;
     };
 
     this.parameterizeForRelation = function(relation){
       parameterizeNodeWithRelation(this, relation, this.pageVar);
+
+      // now let's also parameterize the text
+      var columns = relation.columns;
+      for (var i = 0; i < columns.length; i++){
+        var text = columns[i].firstRowText;
+        var textLower = text.toLowerCase();
+        var startIndex = this.typedStringLower.indexOf(textLower);
+        if (startIndex > -1){
+          // cool, this is the column for us then
+          var components = [];
+          var left = text.slice(0, startIndex);
+          if (left.length > 0){
+            components.push(left)
+          }
+          components.push(new WebAutomationLanguage.VariableUse(columns[i], relation, this.pageVar));
+          var right = text.slice(startIndex + this.typedString.length, text.length);
+          if (right.length > 0){
+            components.push(right)
+          }
+          this.currentTypedString = new WebAutomationLanguage.Concatenate(components);
+          return;
+        }
+      }
     };
     this.unParameterizeForRelation = function(relation){
       unParameterizeNodeWithRelation(this, relation);
     };
 
+    function currentNodeText(statement){
+      if (statement.currentTypedString instanceof WebAutomationLanguage.Concatenate){
+        return statement.currentTypedString.currentText();
+      }
+      return statement.currentTypedString; // this means currentNode better be a string if it's not a concatenate node
+    }
+
     this.args = function(){
       var args = [];
       args.push({type:"node", value: currentNodeXpath(this)});
+      args.push({type:"typedString", value: currentNodeText(this)});
       args.push({type:"tab", value: currentTab(this)});
       return args;
     };
@@ -1060,6 +1104,7 @@ var WebAutomationLanguage = (function() {
       return false;
     }
     for (var i = 0; i < parameterizeableStrings.length; i++){
+      if (!parameterizeableStrings[i]){ continue;}
       var lowerString = parameterizeableStrings[i].toLowerCase();
       if (statement.typedStringLower.indexOf(lowerString) > -1){
         return true;
@@ -1071,38 +1116,32 @@ var WebAutomationLanguage = (function() {
   // used for relations that only have text in cells, as when user uploads the relation
   pub.TextRelation = function(csvFileContents){
     this.relation = $.csv.toArrays(csvFileContents);
+    this.firstRowTexts = this.relation[0];
 
     this.demonstrationTimeRelationText = function(){
       return this.relation;
     }
 
-    this.firstRowXpathsInOrder = function(){
-      return Array.apply(null, {length: this.relation[0].length}).map(Number.call, Number); // we'll just use indexes instead of xpaths for this type of relation, which is purely a text relation
-    }
-
-    this.parameterizeableXpaths = function(){
-      return this.firstRowXpathsInOrder();
-    }
-
-    var xpathsToColumnObjects = {};
+    this.columns = [];
     this.processColumns = function(){
-      newXpathsToColumnObjects = {};
-      var indexes = this.firstRowXpathsInOrder();
-      for (var i = 0; i < indexes.length; i++){
-        newXpathsToColumnObjects[indexes[i]] = {index: i, name: "filler", xpath: i}; // todo: don't actually want to put filler here
+      for (var i = 0; i < this.relation[0].length; i++){
+        this.columns.push({index: i, name: "filler", firstRowXpath: null, xpath: null, firstRowText: this.firstRowTexts[i]}); // todo: don't actually want to put filler here
       }
-      xpathsToColumnObjects = newXpathsToColumnObjects
     };
     this.processColumns();
 
-    this.getParameterizeableXpathColumnObject = function(xpath){
-      var obj = xpathsToColumnObjects[xpath];
-      if (!obj){ console.log("Ack!  No column object for that xpath: ", xpathsToColumnObjects, xpath);}
-      return obj;
+    this.getColumnObjectFromXpath = function(xpath){
+      for (var i = 0; i < this.columns.length; i++){
+        if (this.columns[i].xpath === xpath){
+          return this.columns[i];
+        }
+      }
+      console.log("Ack!  No column object for that xpath: ", this.columns, xpath);
+      return null;
     };
+
     // user can give us better names
-    this.setParameterizeableXpathNodeName = function(xpath, v){
-      var columnObj = xpathsToColumnObjects[xpath];
+    this.setColumnName = function(columnObj, v){
       columnObj.name = v;
     };
 
@@ -1144,15 +1183,6 @@ var WebAutomationLanguage = (function() {
       return _.map(this.demonstrationTimeRelation, function(row){return _.map(row, function(cell){return cell.text;});});
     }
 
-    this.firstRowXpathsInOrder = function(){
-      return relation.parameterizeableXpaths();
-    }
-
-    this.parameterizeableXpaths = function(){
-      // for now, will only parameterize on the first row
-      return _.map(relation.demonstrationTimeRelation[0], function(cell){ return cell.xpath;});
-    }
-
     function domain(url){
       var domain = "";
       // don't need http and so on
@@ -1166,27 +1196,64 @@ var WebAutomationLanguage = (function() {
       return domain;
     }
 
-    var xpathsToColumnObjects = {};
-    this.processColumns = function(){
-      newXpathsToColumnObjects = {};
+    this.processColumns = function(oldColumns){
       for (var i = 0; i < relation.columns.length; i++){
-        processColumn(relation.columns[i], i, xpathsToColumnObjects[relation.columns[i].xpath]); // should later look at whether this index is good enough
-        newXpathsToColumnObjects[relation.columns[i].xpath] = relation.columns[i];
+        processColumn(relation.columns[i], i, oldColumns); // should later look at whether this index is good enough
       }
-      xpathsToColumnObjects = newXpathsToColumnObjects
     };
-    this.processColumns();
 
-    function processColumn(colObject, index, oldColObject){
+    function processColumn(colObject, index, oldColObjects){
       if (colObject.name === null || colObject.name === undefined){
-        if (oldColObject && oldColObject.name){
+        if (oldColObjects){
+          // let's search the old col objects, see if any share an xpath and have a name for us
+          var oldColObject = findByXpath(oldColObjects, colObject.xpath);
           colObject.name = oldColObject.name;
         }
         else{
           colObject.name = relation.name+"_item_"+(index+1); // a filler name that we'll use for now
         }
       }
+      if (relation.demonstrationTimeRelation[0]){
+        var firstRowCell = findByXpath(relation.demonstrationTimeRelation[0], colObject.xpath); // for now we're aligning the demonstration items with everything else via xpath.  may not always be best
+        if (firstRowCell){
+          colObject.firstRowXpath = firstRowCell.xpath;
+          colObject.firstRowText = firstRowCell.text;
+        }
+      }
       colObject.index = index;
+    };
+
+    console.log(this);
+    this.processColumns();
+
+    function initialize(){
+      relation.firstRowXPaths = _.pluck(relation.demonstrationTimeRelation[0], "xpath");
+      relation.firstRowTexts = _.pluck(relation.demonstrationTimeRelation[0], "text");
+    }
+    
+    initialize();
+
+    this.setNewAttributes = function(selector, selectorVersion, excludeFirst, columns, demonstrationTimeRelation, numRowsInDemo, nextType, nextButtonSelector){
+      this.selector = msg.selector;
+      this.selectorVersion = msg.selector_version;
+      this.excludeFirst = msg.exclude_first;
+      this.demonstrationTimeRelation = msg.demonstration_time_relation;
+      this.numRowsInDemo = msg.num_rows_in_demo;
+      this.nextType = msg.next_type;
+      this.nextButtonSelector = msg.next_button_selector;
+
+      initialize();
+
+      // now let's deal with columns.  recall we need the old ones, since they might have names we need
+      var oldColumns = this.columns;
+      this.columns = columns;
+      this.processColumns(oldColumns);
+    };
+
+    function findByXpath(objectList, xpath){
+      var objs = _.filter(objectList, function(obj){return obj.xpath === xpath;});
+      if (objs.length === 0){ return null; }
+      return objs[0];
     }
 
     this.nameColumnsAndRelation = function(){
@@ -1194,14 +1261,18 @@ var WebAutomationLanguage = (function() {
     }
     this.nameColumnsAndRelation();
 
-    this.getParameterizeableXpathColumnObject = function(xpath){
-      var obj = xpathsToColumnObjects[xpath];
-      if (!obj){ console.log("Ack!  No column object for that xpath: ", xpathsToColumnObjects, xpath);}
-      return obj;
+    this.getColumnObjectFromXpath = function(xpath){
+      for (var i = 0; i < this.columns.length; i++){
+        if (this.columns[i].xpath === xpath){
+          return this.columns[i];
+        }
+      }
+      console.log("Ack!  No column object for that xpath: ", this.columns, xpath);
+      return null;
     };
+
     // user can give us better names
-    this.setParameterizeableXpathNodeName = function(xpath, v){
-      var columnObj = xpathsToColumnObjects[xpath];
+    this.setColumnName = function(columnObj, v){
       columnObj.name = v;
     };
 
@@ -1209,12 +1280,10 @@ var WebAutomationLanguage = (function() {
       if (!((statement instanceof WebAutomationLanguage.ScrapeStatement) || (statement instanceof WebAutomationLanguage.ClickStatement) || (statement instanceof WebAutomationLanguage.TypeStatement))){
         return false;
       }
-      if (this.url === statement.pageUrl && this.parameterizeableXpaths().indexOf(statement.node) > -1){
+      if (this.url === statement.pageUrl && this.firstRowXPaths.indexOf(statement.node) > -1){
         return true;
       }
-      var firstRowTexts = _.pluck(this.demonstrationTimeRelation[0], "text");
-      console.log("firstRowTexts", firstRowTexts);
-      if (usedByTextStatement(statement, firstRowTexts)){
+      if (usedByTextStatement(statement, this.firstRowTexts)){
         return true;
       }
       // ok, neither the node nor the typed text looks like this relation's cells
@@ -1305,15 +1374,7 @@ var WebAutomationLanguage = (function() {
 
     this.selectorFromContentScript = function(msg){
       tabReached = true;
-      this.selector = msg.selector;
-      this.selectorVersion = msg.selector_version;
-      this.excludeFirst = msg.exclude_first;
-      this.columns = msg.columns;
-      this.processColumns();
-      this.demonstrationTimeRelation = msg.demonstration_time_relation;
-      this.numRowsInDemo = msg.num_rows_in_demo;
-      this.nextType = msg.next_type;
-      this.nextButtonSelector = msg.next_button_selector;
+      this.setNewAttributes(msg.selector, msg.selector_version, msg.exclude_first, msg.columns, msg.demonstration_time_relation, msg.num_rows_in_demo, msg.next_type, msg.next_button_selector);
       RecorderUI.updateDisplayedRelation(this);
     };
   }
@@ -1367,6 +1428,39 @@ var WebAutomationLanguage = (function() {
     };
 
   };
+
+  pub.Concatenate = function(components){
+    this.components = components;
+
+    this.currentText = function(){
+      var output = "";
+      _.each(this.components, function(component){
+        if (component instanceof pub.VariableUse){
+          output += component.currentText();
+        }
+        else{
+          // this should be a string, since currently can only concat strings and variable uses
+          output += component;
+        }
+      });
+      return output;
+    }
+
+    this.toString = function(){
+      var outputComponents = [];
+      _.each(this.components, function(component){
+        if (component instanceof pub.VariableUse){
+          outputComponents.push(component.toString());
+        }
+        else{
+          // this should be a string, since currently can only concat strings and variable uses
+          outputComponents.push("'"+component+"'");
+        }
+      });
+      return outputComponents.join("+"); 
+    }
+
+  }
 
   // the whole program
 

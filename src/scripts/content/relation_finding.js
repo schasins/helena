@@ -143,14 +143,14 @@ var RelationFinder = (function() { var pub = {};
   pub.interpretRelationSelector = function(selector){
     if (selector.selector.table === true){
       // let's go ahead and sidetrack off to the table extraction routine
-      return pub.interpretTableSelector(selector.selector, selector.exclude_first);
+      return pub.interpretTableSelector(selector.selector, selector.exclude_first, selector.columns);
     }
     var suffixes = _.pluck(selector.columns, "suffix");
     console.log("interpretRelationSelector", selector);
     return pub.interpretRelationSelectorHelper(selector.selector, selector.exclude_first, makeSubcomponentFunction(suffixes));
   };
 
-  pub.interpretTableSelector = function(featureDict, excludeFirst){
+  pub.interpretTableSelector = function(featureDict, excludeFirst, columns){
     // we don't use this for nested tables!  this is just for very simple tables, otherwise we'd graduate to the standard approach
     var nodes = xPathToNodes(featureDict.xpath);
     var table = null;
@@ -174,8 +174,13 @@ var RelationFinder = (function() { var pub = {};
 
     // ok, now we know which table to use
     var rows = table.find("tr");
-    var cells = _.map(rows, function(row){return $(row).find("td, th");});
-    return cells.slice(excludeFirst, cells.length);
+    rows = rows.slice(excludeFirst, rows.length);
+
+    // now we'll use the columns info to actually get the cells
+    var suffixes = _.pluck(columns, "suffix");
+    var subcomponentsFunction = makeSubcomponentFunction(suffixes);
+    var cells = _.map(rows, function(row){return subcomponentsFunction(row);});
+    return cells;
   }
 
 /**********************************************************************
@@ -184,7 +189,7 @@ var RelationFinder = (function() { var pub = {};
 
   function findCommonAncestor(nodes){
     // this doesn't handle null nodes, so filter those out first
-    nodes = _.filter(nodes, function(node){return node !== null;});
+    nodes = _.filter(nodes, function(node){return node !== null and node !== undefined;});
     var xpath_lists = _.map(nodes, function(node){ return XPathList.xPathToXPathList(nodeToXPath(node)); });
     if (xpath_lists.length === 0){
       console.log("Why are you trying to get the common ancestor of 0 nodes?");
@@ -432,9 +437,10 @@ var RelationFinder = (function() { var pub = {};
       }
       var parent = $(tr).parent();
       var children = parent.children();
-      var index = jqueryIndexOf(children, tr); // using this as the number to exclude
+      var index = jqueryIndexOf(children, tr); // using this as the number of rows to exclude from the top of the table, since the rowNodes arg should represent first row of target table
       var featureDict = tableFeatureDict(tableParent);
-      var selector = Selector(featureDict, index, columnsFromNodeAndSubnodes(tr,$(tr).find("td, th")), rowNodes, []);
+      var cellNodes = _.union($(tr).find("td, th").toArray(), rowNodes); // we'll make columns for each argument node of course, but let's also do all the td elements
+      var selector = Selector(featureDict, index, columnsFromNodeAndSubnodes(tr, cellNodes), rowNodes, []);
       var relation = pub.interpretRelationSelector(selector);
       selector.relation = relation;
       var score = relation.length * relation[0].length;
@@ -442,13 +448,6 @@ var RelationFinder = (function() { var pub = {};
         bestScore = score;
         bestSelector = selector;
       }
-    }
-
-    // let's just double check and make sure that all our target nodes are actually included here
-    // in future we'll actually want to have ways to descend into the td elements, but bad use of time right now;  todo.
-    var allNodesInFirstRow = _.reduce(rowNodes, function(acc, node){return acc && (jqueryIndexOf(bestSelector.relation[0], node) > -1);}, true);
-    if (!allNodesInFirstRow){
-      return null;
     }
 
     return bestSelector;

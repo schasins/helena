@@ -139,7 +139,7 @@ var PortManager = (function PortManagerClosure() {
 
       var portManager = this;
       port.addDisconnectListener(function(evt) {
-        portLog.log('disconnect port:', port);
+        portLog.log('Disconnect port:', port);
 
         if (portId in ports) {
           delete ports[portId];
@@ -152,22 +152,21 @@ var PortManager = (function PortManagerClosure() {
         var tabInfo = portManager.tabIdToTabInfo[tabId];
 
         var frames;
-        if (portInfo.top)
-          var frames = tabInfo.top;
-        else
-          var frames = tabInfo.frames;
+        if (tabInfo) {
+          if (portInfo.top)
+            var frames = tabInfo.top;
+          else
+            var frames = tabInfo.frames;
 
-        var removed = false;
-        for (var i = 0, ii = frames.length; i < ii; ++i) {
-          if (frames[i].portId == portId) {
-            frames.splice(i, 1);
-            removed = true;
-            break;
+          for (var i = 0, ii = frames.length; i < ii; ++i) {
+            if (frames[i].portId == portId) {
+              frames.splice(i, 1);
+              break;
+            }
           }
+        } else {
+          portLog.error('Cannot find information about tab:', tabId, tabInfo);
         }
-
-        if (!removed)
-          throw "Can't find frame in tabInfo";
       });
     }
   };

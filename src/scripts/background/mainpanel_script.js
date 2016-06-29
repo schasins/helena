@@ -1315,6 +1315,14 @@ var WebAutomationLanguage = (function() {
       return {id: this.id, name: this.name, selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns, next_type: this.nextType, next_button_selector: this.nextButtonSelector, url: this.url, num_rows_in_demonstration: this.numRowsInDemo};
     };
 
+    function repeatUntil(repeatFunction, untilFunction, interval){
+      if (untilFunction()){
+        return;
+      }
+      repeatFunction();
+      setTimeout(function(){repeatUntil(repeatFunction, untilFunction, interval);}, interval);
+    }
+
     this.getNextRow = function(pageVar, callback){ // has to be called on a page, since a relation selector can be applied to many pages.  higher-level tool must control where to apply
       // todo: this is a very simplified version that assumes there's only one page of results.  add the rest soon.
 
@@ -1329,15 +1337,15 @@ var WebAutomationLanguage = (function() {
 
       console.log("getnextrow", this, prinfo.currentRowsCounter);
       if (prinfo.currentRows === null){
+        var relationItemsRetrieved = false;
         utilities.listenForMessageOnce("content", "mainpanel", "relationItems", function(data){
+          relationItemsRetrieved = true;
           prinfo.currentRows = data.relation;
           prinfo.currentRowsCounter = 0;
           callback(true);
         });
-        utilities.sendMessage("mainpanel", "content", "getRelationItems", this.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);
-        // todo: for above.  need to figure out the appropriate tab_id
-        // how should we decide on tab id?  should we just send to all tabs, have them all check if it looks listy on the relevant tab?
-        // this might be useful for later attempts to apply relation finders to new pages with different urls, so user doesn't have to show them, that sort of thing
+        var sendGetRelationItems = function(){utilities.sendMessage("mainpanel", "content", "getRelationItems", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);};
+        repeatUntil(sendGetRelationItems, function(){return relationItemsRetrieved;}, 1000);
       }
       else if (prinfo.currentRowsCounter + 1 >= prinfo.currentRows.length){
         callback(false); // no more rows -- let the callback know we're done
@@ -1821,7 +1829,7 @@ var WebAutomationLanguage = (function() {
             var getLikelyRelationFuncUntilAnswer = function(){
               if (pagesProcessed[targetPageUrl]){ return; } 
               getLikelyRelationFunc(); 
-              setTimeout(getLikelyRelationFuncUntilAnswer, 1000);}
+              setTimeout(getLikelyRelationFuncUntilAnswer, 5000);}
 
             // what should we do once we get the response back, having tested the various relations on the actual pages?
             utilities.listenForMessageOnce("content", "mainpanel", "likelyRelation", function(data){
@@ -1843,7 +1851,7 @@ var WebAutomationLanguage = (function() {
                 }); 
               }
             });
-            setTimeout(getLikelyRelationFuncUntilAnswer, 500); // give it a while to attach the listener
+            setTimeout(getLikelyRelationFuncUntilAnswer, 1000); // give it a while to attach the listener
           });
 
           return;

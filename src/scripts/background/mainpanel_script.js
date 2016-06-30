@@ -334,6 +334,10 @@ var EventM = (function() {
     return ev.frame.topURL;
   };
 
+  pub.getDOMPort = function(ev){
+    return ev.frame.port;
+  }
+
   pub.getVisible = function(ev){
     return ev.additionalDataTmp.display.visible;
   };
@@ -419,8 +423,7 @@ var ReplayScript = (function() {
     trace = processTrace(trace, windowId);
     trace = prepareForDisplay(trace);
     trace = markUnnecessaryLoads(trace);
-    trace = associateNecessaryLoadsWithIDs(trace);
-    trace = parameterizePages(trace);
+    trace = associateNecessaryLoadsWithIDsAndParameterizePages(trace);
     trace = addCausalLinks(trace);
     trace = removeEventsBeforeFirstVisibleLoad(trace);
     pub.trace = trace;
@@ -467,15 +470,40 @@ var ReplayScript = (function() {
     return trace;
   }
 
-  var frameToPageVarId = {};
-  function associateNecessaryLoadsWithIDs(trace){
+  function associateNecessaryLoadsWithIDsAndParameterizePages(trace){
     var idCounter = 1; // blockly says not to count from 0
-    _.each(trace, function(ev){if (ev.type === "completed" && EventM.getVisible(ev)){ var p = new WebAutomationLanguage.PageVariable("p"+idCounter, EventM.getLoadURL(ev)); EventM.setLoadOutputPageVar(ev, p); frameToPageVarId[EventM.getLoadURL(ev)] = p; idCounter += 1;}});
-    return trace;
-  }
 
-  function parameterizePages(trace){
-    _.each(trace, function(ev){if (ev.type === "dom"){ var p = frameToPageVarId[EventM.getDOMURL(ev)]; EventM.setDOMInputPageVar(ev, p); p.setRecordTimeFrameData(ev.frame); }});
+    // ok, unfortunately urls (our keys for frametopagevarid) aren't sufficient to distinguish all the different pagevariables, because sometimes pages load a new top-level/main_frame page without actually changing the url
+    // so we'll need to actually keep track of the ports as well.  any ports that appear with the target url before the creation of the next page var with the same url, we'll use those for the first page var, and so on
+
+    var urlsToMostRecentPageVar = {};
+    var portsToPageVars = {};
+    for (var i = 0; i < trace.length; i++){
+      var ev = trace[i];
+      if (ev.type === "completed" && EventM.getVisible(ev)){ 
+        var url = EventM.getLoadURL(ev);
+        var p = new WebAutomationLanguage.PageVariable("p"+idCounter, url);
+        EventM.setLoadOutputPageVar(ev, p);
+        urlsToMostRecentPageVar[url] = p;
+        idCounter += 1;
+      }
+      else if (ev.type === "dom"){
+        var port = EventM.getDOMPort(ev);
+        var pageVar = null;
+        if (port in portsToPageVars){
+          pageVar = portsToPageVars[port];
+        }
+        else{
+          // ok, have to look it up by url
+          var url = EventM.getDOMURL(ev);
+          pageVar = urlsToMostRecentPageVar[url];
+          // from now on we'll associate this port with this pagevar, even if another pagevar later becomes associated with the url
+          portsToPageVars[port] = pageVar;
+        }
+        EventM.setDOMInputPageVar(ev, pageVar); 
+        p.setRecordTimeFrameData(ev.frame);
+      }
+    }
     return trace;
   }
 
@@ -837,7 +865,8 @@ var WebAutomationLanguage = (function() {
     this.origNode = this.node;
 
     // we may do clicks that should open pages in new tabs but didn't open new tabs during recording
-    proposeCtrlAdditions(this);
+    // todo: may be worth going back to the ctrl approach, but there are links that refuse to open that way, so for now let's try back buttons
+    // proposeCtrlAdditions(this);
     this.cleanTrace = cleanTrace(this.trace);
 
 
@@ -1042,6 +1071,15 @@ var WebAutomationLanguage = (function() {
     this.postReplayProcessing = function(trace, temporaryStatementIdentifier){
       return;
     };
+  };
+
+  pub.BackStatement = function(pageVarCurr, pageVarBack){
+    this.pageVar = pageVarCurr;
+    this.outputPageVars = [pageVarBack];
+
+    this.toStringLines = function(){
+      return this.outputPageVars[0].toString() + " = " + this.pageVar.toString() + ".back()" 
+    }
   };
 
   pub.OutputRowStatement = function(scrapeStatements){
@@ -1834,6 +1872,7 @@ var WebAutomationLanguage = (function() {
             // what should we do once we get the response back, having tested the various relations on the actual pages?
             utilities.listenForMessageOnce("content", "mainpanel", "likelyRelation", function(data){
               // no longer need the tabs from which we got this info
+
               var closedTabsCount = 0;
               for (var i = 0; i < tabsToCloseAfter.length; i++){
                 chrome.tabs.remove(tabsToCloseAfter[i], function(){
@@ -1912,6 +1951,22 @@ var WebAutomationLanguage = (function() {
         for (var j = 0; j < bodyStatementLs.length; j++){
           bodyStatementLs[j].parameterizeForRelation(relation);
         }
+
+        // ok, and any pages to which we travel within a loop's non-loop body nodes must be counteracted with back buttons at the end
+        var backStatements = [];
+        for (var j = 0; j < bodyStatementLs.length; j++){
+          var statement = bodyStatementLs[j];
+          if (statement.outputPageVars && statement.outputPageVars.length > 0){
+            // we're making that assumption again about just one outputpagevar.  also that everything is happening in one tab.  must come back and revisit this
+            var currPage = statement.outputPageVars[0];
+            var backPage = statement.pageVar;
+            backStatements.push(new WebAutomationLanguage.BackStatement(currPage, backPage));
+          }
+        }
+        backStatements.reverse(); // must do the back button in reverse order
+        bodyStatementLs = bodyStatementLs.concat(backStatements);
+        // todo: also, this is only one of the places we introduce loops.  should do this everywhere we introduce or adjust loops.  really need to deal with the fact those aren't aligned right now
+
         var loopStatement = new WebAutomationLanguage.LoopStatement(relation, bodyStatementLs, this.loopyStatements[index].pageVar);
         this.loopyStatements = this.loopyStatements.slice(0, index);
         this.loopyStatements.push(loopStatement);

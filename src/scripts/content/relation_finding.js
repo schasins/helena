@@ -189,7 +189,7 @@ var RelationFinder = (function() { var pub = {};
 
   function findCommonAncestor(nodes){
     // this doesn't handle null nodes, so filter those out first
-    nodes = _.filter(nodes, function(node){return node !== null and node !== undefined;});
+    nodes = _.filter(nodes, function(node){return node !== null && node !== undefined;});
     var xpath_lists = _.map(nodes, function(node){ return XPathList.xPathToXPathList(nodeToXPath(node)); });
     if (xpath_lists.length === 0){
       console.log("Why are you trying to get the common ancestor of 0 nodes?");
@@ -396,6 +396,7 @@ var RelationFinder = (function() { var pub = {};
   }
 
   function synthesizeSelectorForWholeSetTable(rowNodes){
+    console.log(rowNodes);
     var parents = $(rowNodes[0]).parents();
     var trs = [];
     for (var i = 0; i < parents.length; i++){
@@ -407,6 +408,7 @@ var RelationFinder = (function() { var pub = {};
     }
 
     if (trs.length === 0){
+      console.log("No tr parents.");
       return null;
     }
 
@@ -420,6 +422,7 @@ var RelationFinder = (function() { var pub = {};
     });
 
     if (acceptedTrs.length === 0){
+      console.log("No shared tr parents.");
       return null;
     }
 
@@ -511,11 +514,16 @@ var RelationFinder = (function() { var pub = {};
     var nodes = [];
     var xpaths = msg.xpaths;
     for (var i = 0; i < xpaths.length; i++){
-      nodes.push(xPathToNodes(xpaths[i])[0]);
+      var node = xPathToNodes(xpaths[i])[0];
+      if (!node){
+        continue; // todo: this may not be the right thing to do!  for now we're assuming that if we can't find a node at this xpath, it's because we jumbled in the nodes from a different page into the relation for this page (becuase no updat to url or something); but it may just mean that this page changed super super quickly, since the recording
+      }
+      nodes.push(node);
     }
 
     // if this is actually in an html table, let's take a shortcut, since some sites use massive tables and trying to run the other approach would take forever
     var selectorData = synthesizeSelectorForWholeSetTable(nodes);
+
     if (selectorData === null){
       // ok, no table, we have to do the standard, possibly slow approach
       selectorData = synthesizeSelectorForSubsetThatProducesLargestRelation(nodes);

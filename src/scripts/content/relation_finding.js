@@ -438,9 +438,11 @@ var RelationFinder = (function() { var pub = {};
           break;
         }
       }
-      var parent = $(tr).parent();
-      var children = parent.children();
+      var children = $(tableParent).find("tr");
       var index = jqueryIndexOf(children, tr); // using this as the number of rows to exclude from the top of the table, since the rowNodes arg should represent first row of target table
+      if (index === -1){
+        throw "hey, we already know these are all part of one tr";
+      }
       var featureDict = tableFeatureDict(tableParent);
       var cellNodes = _.union($(tr).find("td, th").toArray(), rowNodes); // we'll make columns for each argument node of course, but let's also do all the td elements
       var selector = Selector(featureDict, index, columnsFromNodeAndSubnodes(tr, cellNodes), rowNodes, []);
@@ -558,7 +560,7 @@ var RelationFinder = (function() { var pub = {};
       }
     }
 
-    newMsg = {url: msg.url}; // this url is used by the mainpanel to keep track of which pages have been handled already
+    newMsg = {page_var_name: msg.pageVarName, url: window.location.href}; // this pageVarName is used by the mainpanel to keep track of which pages have been handled already
     if (bestSelectorIsNew) {
       newMsg.relation_id = null;
       newMsg.name = null;

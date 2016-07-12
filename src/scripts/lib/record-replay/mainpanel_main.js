@@ -977,6 +977,13 @@ var Replay = (function ReplayClosure() {
       if (this.getStatus() == ReplayState.ACK) {
         var ack = this.ack;
         if (!ack) {
+          // usually this means we want to keep waiting, but sometimes the port has disappeared, in which case a navigation probably happened before the replay ack could be sent, so then we should assume that's what the port's disappearance means
+          if (!ports.portIdToPort[this.ackPort]){
+            replayLog.log('ack port is actually gone; assume port disappearance means success');
+            this.incrementIndex();
+            this.setNextTimeout();
+            this.updateStatus(ReplayState.REPLAYING);
+          }
           this.setNextTimeout(params.replay.defaultWait);
           replayLog.log('continue waiting for replay ack');
           return;
@@ -1031,7 +1038,7 @@ var Replay = (function ReplayClosure() {
     waitForObservedEvents: function _waitForObservedEvents(){
       console.log(this.openTabSequenceFromTrace(this.events), this.openTabSequenceFromTrace(this.record.events));
       console.log(this.events, this.record.events);
-      if (this.openTabSequenceFromTrace(this.events).length === this.openTabSequenceFromTrace(this.record.events).length){
+      if (this.openTabSequenceFromTrace(this.events).length <= this.openTabSequenceFromTrace(this.record.events).length){ // todo: is it ok if the replay script actually sees more completed events than the original?
         this.finish();
       }
       else{
@@ -1113,6 +1120,7 @@ var Replay = (function ReplayClosure() {
           if (this.getStatus() == ReplayState.REPLAYING) {
             /* clear ack */
             this.ack = null;
+            this.ackPort = replayPort.name;
 
             /* group atomic events */
             var eventGroup = [];
@@ -1147,6 +1155,7 @@ var Replay = (function ReplayClosure() {
            * navigated away from */
           if (err.message == 'Attempting to use a disconnected port object') {
             var strategy = params.replay.brokenPortStrategy;
+            console.log("using broken port strategy: ", strategy);
             if (strategy == BrokenPortStrategy.RETRY) {
               if (v.data.cascading) {
                 /* skip the rest of the events */
@@ -1154,7 +1163,7 @@ var Replay = (function ReplayClosure() {
                 this.setNextTimeout(0);
               } else {
                 /* remove the mapping and try again */
-                delete this.portMapping[e.frame.port];
+                delete this.portMapping[v.frame.port];
                 this.setNextTimeout(0);
               }
             } else {
@@ -1436,7 +1445,7 @@ function handleMessage(port, request) {
 
   if (state == RecordState.RECORDING && type in recordHandlers) {
     recordHandlers[type](port, request);
-  } else if (state == RecordState.REPLAYING && type in replayHandlers) {
+  } else if ((state == RecordState.REPLAYING && type in replayHandlers) || (state == RecordState.STOPPED && ['ack', 'updateEvent'].indexOf(type) > -1) ) { // todo: is this ok?  the stopped acks are breaking everything...
     replayHandlers[type](port, request);
   } else if (type in handlers) {
     handlers[type](port, request);

@@ -170,13 +170,13 @@ var Visualization = (function() { var pub = {};
         // for now we're using this to determine whether the user is actually typing text into a particular node or not.  since no node.value, probably not, and we are likely to be 'focus'ed on something big, so don't want to freeze the page by screenshoting
         // this is a weird case to include, but practical.  we'll still raise the events on the right nodes, but it will be easier for the user to interact with the recording phase if we don't show the node
         // may want to send a different message in future
-        updateExistingEvent(eventMessage, "additional.visualization", "whole page");
-        return;
+        // updateExistingEvent(eventMessage, "additional.visualization", "whole page");
+        return "whole page";
       }
       if (node.html2canvasDataUrl){
         // yay, we've already done the 'screenshot', need not do it again
-        updateExistingEvent(eventMessage, "additional.visualization", node.html2canvasDataUrl);
-        return;
+        // updateExistingEvent(eventMessage, "additional.visualization", node.html2canvasDataUrl);
+        return node.html2canvasDataUrl;
       }
       if (node.waitingForRender){
         setTimeout(function(){additional_recording_handlers.visualization(node, eventMessage);}, 100);
@@ -184,8 +184,8 @@ var Visualization = (function() { var pub = {};
       }
       if (node === document.body){
         // never want to screenshot the whole page...can really freeze the page, and we have an easier way to refer to it
-        updateExistingEvent(eventMessage, "additional.visualization", "whole page");
-        return;
+        // updateExistingEvent(eventMessage, "additional.visualization", "whole page");
+        return "whole page";
       }
       // ok, looks like this is actually the first time seeing this, better actually canvasize it
       node.waitingForRender = true;

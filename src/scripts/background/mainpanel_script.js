@@ -156,12 +156,10 @@ var RecorderUI = (function() {
       var tr = $("<tr></tr>");
       for (var j = 0; j < columns.length; j++){
         (function(){
-          var xpath = columns[j].xpath;
+          var closJ = j;
           var columnTitle = $("<input></input>");
-          console.log(xpath);
-          console.log(relation);
           columnTitle.val(columns[j].name);
-          columnTitle.change(function(){console.log(columnTitle.val(), xpath); relation.setColumnName(columns[j], columnTitle.val()); RecorderUI.updateDisplayedScript();});
+          columnTitle.change(function(){relation.setColumnName(columns[closJ], columnTitle.val()); RecorderUI.updateDisplayedScript();});
           var td = $("<td></td>");
           td.append(columnTitle);
           tr.append(td);
@@ -1074,12 +1072,28 @@ var WebAutomationLanguage = (function() {
   };
 
   pub.BackStatement = function(pageVarCurr, pageVarBack){
-    this.pageVar = pageVarCurr;
-    this.outputPageVars = [pageVarBack];
+    this.pageVarCurr = pageVarCurr;
+    this.pageVarBack = pageVarBack;
 
     this.toStringLines = function(){
-      return this.outputPageVars[0].toString() + " = " + this.pageVar.toString() + ".back()" 
-    }
+      return [this.pageVarBack.toString() + " = " + this.pageVarCurr.toString() + ".back()" ];
+    };
+
+    this.run = function(continuation){
+      // send a back message to pageVarCurr
+      utilities.sendMessage("mainpanel", "content", "backButton", {}, null, null, [this.pageVarCurr.currentTabId()]);
+      // todo: is it enough to just send this message and hope all goes well, or do we need some kind of acknowledgement?
+      // update pageVarBack to make sure it has the right tab associated
+      pageVarBack.setCurrentTabId(pageVarCurr.tabId);
+      continuation();
+    };
+
+    this.parameterizeForRelation = function(relation){
+      return;
+    };
+    this.unParameterizeForRelation = function(relation){
+      return;
+    };
   };
 
   pub.OutputRowStatement = function(scrapeStatements){
@@ -1211,7 +1225,7 @@ var WebAutomationLanguage = (function() {
   }
 
   var relationCounter = 0;
-  pub.Relation = function(relationId, name, selector, selectorVersion, excludeFirst, columns, demonstrationTimeRelation, numRowsInDemo, url, nextType, nextButtonSelector){
+  pub.Relation = function(relationId, name, selector, selectorVersion, excludeFirst, columns, demonstrationTimeRelation, numRowsInDemo, pageVarName, url, nextType, nextButtonSelector){
     this.id = relationId;
     this.selector = selector;
     this.selectorVersion = selectorVersion;
@@ -1219,6 +1233,7 @@ var WebAutomationLanguage = (function() {
     this.columns = columns;
     this.demonstrationTimeRelation = demonstrationTimeRelation;
     this.numRowsInDemo = numRowsInDemo;
+    this.pageVarName = pageVarName;
     this.url = url;
     this.nextType = nextType;
     this.nextButtonSelector = nextButtonSelector;
@@ -1335,7 +1350,7 @@ var WebAutomationLanguage = (function() {
       if (!((statement instanceof WebAutomationLanguage.ScrapeStatement) || (statement instanceof WebAutomationLanguage.ClickStatement) || (statement instanceof WebAutomationLanguage.TypeStatement))){
         return false;
       }
-      if (this.url === statement.pageUrl && this.firstRowXPaths.indexOf(statement.node) > -1){
+      if (this.pageVarName === statement.pageVar.name && this.firstRowXPaths.indexOf(statement.node) > -1){
         return true;
       }
       if (usedByTextStatement(statement, this.firstRowTexts)){
@@ -1382,6 +1397,10 @@ var WebAutomationLanguage = (function() {
           prinfo.currentRowsCounter = 0;
           callback(true);
         });
+        if (!pageVar.currentTabId()){
+          console.log("Hey!  How'd you end up trying to find a relation on a page for which you don't have a current tab id??  That doesn't make sense.");
+          console.log(pageVar);
+        }
         var sendGetRelationItems = function(){utilities.sendMessage("mainpanel", "content", "getRelationItems", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);};
         repeatUntil(sendGetRelationItems, function(){return relationItemsRetrieved;}, 1000);
       }
@@ -1613,13 +1632,21 @@ var WebAutomationLanguage = (function() {
           });
         });
       }
+      // also need special processing for back statements
+      else if (loopyStatements[0] instanceof WebAutomationLanguage.BackStatement){
+        console.log("rbb: back.");
+        loopyStatements[0].run(function(){
+          // once we're done with back button running, have to replay the remainder of the script
+          runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback);
+        });
+      }
       else {
         console.log("rbb: r+r.");
         // the fun stuff!  we get to run a basic block with the r+r layer
         var basicBlockStatements = [];
         var nextBlockStartIndex = loopyStatements.length;
         for (var i = 0; i < loopyStatements.length; i++){
-          if (loopyStatements[i] instanceof WebAutomationLanguage.LoopStatement){
+          if (loopyStatements[i] instanceof WebAutomationLanguage.LoopStatement || loopyStatements[i] instanceof WebAutomationLanguage.BackStatement){
             nextBlockStartIndex = i;
             break;
           }
@@ -1783,6 +1810,7 @@ var WebAutomationLanguage = (function() {
     }
 
     var pagesToNodes = {};
+    var pagesToUrls = {};
     var pagesProcessed = {};
     this.relevantRelations = function(){
       // ok, at this point we know the urls we've used and the xpaths we've used on them
@@ -1795,17 +1823,18 @@ var WebAutomationLanguage = (function() {
         var s = this.statements[i];
         if ( (s instanceof WebAutomationLanguage.ScrapeStatement) || (s instanceof WebAutomationLanguage.ClickStatement) ){
           var xpath = s.node; // todo: in future, should get the whole node info, not just the xpath, but this is sufficient for now
-          var url = s.pageUrl; // the top url of the frame on which the relevant events were raised
-          if (!(url in pagesToNodes)){ pagesToNodes[url] = []; }
-          console.log(pagesToNodes[url], xpath, xpath in pagesToNodes[url]);
-          if (pagesToNodes[url].indexOf(xpath) === -1){ pagesToNodes[url].push(xpath); }
+          var pageVarName = s.pageVar.name; // pagevar is better than url for helping us figure out what was on a given logical page
+          var url = s.pageVar.recordTimeUrl;
+          if (!(pageVarName in pagesToNodes)){ pagesToNodes[pageVarName] = []; }
+          if (pagesToNodes[pageVarName].indexOf(xpath) === -1){ pagesToNodes[pageVarName].push(xpath); }
+          pagesToUrls[pageVarName] = url;
         }
       }
       // ask the server for relations
       // sample: $($.post('http://localhost:3000/retrieverelations', { pages: [{xpaths: ["a[1]/div[2]"], url: "www.test2.com/test-test"}] }, function(resp){ console.log(resp);} ));
       var reqList = [];
-      for (var url in pagesToNodes){
-        reqList.push({url: url, xpaths: pagesToNodes[url]});
+      for (var pageVarName in pagesToNodes){
+        reqList.push({url: pagesToUrls[pageVarName], xpaths: pagesToNodes[pageVarName], page_var_name: pageVarName});
 
       }
       var that = this;
@@ -1821,15 +1850,16 @@ var WebAutomationLanguage = (function() {
       for (var i = currentStartIndex; i < program.statements.length; i++){
         if (program.statements[i].outputPageVars && program.statements[i].outputPageVars.length > 0){
           // todo: for now this code assumes there's exactly one outputPageVar.  this may not always be true!  but dealing with it now is a bad use of time
-          var targetPageUrl = program.statements[i].outputPageVars[0].recordTimeUrl; // it was a pageVariable object, and we've grabbed the url from there
-          console.log("processServerrelations going for index:", i, targetPageUrl);
-          // note that we're here grabbing urls from the pageVars, whereas above (to get the urls to send to the server) we just used the pageurls associated with statement objects.  make sure these will always align. otherwise could run into trouble.
+          var targetPageVar = program.statements[i].outputPageVars[0];
+          console.log("processServerrelations going for index:", i, targetPageVar);
 
           // this is one of the points to which we'll have to replay
           var statementSlice = program.statements.slice(0, i + 1);
           var trace = [];
           _.each(statementSlice, function(statement){trace = trace.concat(statement.cleanTrace);});
           //_.each(trace, function(ev){EventM.clearDisplayInfo(ev);}); // strip the display info back out from the event objects
+
+          console.log("processServerrelations trace:", trace.length);
 
           var nextIndex = i + 1;
 
@@ -1848,8 +1878,8 @@ var WebAutomationLanguage = (function() {
             var resps = resp.pages;
             var suggestedRelations = null;
             for (var i = 0; i < resps.length; i++){
-              var url = resps[i].url;
-              if (url === targetPageUrl){
+              var pageVarName = resps[i].page_var_name;
+              if (pageVarName === targetPageVar.name){
                 suggestedRelations = [resps[i].relations.same_domain_best_relation, resps[i].relations.same_url_best_relation];
                 for (var j = 0; j < suggestedRelations.length; j++){
                   if (suggestedRelations[j] === null){ continue; }
@@ -1862,10 +1892,10 @@ var WebAutomationLanguage = (function() {
             }
 
             // let's get some info from the pages, and when we get that info back we can come back and deal with more script segments
-            pagesProcessed[targetPageUrl] = false;
-            var getLikelyRelationFunc = function(){utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[targetPageUrl], url: targetPageUrl, serverSuggestedRelations: suggestedRelations}, null, null, [lastCompletedEventTabId]);};
+            pagesProcessed[targetPageVar.name] = false;
+            var getLikelyRelationFunc = function(){utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[targetPageVar.name], pageVarName: targetPageVar.name, serverSuggestedRelations: suggestedRelations}, null, null, [lastCompletedEventTabId]);};
             var getLikelyRelationFuncUntilAnswer = function(){
-              if (pagesProcessed[targetPageUrl]){ return; } 
+              if (pagesProcessed[targetPageVar.name]){ return; } 
               getLikelyRelationFunc(); 
               setTimeout(getLikelyRelationFuncUntilAnswer, 5000);}
 
@@ -1901,23 +1931,24 @@ var WebAutomationLanguage = (function() {
     var pagesToRelations = {};
     this.processLikelyRelation = function(data){
       console.log(data);
-      if (pagesProcessed[data.url]){
+      if (pagesProcessed[data.page_var_name]){
         // we already have an answer for this page.  must have gotten sent multiple times even though that shouldn't happen
+        console.log("Alarming.  We received another likely relation for a given pageVar, even though content script should prevent this.");
         return this.relations;
       }
-      pagesProcessed[data.url] = true;
+      pagesProcessed[data.page_var_name] = true;
 
       if (data.num_rows_in_demonstration < 2 && data.next_type === NextTypes.NONE){
         // what's the point of showing a relation with only one row?
-        pagesToRelations[data.url] = null;
+        pagesToRelations[data.page_var_name] = null;
       }
       else{
-        var rel = new WebAutomationLanguage.Relation(data.relation_id, data.name, data.selector, data.selector_version, data.exclude_first, data.columns, data.first_page_relation, data.num_rows_in_demonstration, data.url, data.next_type, data.next_button_selector);
-        pagesToRelations[data.url] = rel;
+        var rel = new WebAutomationLanguage.Relation(data.relation_id, data.name, data.selector, data.selector_version, data.exclude_first, data.columns, data.first_page_relation, data.num_rows_in_demonstration, data.page_var_name, data.url, data.next_type, data.next_button_selector);
+        pagesToRelations[data.page_var_name] = rel;
         this.relations.push(rel);
       }
 
-
+      console.log(pagesToRelations, pagesToNodes);
       if (_.difference(_.keys(pagesToNodes), _.keys(pagesToRelations)).length === 0) { // pagesToRelations now has all the pages from pagesToNodes
         // awesome, all the pages have gotten back to us
         setTimeout(this.insertLoops.bind(this), 0); // bind this to this, since JS runs settimeout func with this pointing to global obj

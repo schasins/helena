@@ -1082,6 +1082,7 @@ var WebAutomationLanguage = (function() {
     };
 
     this.run = function(continuation){
+      console.log("run back statement");
       // send a back message to pageVarCurr
       utilities.sendMessage("mainpanel", "content", "backButton", {}, null, null, [this.pageVarCurr.currentTabId()]);
       // todo: is it enough to just send this message and hope all goes well, or do we need some kind of acknowledgement?
@@ -1090,6 +1091,7 @@ var WebAutomationLanguage = (function() {
       // todo: is the below enough of an ack.  have been noticing events (maybe) getting replayed before the back button actually processed, which is obviously a problem
       // should we actually wait for a completed event?
       utilities.listenForMessageOnce("content", "mainpanel", "backButtonProcessed", function(data){
+        console.log("back completed");
         backStatement.pageVarBack.setCurrentTabId(backStatement.pageVarCurr.tabId);
         continuation();
       });
@@ -1380,8 +1382,8 @@ var WebAutomationLanguage = (function() {
     this.getNextRow = function(pageVar, callback){ // has to be called on a page, since a relation selector can be applied to many pages.  higher-level tool must control where to apply
       // todo: this is a very simplified version that assumes there's only one page of results.  add the rest soon.
 
-      var pageRelation = pageVar.pageRelations[this.name+"_"+this.id]; // separate relations can have same name (no rule against that) and same id (undefined if not yet saved to server), but since we assign unique names when not saved to server and unique ides when saved to server, should be rare to have same both.  todo: be more secure in future
-      if (pageRelation === undefined){ // if we haven't seen the frame currently associated with this pagevar, need to clear our state and start fresh
+      var prinfo = pageVar.pageRelations[this.name+"_"+this.id]; // separate relations can have same name (no rule against that) and same id (undefined if not yet saved to server), but since we assign unique names when not saved to server and unique ides when saved to server, should be rare to have same both.  todo: be more secure in future
+      if (prinfo === undefined){ // if we haven't seen the frame currently associated with this pagevar, need to clear our state and start fresh
         prinfo = {currentRows: null, currentRowsCounter: 0, currentTabId: pageVar.currentTabId()};
         pageVar.pageRelations[this.name+"_"+this.id] = prinfo;
       }
@@ -1403,7 +1405,11 @@ var WebAutomationLanguage = (function() {
         repeatUntil(sendGetRelationItems, function(){return relationItemsRetrieved;}, 1000);
       }
       else if (prinfo.currentRowsCounter + 1 >= prinfo.currentRows.length){
-        callback(false); // no more rows -- let the callback know we're done
+        // no more rows -- let the callback know we're done
+        // clear the stored relation data also
+        prinfo.currentRows = null;
+        prinfo.currentRowsCounter = 0;
+        callback(false); 
       }
       else {
         // we still have local rows that we haven't used yet.  just advance the counter to change which is our current row
@@ -1413,13 +1419,13 @@ var WebAutomationLanguage = (function() {
     }
 
     this.getCurrentXPath = function(pageVar, columnObject){
-      var pname = pageVar.name;
+      var prinfo = pageVar.pageRelations[this.name+"_"+this.id]
       if (prinfo === undefined){ console.log("Bad!  Shouldn't be calling getCurrentXPath on a pageVar for which we haven't yet called getNextRow."); return null; }
       return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index].xpath; // in the current row, xpath at the index associated with nodeName
     }
 
     this.getCurrentText = function(pageVar, columnObject){
-      var pname = pageVar.name;
+      var prinfo = pageVar.pageRelations[this.name+"_"+this.id]
       if (prinfo === undefined){ console.log("Bad!  Shouldn't be calling getCurrentText on a pageVar for which we haven't yet called getNextRow."); return null; }
       return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index].text; // in the current row, value at the index associated with nodeName
     }
@@ -1601,7 +1607,6 @@ var WebAutomationLanguage = (function() {
           continue;
         }
         pageVar.setCurrentTabId(repCompleted[i].data.tabId);
-        pageVar.clearRelationData();
       }
     }
 
@@ -1627,7 +1632,9 @@ var WebAutomationLanguage = (function() {
           if (!moreRows){
             console.log("no more rows");
             // hey, we're done!
-            callback();
+
+            // once we're done replaying, have to replay the remainder of the script
+            runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback);
             return;
           }
           console.log("we have a row!  let's run");
@@ -1638,6 +1645,7 @@ var WebAutomationLanguage = (function() {
             runBasicBlock(loopyStatements, callback); // running extra iterations of the for loop is the only time we change the callback
           });
         });
+        return;
       }
       // also need special processing for back statements
       else if (loopyStatements[0] instanceof WebAutomationLanguage.BackStatement){
@@ -1646,6 +1654,7 @@ var WebAutomationLanguage = (function() {
           // once we're done with back button running, have to replay the remainder of the script
           runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback);
         });
+        return;
       }
       else {
         console.log("rbb: r+r.");

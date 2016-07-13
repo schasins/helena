@@ -152,7 +152,7 @@ var TimeoutStrategy = {
       enableRequest: true
     },
     logging: {
-      level: 0,
+      level: 4,
       enabled: 'all',
       print: true,
       saved: true

@@ -18,7 +18,7 @@ utilities.listenForMessage("mainpanel", "content", "nextButtonSelector", functio
 utilities.listenForMessage("mainpanel", "content", "clearNextButtonSelector", function(msg){RelationFinder.clearNextButtonSelector(msg);});
 utilities.listenForMessage("mainpanel", "content", "currentRecordingWindow", function(msg){currentRecordingWindow = msg.window_id;});
 utilities.sendMessage("content", "mainpanel", "requestCurrentRecordingWindow", {});
-utilities.listenForMessage("mainpanel", "content", "backButton", function(){history.back();});
+utilities.listenForMessage("mainpanel", "content", "backButton", function(){ utilities.sendMessage("content", "mainpanel", "backButtonProcessed", {}); history.back();});
 
 /**********************************************************************
  * The various node representations we may need

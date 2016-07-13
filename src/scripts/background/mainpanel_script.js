@@ -1075,6 +1075,8 @@ var WebAutomationLanguage = (function() {
     this.pageVarCurr = pageVarCurr;
     this.pageVarBack = pageVarBack;
 
+    var backStatement = this;
+
     this.toStringLines = function(){
       return [this.pageVarBack.toString() + " = " + this.pageVarCurr.toString() + ".back()" ];
     };
@@ -1084,8 +1086,13 @@ var WebAutomationLanguage = (function() {
       utilities.sendMessage("mainpanel", "content", "backButton", {}, null, null, [this.pageVarCurr.currentTabId()]);
       // todo: is it enough to just send this message and hope all goes well, or do we need some kind of acknowledgement?
       // update pageVarBack to make sure it has the right tab associated
-      pageVarBack.setCurrentTabId(pageVarCurr.tabId);
-      continuation();
+
+      // todo: is the below enough of an ack.  have been noticing events (maybe) getting replayed before the back button actually processed, which is obviously a problem
+      // should we actually wait for a completed event?
+      utilities.listenForMessageOnce("content", "mainpanel", "backButtonProcessed", function(data){
+        backStatement.pageVarBack.setCurrentTabId(backStatement.pageVarCurr.tabId);
+        continuation();
+      });
     };
 
     this.parameterizeForRelation = function(relation){
@@ -1245,8 +1252,6 @@ var WebAutomationLanguage = (function() {
       this.name = name;
     }
 
-    this.pageRelationsInfo = {};
-
     var relation = this;
 
     this.demonstrationTimeRelationText = function(){
@@ -1360,10 +1365,6 @@ var WebAutomationLanguage = (function() {
       return false;
     };
 
-    this.clearRunningState = function(){
-      this.pageRelationsInfo = {};
-    };
-
     this.messageRelationRepresentation = function(){
       return {id: this.id, name: this.name, selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns, next_type: this.nextType, next_button_selector: this.nextButtonSelector, url: this.url, num_rows_in_demonstration: this.numRowsInDemo};
     };
@@ -1379,13 +1380,10 @@ var WebAutomationLanguage = (function() {
     this.getNextRow = function(pageVar, callback){ // has to be called on a page, since a relation selector can be applied to many pages.  higher-level tool must control where to apply
       // todo: this is a very simplified version that assumes there's only one page of results.  add the rest soon.
 
-      // have to keep track of different state for relations retrieved with the same relation but on different pages
-      // todo: in future may sometimes want to clear out the information in this.pageRelationsInfo.  should think about this, lest it become a memory hog
-      var pname = pageVar.name;
-      var prinfo = this.pageRelationsInfo[pname];
-      if (prinfo === undefined || prinfo.currentTabId !== pageVar.currentTabId()){ // if we haven't seen this pagevar or haven't seen the URL currently associated with the pagevar, need to clear our state and start fresh
+      var pageRelation = pageVar.pageRelations[this.name+"_"+this.id]; // separate relations can have same name (no rule against that) and same id (undefined if not yet saved to server), but since we assign unique names when not saved to server and unique ides when saved to server, should be rare to have same both.  todo: be more secure in future
+      if (pageRelation === undefined){ // if we haven't seen the frame currently associated with this pagevar, need to clear our state and start fresh
         prinfo = {currentRows: null, currentRowsCounter: 0, currentTabId: pageVar.currentTabId()};
-        this.pageRelationsInfo[pname] = prinfo;
+        pageVar.pageRelations[this.name+"_"+this.id] = prinfo;
       }
 
       console.log("getnextrow", this, prinfo.currentRowsCounter);
@@ -1416,14 +1414,12 @@ var WebAutomationLanguage = (function() {
 
     this.getCurrentXPath = function(pageVar, columnObject){
       var pname = pageVar.name;
-      var prinfo = this.pageRelationsInfo[pname];
       if (prinfo === undefined){ console.log("Bad!  Shouldn't be calling getCurrentXPath on a pageVar for which we haven't yet called getNextRow."); return null; }
       return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index].xpath; // in the current row, xpath at the index associated with nodeName
     }
 
     this.getCurrentText = function(pageVar, columnObject){
       var pname = pageVar.name;
-      var prinfo = this.pageRelationsInfo[pname];
       if (prinfo === undefined){ console.log("Bad!  Shouldn't be calling getCurrentText on a pageVar for which we haven't yet called getNextRow."); return null; }
       return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index].text; // in the current row, value at the index associated with nodeName
     }
@@ -1459,6 +1455,10 @@ var WebAutomationLanguage = (function() {
       this.setNewAttributes(msg.selector, msg.selector_version, msg.exclude_first, msg.columns, msg.demonstration_time_relation, msg.num_rows_in_demo, msg.next_type, msg.next_button_selector);
       RecorderUI.updateDisplayedRelation(this);
     };
+
+    this.clearRunningState = function(){
+      // for relations retrieved from pages, all relation info is stored with pagevar variables, so don't need to do anything
+    };
   }
 
   // todo: for now all variable uses are uses of relations, but eventually will probably want to have scraped from outside of relations too
@@ -1483,6 +1483,7 @@ var WebAutomationLanguage = (function() {
   pub.PageVariable = function(name, recordTimeUrl){
     this.name = name;
     this.recordTimeUrl = recordTimeUrl;
+    this.pageRelations = {};
 
     this.setRecordTimeFrameData = function(frameData){
       this.recordTimeFrameData = frameData;
@@ -1491,6 +1492,10 @@ var WebAutomationLanguage = (function() {
     this.setCurrentTabId = function(tabId){
       this.tabId = tabId;
     };
+    
+    this.clearRelationData = function(){
+      this.pageRelations = {};
+    }
 
     this.originalTabId = function(){
       console.log(this.recordTimeFrameData);
@@ -1507,6 +1512,7 @@ var WebAutomationLanguage = (function() {
 
     this.clearRunningState = function(){
       this.setCurrentTabId(undefined);
+      this.clearRelationData();
     };
 
   };
@@ -1595,6 +1601,7 @@ var WebAutomationLanguage = (function() {
           continue;
         }
         pageVar.setCurrentTabId(repCompleted[i].data.tabId);
+        pageVar.clearRelationData();
       }
     }
 

@@ -144,45 +144,47 @@ var RecorderUI = (function() {
     for (var i = 0; i < relationObjects.length; i++){
       var $relDiv = $("<div class=relation_preview></div>");
       $div.append($relDiv);
-      var relation = relationObjects[i];
-      var textRelation = relation.demonstrationTimeRelationText();
-      if (textRelation.length > 2){
-        textRelation = textRelation.slice(0,2);
-        textRelation.push(_.map(Array.apply(null, Array(textRelation[0].length)), function(){return "...";}));
-      }
-      var table = DOMCreationUtilities.arrayOfArraysToTable(textRelation);
+      (function(){ // closure to save the relation object
+        var relation = relationObjects[i];
+        var textRelation = relation.demonstrationTimeRelationText();
+        if (textRelation.length > 2){
+          textRelation = textRelation.slice(0,2);
+          textRelation.push(_.map(Array.apply(null, Array(textRelation[0].length)), function(){return "...";}));
+        }
+        var table = DOMCreationUtilities.arrayOfArraysToTable(textRelation);
 
-      var columns = relation.columns;
-      var tr = $("<tr></tr>");
-      for (var j = 0; j < columns.length; j++){
-        (function(){
-          var closJ = j;
-          var columnTitle = $("<input></input>");
-          columnTitle.val(columns[j].name);
-          columnTitle.change(function(){relation.setColumnName(columns[closJ], columnTitle.val()); RecorderUI.updateDisplayedScript();});
-          var td = $("<td></td>");
-          td.append(columnTitle);
-          tr.append(td);
-        })();
-      }
-      table.prepend(tr);
-      var relationTitle = $("<input></input>");
-      relationTitle.val(relation.name);
-      relationTitle.change(function(){relation.name = relationTitle.val(); RecorderUI.updateDisplayedScript();});
-      $relDiv.append(relationTitle);
-      $relDiv.append(table);
-      var saveRelationButton = $("<button>Save These Table and Column Names</button>");
-      saveRelationButton.button();
-      saveRelationButton.click(function(){relation.saveToServer();});
-      $relDiv.append(saveRelationButton);
-      var editRelationButton = $("<button>Edit This Table</button>");
-      editRelationButton.button();
-      editRelationButton.click(function(){relation.editSelector();});
-      $relDiv.append(editRelationButton);
-      var removeRelationButton = $("<button>This Table Is Not Relevant</button>");
-      removeRelationButton.button();
-      removeRelationButton.click(function(){ReplayScript.prog.removeRelation(relation);});
-      $relDiv.append(removeRelationButton);
+        var columns = relation.columns;
+        var tr = $("<tr></tr>");
+        for (var j = 0; j < columns.length; j++){
+          (function(){
+            var closJ = j;
+            var columnTitle = $("<input></input>");
+            columnTitle.val(columns[j].name);
+            columnTitle.change(function(){relation.setColumnName(columns[closJ], columnTitle.val()); RecorderUI.updateDisplayedScript();});
+            var td = $("<td></td>");
+            td.append(columnTitle);
+            tr.append(td);
+          })();
+        }
+        table.prepend(tr);
+        var relationTitle = $("<input></input>");
+        relationTitle.val(relation.name);
+        relationTitle.change(function(){relation.name = relationTitle.val(); RecorderUI.updateDisplayedScript();});
+        $relDiv.append(relationTitle);
+        $relDiv.append(table);
+        var saveRelationButton = $("<button>Save These Table and Column Names</button>");
+        saveRelationButton.button();
+        saveRelationButton.click(function(){relation.saveToServer();});
+        $relDiv.append(saveRelationButton);
+        var editRelationButton = $("<button>Edit This Table</button>");
+        editRelationButton.button();
+        editRelationButton.click(function(){relation.editSelector();});
+        $relDiv.append(editRelationButton);
+        var removeRelationButton = $("<button>This Table Is Not Relevant</button>");
+        removeRelationButton.button();
+        removeRelationButton.click(function(){ReplayScript.prog.removeRelation(relation);});
+        $relDiv.append(removeRelationButton);
+      })();
     }
   };
 

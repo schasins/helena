@@ -1032,10 +1032,12 @@ var Replay = (function ReplayClosure() {
     },
     openTabSequenceFromTrace: function _openTabSequenceFromTrace(trace){
       var completed_events = _.filter(trace, function(event){return event.type === "completed" && event.data.type === "main_frame";});
+      console.log(completed_events);
       var eventIds = _.map(completed_events, function(event){return event.meta.id});
       return eventIds;
     },
     waitForObservedEvents: function _waitForObservedEvents(){
+      console.log(this.events, this.record.events);
       console.log(this.openTabSequenceFromTrace(this.events), this.openTabSequenceFromTrace(this.record.events));
       console.log(this.events, this.record.events);
       if (this.openTabSequenceFromTrace(this.events).length <= this.openTabSequenceFromTrace(this.record.events).length){ // todo: is it ok if the replay script actually sees more completed events than the original?
@@ -1060,6 +1062,7 @@ var Replay = (function ReplayClosure() {
         // don't need to do anything
         this.index ++;
         this.setNextTimeout(0);
+        // ok, used to think we don't need to do anything, but really we should actually wait for the completed event.  we can do something like the waitForObservedEvents thing above; todo
       }
     },
     /* The main function which dispatches events to the content script */

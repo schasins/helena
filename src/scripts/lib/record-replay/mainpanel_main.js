@@ -1060,9 +1060,21 @@ var Replay = (function ReplayClosure() {
       }
       else{
         // don't need to do anything
-        this.index ++;
-        this.setNextTimeout(0);
-        // ok, used to think we don't need to do anything, but really we should actually wait for the completed event.  we can do something like the waitForObservedEvents thing above; todo
+        // this.index ++;
+        // this.setNextTimeout(0);
+        // ok, used to think we don't need to do anything, but really we should actually wait for the completed event.  we can do something like the waitForObservedEvents thing above
+        var recordTimeEvents = this.events.slice(0, this.index + 1);
+        var replayTimeEvents = this.record.events;
+        // todo: as above in waitforobserved events, question of whether it's ok to keep waiting and waiting for the exact same number of top-level completed events.  should we give it 10 tries, then just continue?
+        if (this.openTabSequenceFromTrace(recordTimeEvents).length <= this.openTabSequenceFromTrace(replayTimeEvents).length){ // todo: is it ok if the replay script actually sees more completed events than the original?
+          // we've seen a corresponding completed event, don't need to do anything
+          this.index ++;
+          this.setNextTimeout(0);
+        }
+        else{
+          // let's give it a while longer
+          this.setNextTimeout(500);
+        }
       }
     },
     /* The main function which dispatches events to the content script */

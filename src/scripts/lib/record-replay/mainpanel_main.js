@@ -80,7 +80,9 @@ var PortManager = (function PortManagerClosure() {
     getNewId: function _getNewId(value, sender) {
       /* for some reason, the start page loads the content script but doesn't
        * have a tab id. in this case, don't assign an id */
+      console.log("getNewId", value, sender);
       if (!sender.tab) {
+        console.log('request for new id without a tab id');
         portLog.warn('request for new id without a tab id');
         return;
       }
@@ -122,7 +124,9 @@ var PortManager = (function PortManagerClosure() {
       }
       if (value.top) {
         tabInfo.top.push(value);
+        console.log("this.tabIdToTabInfo, added top frame: ", this.tabIdToTabInfo);
       } else {
+        console.log("this.tabIdToTabInfo, added non-top frame: ", this.tabIdToTabInfo);
         tabInfo.frames.push(value);
       }
       return portId;
@@ -1062,17 +1066,55 @@ var Replay = (function ReplayClosure() {
         // don't need to do anything
         // this.index ++;
         // this.setNextTimeout(0);
-        // ok, used to think we don't need to do anything, but really we should actually wait for the completed event.  we can do something like the waitForObservedEvents thing above
-        var recordTimeEvents = this.events.slice(0, this.index + 1);
+
+        if (e.data.type !== "main_frame"){
+          // don't need to do anything; not a top-level load, so assume we can ignore it
+          this.index ++;
+          this.setNextTimeout(0);
+        }
+
+        // ok, used to think we don't need to do anything, but really we should actually wait for the completed event, at least if it's a top-level one.  let's make sure *something* has appeared in the last 5 or so events
+        // todo: is it really sufficient to just check the last 5 events?  if our assumption about the last dom even causing the completed event is true, we should expect that it appears after the most recent dom event
+        // can't assume it's the last event, because a top-level load often causes some script loads, that kind of thing, as well.  and those might have snuck in.
+
+        // ok, so this may not be quite right, but let's go back to the most recent DOM event and make sure there's a top-level completed event somewhere near it
         var replayTimeEvents = this.record.events;
-        // todo: as above in waitforobserved events, question of whether it's ok to keep waiting and waiting for the exact same number of top-level completed events.  should we give it 10 tries, then just continue?
-        if (this.openTabSequenceFromTrace(recordTimeEvents).length <= this.openTabSequenceFromTrace(replayTimeEvents).length){ // todo: is it ok if the replay script actually sees more completed events than the original?
+        var completedAfterLastDom = false;
+        var domIndex = null;
+        var completedWithinWindowBeforeDom = false;
+        var win = 5;
+        for (var i = replayTimeEvents.length - 1; i >= 0; i--){
+
+          if (domIndex !== null && i < (domIndex - win)){
+            // ok, we've gone too far, we've passed the window around the domIndex
+            break;
+          }
+
+          var ev = replayTimeEvents[i];
+          if (domIndex === null && ev.type === "dom"){
+            // we've found the last dom event
+            domIndex = i;
+          }
+          else if (domIndex === null && ev.type === "completed" && ev.data.type === "main_frame"){
+            // we've found a completed top-level after the last dom event
+            completedAfterLastDom = true;
+            break;
+          }
+          else if (domIndex !== null && ev.type === "completed" && ev.data.type === "main_frame"){
+            // since we're still going, but we've found the domIndex already, this is a completed event before the last dom event
+            completedWithinWindowBeforeDom = true;
+            break;
+          }
+        }
+
+        if (completedWithinWindowBeforeDom || completedAfterLastDom){
           // we've seen a corresponding completed event, don't need to do anything
           this.index ++;
           this.setNextTimeout(0);
         }
         else{
           // let's give it a while longer
+          // todo: as above in waitforobserved events, question of whether it's ok to keep waiting and waiting for the exact same number of top-level completed events.  should we give it 10 tries, then just continue?
           this.setNextTimeout(500);
         }
       }

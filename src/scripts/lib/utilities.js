@@ -261,6 +261,7 @@ var TraceManipulationUtilities = (function() { var pub = {};
         return ev;
       }
     }
+    return null; // bad!
   }
 
   pub.lastTopLevelCompletedEventTabId = function(trace){

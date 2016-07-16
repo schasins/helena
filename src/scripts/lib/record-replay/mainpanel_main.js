@@ -893,6 +893,7 @@ var Replay = (function ReplayClosure() {
         console.log(v, portMapping, tabMapping);
         console.log("Freak out.  We don't know what port to use to replay this event.");
         // it may be the tab just isn't ready yet, not added to our mappings yet.  try again in a few.
+        this.setNextTimeout(500);
         return null;
       }
       console.log(replayPort);
@@ -1041,6 +1042,11 @@ var Replay = (function ReplayClosure() {
       return eventIds;
     },
     waitForObservedEvents: function _waitForObservedEvents(){
+      // with simulatecompletedevent now doing more, we may not need this.  for now, try just being done...
+      this.finish();
+      return;
+
+      // todo: get rid of below...
       console.log(this.events, this.record.events);
       console.log(this.openTabSequenceFromTrace(this.events), this.openTabSequenceFromTrace(this.record.events));
       console.log(this.events, this.record.events);
@@ -1054,12 +1060,15 @@ var Replay = (function ReplayClosure() {
       }
     },
     simulateCompletedEvent: function _simulateCompletedEvent(e){
-      if (e.forceReplay){
+      if (e.forceReplay && (!e.reset || !(e.reset.alreadyForced))){
+        console.log("forcing replay");
+        if (!e.reset){e.reset = {};}
+        e.reset.alreadyForced = true;  // enforce that we don't do the forceReplay a second time, but instead wait to see the completed event?
         var that = this;
         chrome.tabs.create({url: e.data.url, active: true}, function(){
-          // when tab has been created, it's like getting an ack.
-          that.index ++; // advance to next event
-          that.setNextTimeout(0);
+          // not sufficient to treat tab creation as getting an ack.  must wait for it to appear in the replay-time trace
+          // that.index ++; // advance to next event
+          that.setNextTimeout(0); 
         });
       }
       else{
@@ -1071,6 +1080,7 @@ var Replay = (function ReplayClosure() {
           // don't need to do anything; not a top-level load, so assume we can ignore it
           this.index ++;
           this.setNextTimeout(0);
+          return;
         }
 
         // ok, used to think we don't need to do anything, but really we should actually wait for the completed event, at least if it's a top-level one.  let's make sure *something* has appeared in the last 5 or so events
@@ -1084,6 +1094,9 @@ var Replay = (function ReplayClosure() {
         var completedWithinWindowBeforeDom = false;
         var win = 5;
         for (var i = replayTimeEvents.length - 1; i >= 0; i--){
+          // debug todo: remove next two lines
+          var ev = replayTimeEvents[i];
+          console.log(i, domIndex, ev.type, ev.data);
 
           if (domIndex !== null && i < (domIndex - win)){
             // ok, we've gone too far, we've passed the window around the domIndex

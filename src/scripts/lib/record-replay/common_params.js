@@ -111,7 +111,9 @@ var TimeoutStrategy = {
       'shiftKey': false,
       'metaKey': false,
       'button': 0,
-      'timeStamp': 0
+      'timeStamp': 0,
+      'selectionStart': 0,
+      'selectionEnd': 0
     },
     'KeyboardEvent': {
       'type': true,

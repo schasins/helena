@@ -1030,6 +1030,10 @@ var WebAutomationLanguage = (function() {
       var columns = relation.columns;
       for (var i = 0; i < columns.length; i++){
         var text = columns[i].firstRowText;
+        if (text === null){
+          // can't parameterize for a cell that has null text
+          continue;
+        }
         var textLower = text.toLowerCase();
         var startIndex = this.typedStringLower.indexOf(textLower);
         if (startIndex > -1){

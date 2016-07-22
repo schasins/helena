@@ -26,10 +26,13 @@ var snapshotBranch = null;
    * @returns {object} Mapping from property name to value.
    */
   function getProperties(node, props) {
-    if (props == 'all')
-      props = Object.keys(node);
-    else if (!props)
+    if (props == 'all') {
       props = [];
+      for (var prop in node)
+        props.push(prop);
+    } else if (!props) {
+      props = [];
+    }
 
     var mapping = {};
     for (var i = 0, ii = props.length; i < ii; ++i) {

@@ -73,10 +73,25 @@ function ParameterizedTrace(trace){
 		}
 	};
 	
+	// figure out if the keyevents issued on the node associated with the event at last_key_index should be parameterized for original_string (a cell in a relation); put in holes if yes
 	function processString(parameter_name, original_string, string, char_indexes, last_key_index){
 		// the string we got as an argument was based on the keypresses, but recreating all the logic around that is a terrible pain
 		// let's try using the value of the node
-		var typed_value = trace[last_key_index].target.snapshot.value; // obviously this approach is limited to nodes with value attributes, as is current top-level tool
+
+		var lastDomEventIndex = null;
+		var targetNode = null; // let's find the most recent dom event, working backwards from last_key_index
+		for (var i = last_key_index; i >= 0; i--){
+			if (trace[i].type === "dom"){
+				lastDomEventIndex = i;
+				targetNode = trace[lastDomEventIndex].target;
+				break;
+			}
+		}
+
+		if (!targetNode.snapshot || !targetNode.snapshot.value){
+			return; // can currently only parameterize actions on nodes that have value attributes (so text input nodes); should potentially expand to others eventually; todo: why do some not have snapshot?
+		}
+		var typed_value = targetNode.snapshot.value; // obviously this approach is limited to nodes with value attributes, as is current top-level tool
 
 		var original_string_initial_case = original_string;
 		original_string = original_string.toLowerCase();

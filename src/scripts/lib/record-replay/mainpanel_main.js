@@ -692,6 +692,14 @@ var Replay = (function ReplayClosure() {
       /* tell whatever page was trying to execute the last event to pause */
       this.ports.sendToAll({type: 'pauseReplay', value: null});
     },
+    stopReplay: function _stopReplay() {
+      if (this.getStatus() == ReplayState.STOPPED)
+        return;
+
+      this.updateStatus(ReplayState.STOPPED);
+
+      this.pause();
+    },
     /* Restart by setting the next callback immediately */
     restart: function _restart() {
       if (this.callbackHandle == null) {
@@ -1372,6 +1380,9 @@ var Controller = (function ControllerClosure() {
     replayScript: function(events, config, cont) {
       this.setEvents(null, events);
       return this.replayRecording(config, cont);
+    },
+    stopReplay: function(){
+      this.replay.stopReplay();
     },
     pause: function() {
       this.replay.pause();

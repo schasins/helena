@@ -96,6 +96,12 @@ var RecorderUI = (function() {
 
     activateButton(div, "#download", ReplayScript.prog.download);
 
+    var reset = function(){
+      ReplayScript.prog.stopRunning();
+      pub.showProgramPreview();
+    }
+    activateButton(div, "#cancelRun", reset);
+
     // actually start the script running
     ReplayScript.prog.run();
   };
@@ -1388,6 +1394,7 @@ var WebAutomationLanguage = (function() {
     this.getNextRow = function(pageVar, callback){ // has to be called on a page, since a relation selector can be applied to many pages.  higher-level tool must control where to apply
       // todo: this is a very simplified version that assumes there's only one page of results.  add the rest soon.
 
+      console.log(pageVar.pageRelations);
       var prinfo = pageVar.pageRelations[this.name+"_"+this.id]; // separate relations can have same name (no rule against that) and same id (undefined if not yet saved to server), but since we assign unique names when not saved to server and unique ides when saved to server, should be rare to have same both.  todo: be more secure in future
       if (prinfo === undefined){ // if we haven't seen the frame currently associated with this pagevar, need to clear our state and start fresh
         prinfo = {currentRows: null, currentRowsCounter: 0, currentTabId: pageVar.currentTabId()};
@@ -1625,6 +1632,12 @@ var WebAutomationLanguage = (function() {
         console.log("paused");
         return;
       }
+      console.log("RecorderUI.userStopped", RecorderUI.userStopped);
+      if (RecorderUI.userStopped){
+        console.log("run stopped");
+        RecorderUI.userStopped = false; // set it back so that if the user goes to run again, everything will work
+        return;
+      }
 
       if (loopyStatements.length < 1){
         console.log("rbb: empty loopystatments.");
@@ -1730,11 +1743,23 @@ var WebAutomationLanguage = (function() {
     this.currentDataset = null;
     this.run = function(){
       this.currentDataset = new OutputHandler.Dataset();
-      _.each(this.relations, function(relation){relation.clearRunningState();});
-      _.each(this.pageVars, function(pageVar){pageVar.clearRunningState();});
+      this.clearRunningState();
       runBasicBlock(this.loopyStatements, function(){
         program.currentDataset.closeDataset();
         console.log("Done with script execution.");});
+    };
+
+    this.stopRunning = function(){
+      RecorderUI.userStopped = true; // this will stop the continuation chain
+      // should we even bother saving the data?
+      this.currentDataset.closeDataset();
+      this.clearRunningState();
+      SimpleRecord.stopReplay(); // todo: is current (new) stopReplay enough to make sure that when we try to run the script again, it will start up correctly?
+    };
+
+    this.clearRunningState = function(){
+      _.each(this.relations, function(relation){relation.clearRunningState();});
+      _.each(this.pageVars, function(pageVar){pageVar.clearRunningState();});
     };
 
     this.download = function(){
@@ -1980,6 +2005,36 @@ var WebAutomationLanguage = (function() {
       return this.relations;
     };
 
+    function parameterizeBodyStatementsForRelation(bodyStatementLs, relation){
+        for (var j = 0; j < bodyStatementLs.length; j++){
+          bodyStatementLs[j].parameterizeForRelation(relation);
+        }
+    }
+
+    function loopStatementFromBodyAndRelation(bodyStatementLs, relation, pageVar){
+      // we want to parameterize the body for the relation
+      parameterizeBodyStatementsForRelation(bodyStatementLs, relation); 
+
+      // ok, and any pages to which we travel within a loop's non-loop body nodes must be counteracted with back buttons at the end
+      // todo: come back and make sure we only do this for pages that aren't being opened in new tabs already, and maybe ultimately for pages that we can't convert to open in new tabs
+      var backStatements = [];
+      for (var j = 0; j < bodyStatementLs.length; j++){
+        var statement = bodyStatementLs[j];
+        if (statement.outputPageVars && statement.outputPageVars.length > 0){
+          // we're making that assumption again about just one outputpagevar.  also that everything is happening in one tab.  must come back and revisit this
+          var currPage = statement.outputPageVars[0];
+          var backPage = statement.pageVar;
+          backStatements.push(new WebAutomationLanguage.BackStatement(currPage, backPage));
+        }
+      }
+      backStatements.reverse(); // must do the back button in reverse order
+      bodyStatementLs = bodyStatementLs.concat(backStatements);
+      // todo: also, this is only one of the places we introduce loops.  should do this everywhere we introduce or adjust loops.  really need to deal with the fact those aren't aligned right now
+
+      var loopStatement = new WebAutomationLanguage.LoopStatement(relation, bodyStatementLs, pageVar); 
+      return loopStatement;
+    }
+
     this.insertLoops = function(){
       var indexesToRelations = {}; // indexes into the statements mapped to the relations used by those statements
       for (var i = 0; i < this.relations.length; i++){
@@ -1999,28 +2054,8 @@ var WebAutomationLanguage = (function() {
         var index = indexes[i];
         // let's grab all the statements from the loop's start index to the end, put those in the loop body
         var bodyStatementLs = this.loopyStatements.slice(index, this.loopyStatements.length);
-        // we want to parameterize the body for the relation
-        var relation = indexesToRelations[index];
-        for (var j = 0; j < bodyStatementLs.length; j++){
-          bodyStatementLs[j].parameterizeForRelation(relation);
-        }
-
-        // ok, and any pages to which we travel within a loop's non-loop body nodes must be counteracted with back buttons at the end
-        var backStatements = [];
-        for (var j = 0; j < bodyStatementLs.length; j++){
-          var statement = bodyStatementLs[j];
-          if (statement.outputPageVars && statement.outputPageVars.length > 0){
-            // we're making that assumption again about just one outputpagevar.  also that everything is happening in one tab.  must come back and revisit this
-            var currPage = statement.outputPageVars[0];
-            var backPage = statement.pageVar;
-            backStatements.push(new WebAutomationLanguage.BackStatement(currPage, backPage));
-          }
-        }
-        backStatements.reverse(); // must do the back button in reverse order
-        bodyStatementLs = bodyStatementLs.concat(backStatements);
-        // todo: also, this is only one of the places we introduce loops.  should do this everywhere we introduce or adjust loops.  really need to deal with the fact those aren't aligned right now
-
-        var loopStatement = new WebAutomationLanguage.LoopStatement(relation, bodyStatementLs, this.loopyStatements[index].pageVar);
+        var pageVar = bodyStatementLs[0].pageVar; // pageVar comes from first item because that's the one using the relation, since it's the one that made us decide to insert a new loop starting with that 
+        var loopStatement = loopStatementFromBodyAndRelation(bodyStatementLs, indexesToRelations[index], pageVar); // let's use bodyStatementLs as our body, indexesToRelations[index] as our relation 
         this.loopyStatements = this.loopyStatements.slice(0, index);
         this.loopyStatements.push(loopStatement);
       }
@@ -2044,10 +2079,7 @@ var WebAutomationLanguage = (function() {
         if (relation.usedByStatement(statement)){
           // ok, let's assume the rest of this loop's body should be nested
           var bodyStatementLs = loopyStatements.slice(i, loopyStatements.length);
-          for (var j = 0; j < bodyStatementLs.length; j++){
-            bodyStatementLs[j].parameterizeForRelation(relation);
-          }
-          var loopStatement = new WebAutomationLanguage.LoopStatement(relation, bodyStatementLs, loopyStatements[i].pageVar);
+          var loopStatement = loopStatementFromBodyAndRelation(bodyStatementLs, relation, statement.pageVar); // statement uses relation, so pick statement's pageVar
           // awesome, we have our new loop statement, which should now be the final statement in the parent
           var newStatements = loopyStatements.slice(0,i);
           newStatements.push(loopStatement);

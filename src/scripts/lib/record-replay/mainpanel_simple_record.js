@@ -26,6 +26,9 @@ var SimpleRecord = (function SimpleRecordClosure() {
      */
      replay: function _replay(trace, config, callback) {
       controller.replayScript(trace, config, callback);
+    },
+    stopReplay: function _stopReplay() {
+      controller.stopReplay();
     }
   };
 

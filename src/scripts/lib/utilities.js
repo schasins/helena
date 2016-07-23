@@ -204,6 +204,10 @@ var Highlight = (function() { var pub = {};
   var highlightCount = 0;
   var highlights = [];
   pub.highlightNode = function(target, color, display, pointerEvents) {
+    if (!target){
+      console.log("Woah woah woah, why were you trying to highlight a null or undefined thing?");
+      return $('<div/>');
+    }
     if (display === undefined){ display = true;}
     if (pointerEvents === undefined){ pointerEvents = false;}
     highlightCount +=1;

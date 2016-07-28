@@ -1222,11 +1222,11 @@ var WebAutomationLanguage = (function() {
       return usedByTextStatement(statement, this.relation[0]);
     };
 
-    var currentRowsCounter = 0;
+    var currentRowsCounter = -1;
     var length = this.relation.length;
 
     this.getNextRow = function(pageVar, callback){ // has to be called on a page, to match the signature for the non-text relations, but we'll ignore the pagevar
-      if (currentRowsCounter + 1 > length){
+      if (currentRowsCounter + 1 >= length){
         callback(false); // no more rows -- let the callback know we're done
       }
       else{
@@ -1241,7 +1241,7 @@ var WebAutomationLanguage = (function() {
     }
 
     this.clearRunningState = function(){
-      currentRowsCounter = 0;
+      currentRowsCounter = -1;
     };
   }
 

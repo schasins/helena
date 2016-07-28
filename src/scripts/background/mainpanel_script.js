@@ -1750,7 +1750,10 @@ var WebAutomationLanguage = (function() {
     };
 
     this.stopRunning = function(){
-      RecorderUI.userStopped = true; // this will stop the continuation chain
+      if (!RecorderUI.userPaused){
+        // don't need to stop continuation chain unless it's currently going; if paused, isn't going, stopping flag won't get turned off and will prevent us from replaying later
+        RecorderUI.userStopped = true; // this will stop the continuation chain
+      }
       // should we even bother saving the data?
       this.currentDataset.closeDataset();
       this.clearRunningState();

@@ -35,7 +35,7 @@ var OutputHandler = (function() {
     	}
     	this.currentDatasetSliceLength += 1;
     	this.fullDatasetLength += 1;
-    	if (this.currentDatasetSliceLength % 100 === 0){
+    	if (this.currentDatasetSliceLength % 10 === 0){
     		this.sendDatasetSlice();
     	}
     };

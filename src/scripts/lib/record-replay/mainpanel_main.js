@@ -1023,8 +1023,8 @@ var Replay = (function ReplayClosure() {
       console.log(events[index]);
       if (index >= events.length) {
         //no more events to actively replay, but may need to wait for some
-        console.log("waiting for observed events");
-        this.waitForObservedEvents();
+        console.log(index, "done with script");
+        this.finish();
         return;
       }
 
@@ -1048,24 +1048,6 @@ var Replay = (function ReplayClosure() {
       console.log(completed_events);
       var eventIds = _.map(completed_events, function(event){return event.meta.id});
       return eventIds;
-    },
-    waitForObservedEvents: function _waitForObservedEvents(){
-      // with simulatecompletedevent now doing more, we may not need this.  for now, try just being done...
-      this.finish();
-      return;
-
-      // todo: get rid of below...
-      console.log(this.events, this.record.events);
-      console.log(this.openTabSequenceFromTrace(this.events), this.openTabSequenceFromTrace(this.record.events));
-      console.log(this.events, this.record.events);
-      if (this.openTabSequenceFromTrace(this.events).length <= this.openTabSequenceFromTrace(this.record.events).length){ // todo: is it ok if the replay script actually sees more completed events than the original?
-        this.finish();
-      }
-      else{
-        //var replayer = this;
-        //setTimeout(function(){replayer.waitForObservedEvents();},500);
-        this.setNextTimeout(500);
-      }
     },
     simulateCompletedEvent: function _simulateCompletedEvent(e){
       if (e.forceReplay && (!e.reset || !(e.reset.alreadyForced))){

@@ -277,10 +277,12 @@ var RecorderUI = (function() {
   pub.addNewRowToOutput = function(listOfCellTexts){
     var div = $("#new_script_content").find("#output_preview").find("table");
     var l = div.children().length;
-    if (l === 500){
-      $("#new_script_content").find("#output_preview").append($("<div>This dataset is too big for us to display.  The preview here shows the first 500 rows.  To see the whole dataset, just click the download button above.</div>"));
+    var limit = 30;
+    if (l === limit){
+      $("#new_script_content").find("#output_preview").append($("<div>This dataset is too big for us to display.  The preview here shows the first "+limit+" rows.  To see the whole dataset, just click the download button above.</div>"));
     }
-    else if (l < 500){
+    else if (l < limit){
+      console.log("adding output row: ", l);
       div.append(DOMCreationUtilities.arrayOfTextsToTableRow(listOfCellTexts));
     }
   };

@@ -275,7 +275,7 @@ var RecorderUI = (function() {
   };
 
   pub.addNewRowToOutput = function(listOfCellTexts){
-    var div = $("#new_script_content").find("#output_preview").find("table");
+    var div = $("#new_script_content").find("#output_preview").find("table").find("tbody");
     var l = div.children().length;
     var limit = 30;
     if (l === limit){

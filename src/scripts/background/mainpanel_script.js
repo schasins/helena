@@ -1604,6 +1604,48 @@ var WebAutomationLanguage = (function() {
       SimpleRecord.replay(trace, null, function(){console.log("Done replaying.");});
     };
 
+    function alignRecordTimeAndReplayTimeCompletedEvents(recordTimeTrace, replayTimeTrace){
+      // we should see corresponding 'completed' events in the traces
+      var recCompleted = _.filter(recordTimeTrace, function(ev){return ev.type === "completed" && ev.data.type === "main_frame";}); // now only doing this for top-level completed events.  will see if this is sufficient
+      var repCompleted = _.filter(replayTimeTrace, function(ev){return ev.type === "completed" && ev.data.type === "main_frame";});
+      console.log(recCompleted, repCompleted);
+      // should have same number of top-level load events.  if not, might be trouble
+      if (recCompleted.length !== repCompleted.length){
+        console.log("Different numbers of completed events in record and replay: ", recCompleted, repCompleted);
+      }
+      // todo: for now aligning solely based on point at which the events appear in the trace.  if we get traces with many events, may need to do something more intelligent
+      var smallerLength = recCompleted.length;
+      if (repCompleted.length < smallerLength) { smallerLength = repCompleted.length;}
+      return [recCompleted.slice(0, smallerLength), repCompleted.slice(0, smallerLength)];
+    }
+
+    function updatePageVars(recordTimeTrace, replayTimeTrace){
+      var recordTimeCompletedToReplayTimeCompleted = alignRecordTimeAndReplayTimeCompletedEvents(recordTimeTrace, replayTimeTrace);
+      var recEvents = recordTimeCompletedToReplayTimeCompleted[0];
+      var repEvents = recordTimeCompletedToReplayTimeCompleted[1];
+      for (var i = 0; i < recEvents.length; i++){
+        var pageVar = EventM.getLoadOutputPageVar(recEvents[i]);
+        if (pageVar === undefined){
+          continue;
+        }
+        pageVar.setCurrentTabId(repEvents[i].data.tabId);
+      }
+    }
+
+    function tabMappingFromTraces(recordTimeTrace, replayTimeTrace){
+      var recordTimeCompletedToReplayTimeCompleted = alignRecordTimeAndReplayTimeCompletedEvents(recordTimeTrace, replayTimeTrace);
+      var recEvents = recordTimeCompletedToReplayTimeCompleted[0];
+      var repEvents = recordTimeCompletedToReplayTimeCompleted[1];
+      var tabIdMapping = {};
+      for (var i = 0; i < recEvents.length; i++){
+        var recTabId = recEvents[i].data.tabId;
+        var repTabId = repEvents[i].data.tabId;
+        tabIdMapping[recTabId] = repTabId;
+      }
+      return tabIdMapping;
+    }
+
+/*
     function updatePageVars(recordTimeTrace, replayTimeTrace){
       // we should see corresponding 'completed' events in the traces
       var recCompleted = _.filter(recordTimeTrace, function(ev){return ev.type === "completed" && ev.data.type === "main_frame";}); // now only doing this for top-level completed events.  will see if this is sufficient
@@ -1624,6 +1666,7 @@ var WebAutomationLanguage = (function() {
         pageVar.setCurrentTabId(repCompleted[i].data.tabId);
       }
     }
+    */
 
     function runBasicBlock(loopyStatements, callback){
       console.log("rbb", loopyStatements.length, loopyStatements);
@@ -1893,10 +1936,14 @@ var WebAutomationLanguage = (function() {
       $.post('http://visual-pbd-scraping-server.herokuapp.com/retrieverelations', { pages: reqList }, function(resp){that.processServerRelations(resp);});
     }
 
-    this.processServerRelations = function(resp, currentStartIndex){
+    this.processServerRelations = function(resp, currentStartIndex, tabsToCloseAfter, tabMapping){
       if (currentStartIndex === undefined){currentStartIndex = 0;}
+      if (tabsToCloseAfter === undefined){tabsToCloseAfter = [];}
+      if (tabMapping === undefined){tabMapping = {};}
       // we're ready to try these relations on the current pages
       // to do this, we'll have to actually replay the script
+
+      var startIndex = currentStartIndex;
 
       // let's find all the statements that should open new pages (where we'll need to try relations)
       for (var i = currentStartIndex; i < program.statements.length; i++){
@@ -1906,7 +1953,7 @@ var WebAutomationLanguage = (function() {
           console.log("processServerrelations going for index:", i, targetPageVar);
 
           // this is one of the points to which we'll have to replay
-          var statementSlice = program.statements.slice(0, i + 1);
+          var statementSlice = program.statements.slice(startIndex, i + 1);
           var trace = [];
           _.each(statementSlice, function(statement){trace = trace.concat(statement.cleanTrace);});
           //_.each(trace, function(ev){EventM.clearDisplayInfo(ev);}); // strip the display info back out from the event objects
@@ -1916,7 +1963,7 @@ var WebAutomationLanguage = (function() {
           var nextIndex = i + 1;
 
           // ok, we have a slice of the statements that should produce one of our pages. let's replay
-          SimpleRecord.replay(trace, null, function(replayObj){
+          SimpleRecord.replay(trace, {tabMapping: tabMapping}, function(replayObj){
             // continuation
             console.log("replayobj", replayObj);
 
@@ -1924,7 +1971,12 @@ var WebAutomationLanguage = (function() {
             var replayTrace = replayObj.record.events;
             var lastCompletedEventTabId = TraceManipulationUtilities.lastTopLevelCompletedEventTabId(replayTrace);
             // what tabs did we make in the interaction in general?
-            var tabsToCloseAfter = TraceManipulationUtilities.tabsInTrace(replayTrace);
+            tabsToCloseAfter = tabsToCloseAfter.concat(TraceManipulationUtilities.tabsInTrace(replayTrace));
+
+            // let's do some trace alignment to figure out a tab mapping
+            var newMapping = tabMappingFromTraces(trace, replayTrace);
+            tabMapping = _.extend(tabMapping, newMapping);
+            console.log(newMapping, tabMapping);
 
             // and what are the server-suggested relations we want to send?
             var resps = resp.pages;
@@ -1953,31 +2005,26 @@ var WebAutomationLanguage = (function() {
 
             // what should we do once we get the response back, having tested the various relations on the actual pages?
             utilities.listenForMessageOnce("content", "mainpanel", "likelyRelation", function(data){
-              // no longer need the tabs from which we got this info
-
-              var closedTabsCount = 0;
-              for (var i = 0; i < tabsToCloseAfter.length; i++){
-                chrome.tabs.remove(tabsToCloseAfter[i], function(){
-                  closedTabsCount += 1;
-                  if (closedTabsCount === tabsToCloseAfter.length){
-                    // cool, all the tabs are closed, we're ready to continue
-                    // handle the actual data the page sent us
-                    program.processLikelyRelation(data);
-                    // update the control panel display
-                    RecorderUI.updateDisplayedRelations();
-                    // now let's go through this process all over again for the next page, if there is one
-                    console.log("going to processServerRelations with nextIndex: ", nextIndex);
-                    program.processServerRelations(resp, nextIndex);
-                  }
-                }); 
-              }
+              // handle the actual data the page sent us
+              program.processLikelyRelation(data);
+              // update the control panel display
+              RecorderUI.updateDisplayedRelations();
+              // now let's go through this process all over again for the next page, if there is one
+              console.log("going to processServerRelations with nextIndex: ", nextIndex);
+              program.processServerRelations(resp, nextIndex, tabsToCloseAfter, tabMapping);
             });
             setTimeout(getLikelyRelationFuncUntilAnswer, 1000); // give it a while to attach the listener
           });
-
-          return;
+          return; // all later indexes will be handled by the recursion instead of the rest of the loop
         }
       }
+      // ok we hit the end of the loop without returning after finding a new page to work on.  time to close tabs
+      for (var i = 0; i < tabsToCloseAfter.length; i++){
+        chrome.tabs.remove(tabsToCloseAfter[i], function(){
+          // do we need to do anything?
+        }); 
+      }
+
     };
 
     var pagesToRelations = {};

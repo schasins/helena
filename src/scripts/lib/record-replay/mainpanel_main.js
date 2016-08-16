@@ -760,7 +760,7 @@ var Replay = (function ReplayClosure() {
     },
     /* Given an event, find the corresponding port */
     getMatchingPort: function _getMatchingPort(v) {
-      console.log("_getMatchingPort: ",v);
+      console.log("gpm: _getMatchingPort: ",v);
       var portMapping = this.portMapping;
       var tabMapping = this.tabMapping;
 
@@ -773,19 +773,21 @@ var Replay = (function ReplayClosure() {
       /* we have already seen this port, reuse existing mapping */
       if (port in portMapping) {
         replayPort = portMapping[port];
+        console.log("gpm: port in portMapping", portMapping);
         replayLog.log('port already seen', replayPort);
 
       /* we have already seen this tab, find equivalent port for tab
        * for now we will just choose the last port added from this tab */
       } else if (tab in tabMapping) {
         var replayPort = this.findPortInTab(tabMapping[tab], frame);
+        console.log("gpm: tab in tabMapping", tabMapping);
 
         if (replayPort) {
           portMapping[port] = replayPort;
-          replayLog.log('tab already seen, found port:', replayPort);
+          console.log('gpm: tab already seen, found port:', replayPort);
         } else {
           this.setNextTimeout(params.replay.defaultWait);
-          replayLog.log('tab already seen, no port found');
+          console.log('gpm: tab already seen, no port found');
         }
       /* nothing matched, so we need to open new tab */
       } else {
@@ -809,6 +811,7 @@ var Replay = (function ReplayClosure() {
          * tab, then lets assume this new tab should match */
         if (this.firstEventReplayed && unusedTabs.length == 1) {
           tabMapping[frame.tab] = unusedTabs[0];
+          console.log("gpm: adding one unmatched tab mapping update");
           this.setNextTimeout(0);
           console.log("Exactly one unmapped.");
           return;
@@ -886,9 +889,11 @@ var Replay = (function ReplayClosure() {
                     //return replayPort;
 
                     tabMapping[currEventTabID] = e2.data.tabId;
+                    console.log("gpm: tabMapping updated for completed event alignment");
                     this.setNextTimeout(0);
                     console.log("Using loading time data to make tab mapping.");
-                    return;
+                    console.log("gpm: not returning real port (refreshed tab mapping)");
+                    return; // so that simulateDom event will be called again, and we'll get back here now with good mappings
                   }
                 }
               }
@@ -901,10 +906,12 @@ var Replay = (function ReplayClosure() {
         console.log(v, portMapping, tabMapping);
         console.log("Freak out.  We don't know what port to use to replay this event.");
         // it may be the tab just isn't ready yet, not added to our mappings yet.  try again in a few.
-        this.setNextTimeout(500);
+        this.setNextTimeout(1000);
+        console.log("gpm: not returning real port");
         return null;
       }
       console.log(replayPort);
+      console.log("gpm: returning real port");
       return replayPort;
     },
     /* Given the frame information from the recorded trace, find a 
@@ -1146,6 +1153,12 @@ var Replay = (function ReplayClosure() {
           this.setNextTimeout(1000);
           // it may be that the target tab just isn't ready yet, hasn't been added to our mappings yet.  may need to try again in a moment.
           return;
+        }
+
+        /* sometimes we use special no-op events to make sure that a page has gone through our alignment process without actually executing a dom event on it */
+        if (v.data.type === "noop"){
+          this.incrementIndex();
+          this.setNextTimeout(0);
         }
 
         /* if there is a trigger, then check if trigger was observed */

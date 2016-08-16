@@ -605,7 +605,7 @@ var RelationFinder = (function() { var pub = {};
         if (node === null){continue;}
         // first make sure there is a color at index j, add one if there isn't
         if (j >= colors.length){
-          colors.append("#000000".replace(/0/g,function(){return (~~(Math.random()*16)).toString(16);}));
+          colors.push("#000000".replace(/0/g,function(){return (~~(Math.random()*16)).toString(16);}));
         }
         var node = Highlight.highlightNode(node, colors[j], display, pointerEvents);
         nodes.push(node);

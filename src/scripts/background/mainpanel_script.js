@@ -1450,7 +1450,7 @@ var WebAutomationLanguage = (function() {
       // todo: this should really be stable stringified (the selector), since we'll be using it to test equality of different relations
       var rel = this.messageRelationRepresentation();
       ServerTranslationUtilities.JSONifyRelation(rel);
-      $.post('http://visual-pbd-scraping-server.herokuapp.com/saverelation', {relation: rel});
+      $.post('http://kaofang.cs.berkeley.edu:8080/saverelation', {relation: rel});
     }
 
     var tabReached = false;
@@ -1933,7 +1933,7 @@ var WebAutomationLanguage = (function() {
 
       }
       var that = this;
-      $.post('http://visual-pbd-scraping-server.herokuapp.com/retrieverelations', { pages: reqList }, function(resp){that.processServerRelations(resp);});
+      $.post('http://kaofang.cs.berkeley.edu:8080/retrieverelations', { pages: reqList }, function(resp){that.processServerRelations(resp);});
     }
 
     this.processServerRelations = function(resp, currentStartIndex, tabsToCloseAfter, tabMapping){
@@ -2019,6 +2019,7 @@ var WebAutomationLanguage = (function() {
         }
       }
       // ok we hit the end of the loop without returning after finding a new page to work on.  time to close tabs
+      tabsToCloseAfter = _.uniq(tabsToCloseAfter);
       for (var i = 0; i < tabsToCloseAfter.length; i++){
         chrome.tabs.remove(tabsToCloseAfter[i], function(){
           // do we need to do anything?

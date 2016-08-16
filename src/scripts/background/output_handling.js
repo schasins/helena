@@ -12,7 +12,7 @@ var OutputHandler = (function() {
   	var dataset = this;
 
   	this.requestNewDatasetId = function(){
-      $.post('http://visual-pbd-scraping-server.herokuapp.com/newdatasetsid', {}, function(resp){dataset.handleDatasetId(resp);});
+      $.post('http://kaofang.cs.berkeley.edu:8080/newdatasetsid', {}, function(resp){dataset.handleDatasetId(resp);});
     };
     this.handleDatasetId = function(resp){
     	this.id = resp.id;

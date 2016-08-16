@@ -288,7 +288,7 @@ var RelationPreview = (function() { var pub = {};
   var knownRelations = [];
   function setup(){
     console.log("running setup");
-    $.post('https://visual-pbd-scraping-server.herokuapp.com/allpagerelations', { url: window.location.href }, function(resp){ 
+    $.post('http://kaofang.cs.berkeley.edu:8080/allpagerelations', { url: window.location.href }, function(resp){ 
       console.log(resp);
       knownRelations = resp.relations;
       preprocessKnownRelations();

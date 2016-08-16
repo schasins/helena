@@ -43,7 +43,7 @@ var OutputHandler = (function() {
     this.sendDatasetSlice = function(){
     	this.sentDatasetSlice = this.currentDatasetSlice;
     	this.currentDatasetSlice = {};
-      $.post('http://visual-pbd-scraping-server.herokuapp.com/datasetslice', {id: this.id, values: this.sentDatasetSlice}, function(resp){/* todo: add better error handling eventually*/ return;});
+      $.post('http://kaofang.cs.berkeley.edu:8080/datasetslice', {id: this.id, values: this.sentDatasetSlice}, function(resp){/* todo: add better error handling eventually*/ return;});
     };
 
     this.closeDataset = function(){
@@ -51,7 +51,7 @@ var OutputHandler = (function() {
     };
 
     this.downloadDataset = function(){
-    	window.location = 'http://visual-pbd-scraping-server.herokuapp.com/datasets/'+this.id;
+    	window.location = 'http://kaofang.cs.berkeley.edu:8080/datasets/'+this.id;
     };
   };
 

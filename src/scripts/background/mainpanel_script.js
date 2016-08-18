@@ -1085,40 +1085,6 @@ var WebAutomationLanguage = (function() {
     };
   };
 
-  pub.BackStatement = function(pageVarCurr, pageVarBack){
-    this.pageVarCurr = pageVarCurr;
-    this.pageVarBack = pageVarBack;
-
-    var backStatement = this;
-
-    this.toStringLines = function(){
-      return [this.pageVarBack.toString() + " = " + this.pageVarCurr.toString() + ".back()" ];
-    };
-
-    this.run = function(continuation){
-      console.log("run back statement");
-      // send a back message to pageVarCurr
-      utilities.sendMessage("mainpanel", "content", "backButton", {}, null, null, [this.pageVarCurr.currentTabId()]);
-      // todo: is it enough to just send this message and hope all goes well, or do we need some kind of acknowledgement?
-      // update pageVarBack to make sure it has the right tab associated
-
-      // todo: is the below enough of an ack.  have been noticing events (maybe) getting replayed before the back button actually processed, which is obviously a problem
-      // should we actually wait for a completed event?
-      utilities.listenForMessageOnce("content", "mainpanel", "backButtonProcessed", function(data){
-        console.log("back completed");
-        backStatement.pageVarBack.setCurrentTabId(backStatement.pageVarCurr.tabId);
-        continuation();
-      });
-    };
-
-    this.parameterizeForRelation = function(relation){
-      return;
-    };
-    this.unParameterizeForRelation = function(relation){
-      return;
-    };
-  };
-
   pub.OutputRowStatement = function(scrapeStatements){
     this.trace = []; // no extra work to do in r+r layer for this
     this.cleanTrace = [];
@@ -1151,6 +1117,114 @@ var WebAutomationLanguage = (function() {
       ReplayScript.prog.currentDataset.addRow(cells); // todo: is replayscript.prog really the best way to access the prog object so that we can get the current dataset object, save data to server?
     };
   }
+
+  /*
+  Statements below here are no longer executed by Ringer but rather by their own run methods
+  */
+
+  pub.BackStatement = function(pageVarCurr, pageVarBack){
+    this.pageVarCurr = pageVarCurr;
+    this.pageVarBack = pageVarBack;
+
+    var backStatement = this;
+
+    this.toStringLines = function(){
+      return [this.pageVarBack.toString() + " = " + this.pageVarCurr.toString() + ".back()" ];
+    };
+
+    this.run = function(rbbcontinuation){
+      console.log("run back statement");
+      // send a back message to pageVarCurr
+      utilities.sendMessage("mainpanel", "content", "backButton", {}, null, null, [this.pageVarCurr.currentTabId()]);
+      // todo: is it enough to just send this message and hope all goes well, or do we need some kind of acknowledgement?
+      // update pageVarBack to make sure it has the right tab associated
+
+      // todo: is the below enough of an ack.  have been noticing events (maybe) getting replayed before the back button actually processed, which is obviously a problem
+      // should we actually wait for a completed event?
+      utilities.listenForMessageOnce("content", "mainpanel", "backButtonProcessed", function(data){
+        console.log("back completed");
+        backStatement.pageVarBack.setCurrentTabId(backStatement.pageVarCurr.tabId);
+        rbbcontinuation(false);
+      });
+    };
+
+    this.parameterizeForRelation = function(relation){
+      return;
+    };
+    this.unParameterizeForRelation = function(relation){
+      return;
+    };
+  };
+
+  pub.ContinueStatement = function(){
+    this.toStringLines = function(){
+      return ["continue"];
+    };
+
+    this.run = function(rbbcontinuation){
+      // fun stuff!  time to flip on the 'continue' flag in our continuations, which the for loop continuation will eventually consume and turn off
+      rbbcontinuation(true);
+    };
+
+    this.parameterizeForRelation = function(relation){
+      return;
+    };
+    this.unParameterizeForRelation = function(relation){
+      return;
+    };
+  };
+
+  pub.IfStatement = function(bodyStatements){
+    this.bodyStatements = bodyStatements;
+
+    this.toStringLines = function(){
+      return ["if"]; // todo: when we have the real if statements, do the right thing
+    };
+    this.run = function(rbbcontinuation){
+      // todo: the condition is hard-coded for now, but obviously we should ultimately have real conds
+      if (true){ // todo: want to check if first scrape statement scrapes something with "CFG" in it
+        if (this.bodyStatements.length < 1){
+          // ok seriously, why'd you make an if with no body?  come on.
+          return;
+        }
+        // let's run the first body statement, make a continuation for running the remaining ones
+        var bodyStatements = this.bodyStatements;
+        var currBodyStatementsIndex = 1;
+        var bodyStatmentsLength = this.bodyStatements.length;
+        var newContinuation = function(continueflag){ // remember that rbbcontinuations must always handle continueflag
+          if (continueflag){
+            // executed a continue statement, so don't carry on with this if
+            rbbcontinuation(true);
+            return;
+          }
+          if (currBodyStatementsIndex === bodyStatmentsLength){
+            // finished with the body statements, call original continuation
+            rbbcontinuation(false);
+            return;
+          }
+          else{
+            // still working on the body of the current if statement, keep going
+            currBodyStatementsIndex += 1;
+            bodyStatements[currBodyStatementsIndex - 1].run(newContinuation);
+          }
+        }
+        // actually run that first statement
+        bodyStatements[0].run(newContinuation);
+      }
+
+    }
+    this.parameterizeForRelation = function(relation){
+      // todo: once we have real conditions may need to do something here
+      return;
+    };
+    this.unParameterizeForRelation = function(relation){
+      return;
+    };rbbcontinu
+  };
+
+  /*
+  Loop statements not executed by run method, although may ultimately want to refactor to that
+  */
 
   pub.LoopStatement = function(relation, bodyStatements, pageVar){
     this.relation = relation;
@@ -1668,6 +1742,14 @@ var WebAutomationLanguage = (function() {
     }
     */
 
+    function ringerBased(statement){
+      return (statement instanceof WebAutomationLanguage.LoadStatement
+                || statement instanceof WebAutomationLanguage.ClickStatement
+                || statement instanceof WebAutomationLanguage.ScrapeStatement
+                || statement instanceof WebAutomationLanguage.TypeStatement
+                || statement instanceof WebAutomationLanguage.OutputRowStatement);
+    }
+
     function runBasicBlock(loopyStatements, callback){
       console.log("rbb", loopyStatements.length, loopyStatements);
       // first check if we're supposed to pause, stop execution if yes
@@ -1689,6 +1771,7 @@ var WebAutomationLanguage = (function() {
         callback();
         return;
       }
+      // for now LoopStatement gets special processing
       else if (loopyStatements[0] instanceof WebAutomationLanguage.LoopStatement){
         console.log("rbb: loop.");
         var loopStatement = loopyStatements[0];
@@ -1697,7 +1780,7 @@ var WebAutomationLanguage = (function() {
             console.log("no more rows");
             // hey, we're done!
 
-            // once we're done replaying, have to replay the remainder of the script
+            // once we're done with the loop, have to replay the remainder of the script
             runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback);
             return;
           }
@@ -1711,13 +1794,19 @@ var WebAutomationLanguage = (function() {
         });
         return;
       }
-      // also need special processing for back statements
-      else if (loopyStatements[0] instanceof WebAutomationLanguage.BackStatement){
-        console.log("rbb: back.");
-        loopyStatements[0].run(function(){
-          // once we're done with back button running, have to replay the remainder of the script
+      // also need special processing for back statements, if statements, continue statements, whatever isn't ringer-based
+      else if (!ringerBased(loopyStatements[0])){
+        console.log("rbb: non-Ringer-based statement.");
+        var continuation = function(continueflag){ // remember that rbbcontinuations passed to run methods must always handle continueflag
+          if (continueflag){
+            // executed a continue statement, better stop going through this loop's statements, get back to the original callback
+            callback();
+            return;
+          }
+          // once we're done with this statement running, have to replay the remainder of the script
           runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback);
-        });
+        };
+        loopyStatements[0].run(continuation);
         return;
       }
       else {

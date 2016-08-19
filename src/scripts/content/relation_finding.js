@@ -548,6 +548,10 @@ var RelationFinder = (function() { var pub = {};
       }
       var selector_obj = Selector(rel.selector, rel.exclude_first, rel.columns);
       var relationNodes = pub.interpretRelationSelector(selector_obj, rel.selector_version);
+      if (relationNodes.length === 0){
+        // no need to consider empty one
+        continue;
+      }
       var relationData = _.map(relationNodes, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
       rel.relation = relationData; 
       recordComparisonAttributesServerSelector(rel, xpaths);

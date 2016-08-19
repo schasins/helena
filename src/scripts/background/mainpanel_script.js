@@ -1219,7 +1219,7 @@ var WebAutomationLanguage = (function() {
     };
     this.unParameterizeForRelation = function(relation){
       return;
-    };rbbcontinu
+    };
   };
 
   /*
@@ -1274,7 +1274,7 @@ var WebAutomationLanguage = (function() {
     this.columns = [];
     this.processColumns = function(){
       for (var i = 0; i < this.relation[0].length; i++){
-        this.columns.push({index: i, name: "filler", firstRowXpath: null, xpath: null, firstRowText: this.firstRowTexts[i]}); // todo: don't actually want to put filler here
+        this.columns.push({index: i, name: "column_"+i, firstRowXpath: null, xpath: null, firstRowText: this.firstRowTexts[i]}); // todo: don't actually want to put filler here
       }
     };
     this.processColumns();
@@ -1314,6 +1314,16 @@ var WebAutomationLanguage = (function() {
     this.getCurrentText = function(pageVar, columnObject){
       console.log(currentRowsCounter, "currentRowsCounter");
       return this.relation[currentRowsCounter][columnObject.index];
+    }
+
+    this.getCurrentMappingFromVarNamesToValues = function(pageVar){
+      var map = {};
+      for (var i = 0; i < this.columns.length; i++){
+        var name = this.columns[i].name; // todo: this is going to lead to a lot of shadowing if we have nested text relations!  really need to give text relations names...
+        var value = this.getCurrentText(pageVar, this.columns[i]);
+        map[name] = value;
+      }
+      return map;
     }
 
     this.clearRunningState = function(){
@@ -1517,6 +1527,16 @@ var WebAutomationLanguage = (function() {
       var prinfo = pageVar.pageRelations[this.name+"_"+this.id]
       if (prinfo === undefined){ console.log("Bad!  Shouldn't be calling getCurrentText on a pageVar for which we haven't yet called getNextRow."); return null; }
       return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index].text; // in the current row, value at the index associated with nodeName
+    }
+
+    this.getCurrentMappingFromVarNamesToValues = function(pageVar){
+      var map = {};
+      for (var i = 0; i < this.columns.length; i++){
+        var name = this.name+"."+this.columns[i].name;
+        var value = this.getCurrentText(pageVar, this.columns[i]);
+        map[name] = value;
+      }
+      return map;
     }
 
     this.saveToServer = function(){
@@ -1750,12 +1770,12 @@ var WebAutomationLanguage = (function() {
                 || statement instanceof WebAutomationLanguage.OutputRowStatement);
     }
 
-    function runBasicBlock(loopyStatements, callback){
+    this.runBasicBlock = function(loopyStatements, callback){
       console.log("rbb", loopyStatements.length, loopyStatements);
       // first check if we're supposed to pause, stop execution if yes
       console.log("RecorderUI.userPaused", RecorderUI.userPaused);
       if (RecorderUI.userPaused){
-        RecorderUI.resumeContinuation = function(){runBasicBlock(loopyStatements, callback);};
+        RecorderUI.resumeContinuation = function(){program.runBasicBlock(loopyStatements, callback);};
         console.log("paused");
         return;
       }
@@ -1781,15 +1801,25 @@ var WebAutomationLanguage = (function() {
             // hey, we're done!
 
             // once we're done with the loop, have to replay the remainder of the script
-            runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback);
+            program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback);
             return;
           }
           console.log("we have a row!  let's run");
           // otherwise, should actually run the body
+          // block scope.  let's add a new frame
+          program.environment = program.environment.envExtend(); // add a new frame on there
+          // and let's give us access to all the loop variables
+          var loopVarsMap = loopStatement.relation.getCurrentMappingFromVarNamesToValues(loopStatement.pageVar);
+          // note that for now loopVarsMap includes all columns of the relation.  may some day want to limit it to only the ones used...
+          for (var key in loopVarsMap){
+            program.environment.envBind(key, loopVarsMap[key]);
+          }
           console.log("loopyStatements", loopyStatements);
-          runBasicBlock(loopStatement.bodyStatements, function(){
+          program.runBasicBlock(loopStatement.bodyStatements, function(){
             // and once we've run the body, we should do the next iteration of the loop
-            runBasicBlock(loopyStatements, callback); // running extra iterations of the for loop is the only time we change the callback
+            // but first let's get rid of that last environment frame
+            program.environment = program.environment.parent;
+            program.runBasicBlock(loopyStatements, callback); // running extra iterations of the for loop is the only time we change the callback
           });
         });
         return;
@@ -1804,7 +1834,7 @@ var WebAutomationLanguage = (function() {
             return;
           }
           // once we're done with this statement running, have to replay the remainder of the script
-          runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback);
+          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback);
         };
         loopyStatements[0].run(continuation);
         return;
@@ -1869,7 +1899,7 @@ var WebAutomationLanguage = (function() {
           }
 
           // once we're done replaying, have to replay the remainder of the script
-          runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback);
+          program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback);
         });
       }
     }
@@ -1878,7 +1908,8 @@ var WebAutomationLanguage = (function() {
     this.run = function(){
       this.currentDataset = new OutputHandler.Dataset();
       this.clearRunningState();
-      runBasicBlock(this.loopyStatements, function(){
+      this.environment = Environment.envRoot();
+      this.runBasicBlock(this.loopyStatements, function(){
         program.currentDataset.closeDataset();
         console.log("Done with script execution.");});
     };

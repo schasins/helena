@@ -277,9 +277,11 @@ var RecorderUI = (function() {
   pub.addNewRowToOutput = function(listOfCellTexts){
     var div = $("#new_script_content").find("#output_preview").find("table").find("tbody");
     var l = div.children().length;
-    var limit = 30;
+    var limit = 100;
     if (l === limit){
-      $("#new_script_content").find("#output_preview").append($("<div>This dataset is too big for us to display.  The preview here shows the first "+limit+" rows.  To see the whole dataset, just click the download button above.</div>"));
+      if ($("#new_script_content").find("#output_preview").find("#data_too_big").length === 0){
+        $("#new_script_content").find("#output_preview").append($("<div id='data_too_big'>This dataset is too big for us to display.  The preview here shows the first "+limit+" rows.  To see the whole dataset, just click the download button above.</div>"));  
+      }
     }
     else if (l < limit){
       console.log("adding output row: ", l);
@@ -1132,7 +1134,7 @@ var WebAutomationLanguage = (function() {
       return [this.pageVarBack.toString() + " = " + this.pageVarCurr.toString() + ".back()" ];
     };
 
-    this.run = function(rbbcontinuation){
+    this.run = function(programObj, rbbcontinuation){
       console.log("run back statement");
       // send a back message to pageVarCurr
       utilities.sendMessage("mainpanel", "content", "backButton", {}, null, null, [this.pageVarCurr.currentTabId()]);
@@ -1161,7 +1163,7 @@ var WebAutomationLanguage = (function() {
       return ["continue"];
     };
 
-    this.run = function(rbbcontinuation){
+    this.run = function(programObj, rbbcontinuation){
       // fun stuff!  time to flip on the 'continue' flag in our continuations, which the for loop continuation will eventually consume and turn off
       rbbcontinuation(true);
     };
@@ -1180,11 +1182,12 @@ var WebAutomationLanguage = (function() {
     this.toStringLines = function(){
       return ["if"]; // todo: when we have the real if statements, do the right thing
     };
-    this.run = function(rbbcontinuation){
+    this.run = function(programObj, rbbcontinuation){
       // todo: the condition is hard-coded for now, but obviously we should ultimately have real conds
-      if (true){ // todo: want to check if first scrape statement scrapes something with "CFG" in it
+      if (programObj.environment.envLookup("cases.case_id").indexOf("CVG") !== 0){ // todo: want to check if first scrape statement scrapes something with "CFG" in it
         if (this.bodyStatements.length < 1){
           // ok seriously, why'd you make an if with no body?  come on.
+          rbbcontinuation(false);
           return;
         }
         // let's run the first body statement, make a continuation for running the remaining ones
@@ -1205,11 +1208,15 @@ var WebAutomationLanguage = (function() {
           else{
             // still working on the body of the current if statement, keep going
             currBodyStatementsIndex += 1;
-            bodyStatements[currBodyStatementsIndex - 1].run(newContinuation);
+            bodyStatements[currBodyStatementsIndex - 1].run(programObj, newContinuation);
           }
         }
         // actually run that first statement
-        bodyStatements[0].run(newContinuation);
+        bodyStatements[0].run(programObj, newContinuation);
+      }
+      else{
+        // for now we don't have else body statements for our ifs, so we should just carry on with execution
+        rbbcontinuation(false);
       }
 
     }
@@ -1836,7 +1843,7 @@ var WebAutomationLanguage = (function() {
           // once we're done with this statement running, have to replay the remainder of the script
           program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback);
         };
-        loopyStatements[0].run(continuation);
+        loopyStatements[0].run(program, continuation); // todo: program is passed to give access to environment.  may want a better way
         return;
       }
       else {

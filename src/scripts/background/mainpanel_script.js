@@ -327,7 +327,10 @@ var RecorderUI = (function() {
     $("#new_script_content").append(dialogDiv2);
     var buttons = [];
     for (buttonText in buttonTextToHandlers){
-      buttons.push({text: buttonText, click: function(){dialogDiv2.remove(); buttonTextToHandlers[buttonText]();}});
+      (function(){
+        var bt = buttonText;
+        buttons.push({text: bt, click: function(){dialogDiv2.remove(); buttonTextToHandlers[bt]();}});
+      })(); // closure to save buttonText, attach correct handler
     }
     dialogDiv2.dialog({
       dialogClass: "no-close",
@@ -1134,6 +1137,7 @@ var WebAutomationLanguage = (function() {
       });
       RecorderUI.addNewRowToOutput(cells);
       ReplayScript.prog.currentDataset.addRow(cells); // todo: is replayscript.prog really the best way to access the prog object so that we can get the current dataset object, save data to server?
+      ReplayScript.prog.mostRecentRow = cells;
     };
   }
 
@@ -1619,7 +1623,6 @@ var WebAutomationLanguage = (function() {
   }
 
   function outlier(list, potentialItem){
-    // return true so we can test whether everything works!
     if (list.length <= 10) {
       // it's just too soon to know if this is an outlier...
       return false;
@@ -1631,29 +1634,36 @@ var WebAutomationLanguage = (function() {
     this.name = name;
     this.recordTimeUrl = recordTimeUrl;
     this.pageRelations = {};
-    this.pageStats = {numNodes:[]};
+    this.pageStats = freshPageStats();
 
     var that = this;
+
+    function freshPageStats(){
+      return {numNodes:[]};
+    }
 
     this.setRecordTimeFrameData = function(frameData){
       this.recordTimeFrameData = frameData;
     };
 
     this.setCurrentTabId = function(tabId, continuation){
+      console.log("setCurrentTabId", tabId);
       this.tabId = tabId;
       if (tabId !== undefined){
         utilities.listenForMessageOnce("content", "mainpanel", "pageStats", function(data){
-          var numNodes = data.numNodes;
-          if (outlier(that.pageStats.numNodes, numNodes)){
+          if (that.pageOutlier(data)){
             console.log("This was an outlier page!");
             var dialogText = "Woah, this page looks very different from what we expected.  We thought we'd get a page that looked like this:";
-            dialogText += "<br>If it's helpful, the last row we scraped looked like this:";
-            RecorderUI.addDialog("Weird Page", dialogText, {"I've fixed it": function(){that.setCurrentTabId(tabId, continuation);}});
+            if (ReplayScript.prog.mostRecentRow){
+              dialogText += "<br>If it's helpful, the last row we scraped looked like this:<br>";
+              dialogText += DOMCreationUtilities.arrayOfArraysToTable([ReplayScript.prog.mostRecentRow]).html(); // todo: is this really the best way to acess the most recent row?
+            }
+            RecorderUI.addDialog("Weird Page", dialogText, 
+              {"I've fixed it": function(){console.log("I've fixed it."); that.setCurrentTabId(tabId, continuation);}, 
+              "That's the right page": function(){/* bypass outlier checking */console.log("That's the right page."); that.nonOutlierProcessing(data, continuation);}});
           }
           else {
-            // wasn't an outlier, so let's actually update the pageStats
-            that.pageStats.numNodes.push(numNodes);
-            continuation();
+            that.nonOutlierProcessing(data, continuation);
           }
         });
         utilities.sendMessage("mainpanel", "content", "pageStats", {}, null, null, null, [tabId]);
@@ -1662,6 +1672,20 @@ var WebAutomationLanguage = (function() {
         continuation();
       }
     };
+
+    this.nonOutlierProcessing = function(pageData, continuation){
+      // wasn't an outlier, so let's actually update the pageStats
+      this.updatePageStats(pageData);
+      continuation();
+    }
+
+    this.pageOutlier = function(pageData){
+      return outlier(this.pageStats.numNodes, pageData.numNodes); // in future, maybe just iterate through whatever attributes we have, but not sure yet
+    }
+
+    this.updatePageStats = function(pageData){
+      this.pageStats.numNodes.push(pageData.numNodes);
+    }
     
     this.clearRelationData = function(){
       this.pageRelations = {};
@@ -1682,6 +1706,7 @@ var WebAutomationLanguage = (function() {
 
     this.clearRunningState = function(){
       this.tabId = undefined;
+      this.pageStats = freshPageStats();
       this.clearRelationData();
     };
 

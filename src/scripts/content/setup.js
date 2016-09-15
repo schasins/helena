@@ -19,6 +19,7 @@ utilities.listenForMessage("mainpanel", "content", "clearNextButtonSelector", fu
 utilities.listenForMessage("mainpanel", "content", "currentRecordingWindow", function(msg){currentRecordingWindow = msg.window_id;});
 utilities.sendMessage("content", "mainpanel", "requestCurrentRecordingWindow", {});
 utilities.listenForMessage("mainpanel", "content", "backButton", function(){ utilities.sendMessage("content", "mainpanel", "backButtonProcessed", {}); history.back();});
+utilities.listenForMessage("mainpanel", "content", "pageStats", function(){ utilities.sendMessage("content", "mainpanel", "pageStats", {"numNodes": $('*').length});});
 
 /**********************************************************************
  * The various node representations we may need

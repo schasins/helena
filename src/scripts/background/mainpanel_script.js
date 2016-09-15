@@ -319,6 +319,23 @@ var RecorderUI = (function() {
     fileReader.readAsText(event.target.files[0]);
   }
 
+  pub.addDialog = function(title, dialogText, buttonTextToHandlers){
+    var dialogDiv = $("#dialog");
+    var dialogDiv2 = dialogDiv.clone();
+    dialogDiv2.attr("title", title);
+    dialogDiv2.html(dialogText);
+    $("#new_script_content").append(dialogDiv2);
+    var buttons = [];
+    for (buttonText in buttonTextToHandlers){
+      buttons.push({text: buttonText, click: function(){dialogDiv2.remove(); buttonTextToHandlers[buttonText]();}});
+    }
+    dialogDiv2.dialog({
+      dialogClass: "no-close",
+      buttons: buttons,
+      closeOnEscape: false // user shouldn't be able to close except by using one of our handlers
+    });
+  };
+
   return pub;
 }());
 
@@ -1145,8 +1162,7 @@ var WebAutomationLanguage = (function() {
       // should we actually wait for a completed event?
       utilities.listenForMessageOnce("content", "mainpanel", "backButtonProcessed", function(data){
         console.log("back completed");
-        backStatement.pageVarBack.setCurrentTabId(backStatement.pageVarCurr.tabId);
-        rbbcontinuation(false);
+        backStatement.pageVarBack.setCurrentTabId(backStatement.pageVarCurr.tabId, function(){rbbcontinuation(false);});
       });
     };
 
@@ -1602,17 +1618,49 @@ var WebAutomationLanguage = (function() {
     };
   }
 
+  function outlier(list, potentialItem){
+    // return true so we can test whether everything works!
+    if (list.length <= 10) {
+      // it's just too soon to know if this is an outlier...
+      return false;
+    }
+    return true;
+  }
+
   pub.PageVariable = function(name, recordTimeUrl){
     this.name = name;
     this.recordTimeUrl = recordTimeUrl;
     this.pageRelations = {};
+    this.pageStats = {numNodes:[]};
+
+    var that = this;
 
     this.setRecordTimeFrameData = function(frameData){
       this.recordTimeFrameData = frameData;
     };
 
-    this.setCurrentTabId = function(tabId){
+    this.setCurrentTabId = function(tabId, continuation){
       this.tabId = tabId;
+      if (tabId !== undefined){
+        utilities.listenForMessageOnce("content", "mainpanel", "pageStats", function(data){
+          var numNodes = data.numNodes;
+          if (outlier(that.pageStats.numNodes, numNodes)){
+            console.log("This was an outlier page!");
+            var dialogText = "Woah, this page looks very different from what we expected.  We thought we'd get a page that looked like this:";
+            dialogText += "<br>If it's helpful, the last row we scraped looked like this:";
+            RecorderUI.addDialog("Weird Page", dialogText, {"I've fixed it": function(){that.setCurrentTabId(tabId, continuation);}});
+          }
+          else {
+            // wasn't an outlier, so let's actually update the pageStats
+            that.pageStats.numNodes.push(numNodes);
+            continuation();
+          }
+        });
+        utilities.sendMessage("mainpanel", "content", "pageStats", {}, null, null, null, [tabId]);
+      }
+      else{
+        continuation();
+      }
     };
     
     this.clearRelationData = function(){
@@ -1633,7 +1681,7 @@ var WebAutomationLanguage = (function() {
     }
 
     this.clearRunningState = function(){
-      this.setCurrentTabId(undefined);
+      this.tabId = undefined;
       this.clearRelationData();
     };
 
@@ -1720,16 +1768,23 @@ var WebAutomationLanguage = (function() {
       return [recCompleted.slice(0, smallerLength), repCompleted.slice(0, smallerLength)];
     }
 
-    function updatePageVars(recordTimeTrace, replayTimeTrace){
+    function updatePageVars(recordTimeTrace, replayTimeTrace, continuation){
       var recordTimeCompletedToReplayTimeCompleted = alignRecordTimeAndReplayTimeCompletedEvents(recordTimeTrace, replayTimeTrace);
       var recEvents = recordTimeCompletedToReplayTimeCompleted[0];
       var repEvents = recordTimeCompletedToReplayTimeCompleted[1];
-      for (var i = 0; i < recEvents.length; i++){
+      updatePageVarsHelper(recEvents, repEvents, 0, continuation);
+    }
+
+    function updatePageVarsHelper(recEvents, repEvents, i, continuation){
+      if (i >= recEvents.length){
+        continuation();
+      }
+      else{
         var pageVar = EventM.getLoadOutputPageVar(recEvents[i]);
         if (pageVar === undefined){
-          continue;
+          updatePageVarsHelper(recEvents, repEvents, i + 1, continuation);
         }
-        pageVar.setCurrentTabId(repEvents[i].data.tabId);
+        pageVar.setCurrentTabId(repEvents[i].data.tabId, function(){updatePageVarsHelper(recEvents, repEvents, i + 1, continuation);});
       }
     }
 
@@ -1897,22 +1952,29 @@ var WebAutomationLanguage = (function() {
           // based on the replay object, we need to update any pagevars involved in the trace;
           var trace = [];
           _.each(basicBlockStatements, function(statement){trace = trace.concat(statement.trace);}); // want the trace with display data, not the clean trace
-          updatePageVars(trace, replayObject.record.events);
+          
+          //updatePageVars(trace, replayObject.record.events);
+          // ok, it's time to update the pageVars, but remember that's going to involve checking whether we got a reasonable page
+          var allPageVarsOk = function(){
+            // statements may need to do something based on this trace, so go ahead and do any extra processing
+            for (var i = 0; i < basicBlockStatements.length; i++){
+              console.log("calling postReplayProcessing on", basicBlockStatements[i]);
+              basicBlockStatements[i].postReplayProcessing(replayObject.record.events, i);
+            }
 
-          // statements may need to do something based on this trace, so go ahead and do any extra processing
-          for (var i = 0; i < basicBlockStatements.length; i++){
-            console.log("calling postReplayProcessing on", basicBlockStatements[i]);
-            basicBlockStatements[i].postReplayProcessing(replayObject.record.events, i);
-          }
+            // once we're done replaying, have to replay the remainder of the script
+            program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback);
+          };
+          updatePageVars(trace, replayObject.record.events, allPageVarsOk);
 
-          // once we're done replaying, have to replay the remainder of the script
-          program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback);
         });
       }
     }
 
     this.currentDataset = null;
     this.run = function(){
+      RecorderUI.userPaused = false;
+      RecorderUI.userStopped = false;
       this.currentDataset = new OutputHandler.Dataset();
       this.clearRunningState();
       this.environment = Environment.envRoot();

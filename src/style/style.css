@@ -144,3 +144,7 @@ h4 {
 .top_margin{
 	margin-top: 20px;
 }
+
+.no-close .ui-dialog-titlebar-close {
+  display: none;
+}

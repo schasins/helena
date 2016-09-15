@@ -1622,12 +1622,27 @@ var WebAutomationLanguage = (function() {
     };
   }
 
-  function outlier(list, potentialItem){
-    if (list.length <= 10) {
+  function outlier(sortedList, potentialItem){ // note that first arg should be SortedArray not just sorted array
+    if (sortedList.length <= 10) {
       // it's just too soon to know if this is an outlier...
       return false;
     }
-    return true;
+    // generous q1, q3
+    var q1 = sortedList.get(Math.floor((sortedList.length() / 4)));
+    var q3 = sortedList.get(Math.ceil((sortedList.length() * (3 / 4))));
+    var iqr = q3 - q1;
+
+    var minValue = q1 - iqr * 1.5;
+    var maxValue = q3 + iqr * 1.5;
+    console.log("**************");
+    console.log(sortedList.array);
+    console.log(q1, q3, iqr);
+    console.log(minValue, maxValue);
+    console.log("**************");
+    if (potentialItem < minValue || potentialItem > maxValue){
+      return true;
+    }
+    return false;
   }
 
   pub.PageVariable = function(name, recordTimeUrl){
@@ -1639,7 +1654,7 @@ var WebAutomationLanguage = (function() {
     var that = this;
 
     function freshPageStats(){
-      return {numNodes:[]};
+      return {numNodes: new SortedArray([])};
     }
 
     this.setRecordTimeFrameData = function(frameData){
@@ -1684,7 +1699,7 @@ var WebAutomationLanguage = (function() {
     }
 
     this.updatePageStats = function(pageData){
-      this.pageStats.numNodes.push(pageData.numNodes);
+      this.pageStats.numNodes.insert(pageData.numNodes); // it's sorted
     }
     
     this.clearRelationData = function(){

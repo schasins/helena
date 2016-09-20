@@ -1157,17 +1157,19 @@ var WebAutomationLanguage = (function() {
 
     this.run = function(programObj, rbbcontinuation){
       console.log("run back statement");
+
+      // ok, the only thing we're doing right now is trying to run this back button, so the next time we see a tab ask for an id
+      // it should be because of this -- yes, theoretically there could be a process we started earlier that *just* decided to load a new top-level page
+      // but that should probably be rare.  todo: is that actually rare?
+      utilities.listenForMessageOnce("content", "mainpanel", "requestTabID", function(data){
+        console.log("back completed");
+        backStatement.pageVarBack.setCurrentTabId(backStatement.pageVarCurr.tabId, function(){rbbcontinuation(false);});
+      });
+
       // send a back message to pageVarCurr
       utilities.sendMessage("mainpanel", "content", "backButton", {}, null, null, [this.pageVarCurr.currentTabId()]);
       // todo: is it enough to just send this message and hope all goes well, or do we need some kind of acknowledgement?
       // update pageVarBack to make sure it has the right tab associated
-
-      // todo: is the below enough of an ack.  have been noticing events (maybe) getting replayed before the back button actually processed, which is obviously a problem
-      // should we actually wait for a completed event?
-      utilities.listenForMessageOnce("content", "mainpanel", "backButtonProcessed", function(data){
-        console.log("back completed");
-        backStatement.pageVarBack.setCurrentTabId(backStatement.pageVarCurr.tabId, function(){rbbcontinuation(false);});
-      });
     };
 
     this.parameterizeForRelation = function(relation){

@@ -11,13 +11,6 @@ var saveTargetInfo;
 (function() {
   var log = getLog('target');
 
-var all_features = ["tag", "class", "id",
- "left", "top", "width", "height",
- "font-size", "font-family", "font-style", "font-weight", "color",
- "background-color", "background-image", "opacity", "z-index",
- "preceding-text",
- "xpath"];
-
 function getFeature(element, feature){
   if (feature === "xpath"){
     return nodeToXPath(element);
@@ -289,28 +282,51 @@ function getFeatures(element){
     return document.getElementsByTagName(tagName);
   }
 
-  var getTargetForSimilarity = function(targetInfo) {
-    var candidates = getAllSimilarityCandidates(targetInfo);
-    
+  var getTargetForSimilarityHelper = function(targetInfo, candidates){
     var bestScore = -1;
     var bestNode = null;
     for (var i = 0; i<candidates.length; i++){
-  var info = getFeatures(candidates[i]);
-  var similarityCount = 0;
-  for (var prop in targetInfo) {
-    if (targetInfo.hasOwnProperty(prop)) {
-      if (targetInfo[prop] === info[prop]){
-              similarityCount += 1;
+      var info = getFeatures(candidates[i]);
+      var similarityCount = 0;
+      for (var prop in targetInfo) {
+        if (targetInfo.hasOwnProperty(prop)) {
+          if (targetInfo[prop] === info[prop]){
+                  similarityCount += 1;
+          }
+        }
       }
-    }
-  }
-  if (similarityCount > bestScore){
-    bestScore = similarityCount;
-    bestNode = candidates[i];
-  }
+      if (similarityCount > bestScore){
+        bestScore = similarityCount;
+        bestNode = candidates[i];
+      }
     }
     return bestNode;
   };
+
+  var getTargetForSimilarity = function(targetInfo) {
+    var candidates = getAllSimilarityCandidates(targetInfo);
+    return getTargetForSimilarityHelper(targetInfo, candidates);
+  };
+
+  var getTargetForSimilarityFilteredByText = function(targetInfo) {
+    console.log("getTargetForSimilarityFilteredByText", targetInfo);
+    var unfilteredCandidates = getAllSimilarityCandidates(targetInfo);
+    var targetText = targetInfo.textContent;
+    var candidates = [];
+    for (var i = 0; i<unfilteredCandidates.length; i++){
+      if (unfilteredCandidates[i].textContent === targetText){
+        candidates.push(unfilteredCandidates[i]);
+      }
+    }
+    if (candidates.length === 0){
+      //fall back to the normal one that considers all nodes
+      return getTargetForSimilarityHelper(targetInfo, unfilteredCandidates);
+    }
+    
+    //otherwise, let's just run similarity on the nodes that have the same text
+    return getTargetForSimilarityHelper(targetInfo, candidates);
+  };
+
 
   var identifiedNodesCache = {};
 
@@ -331,7 +347,7 @@ function getFeatures(element){
       }
     }
     var features = targetInfo.snapshot;
-    var winningNode = getTargetForSimilarity(features);
+    var winningNode = getTargetForSimilarityFilteredByText(features);
     identifiedNodesCache[xpath] = winningNode;
     return winningNode;
   }

@@ -94,7 +94,7 @@ var RecorderUI = (function() {
     activateButton(div, "#resume", RecorderUI.resumeRun);
     div.find("#resume").button("option", "disabled", true); // shouldn't be able to resume before we even pause
 
-    activateButton(div, "#download", ReplayScript.prog.download);
+    activateButton(div, "#download", function(){ReplayScript.prog.download();});
 
     var reset = function(){
       ReplayScript.prog.stopRunning();

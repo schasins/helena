@@ -50,16 +50,19 @@ function ParameterizedTrace(trace){
 			if (!(_.contains(["keydown", "keypress", "keyup", "input", "textInput"], event_data.type)) // not a key event
 					|| 
 					(trace[i].target.xpath !== curr_node_xpath && curr_node_xpath !== null)){ // event now targeting a different node (and not just bc it's the first node we've seen)
-				// if the next thing isn't a key event or if we've switched nodes, we're done with the current string!
-				console.log("processString", curr_string);
-				processString(parameter_name, original_string, curr_string, char_indexes, i - 1);
-				curr_string = "";
+				// if the next thing isn't a key event or if we've switched nodes, we're done with the current string!  (assuming we have a current string right now)
+				if (curr_string.length > 0){
+					console.log("processString", curr_string);
+					processString(parameter_name, original_string, curr_string, char_indexes, i - 1);
+					curr_string = "";
+					char_indexes = [];
+				}
 			}
 			else{
 				// ok, it's still the same node and still doing key stuff
-				// so we're starting a new character
 				curr_node_xpath = trace[i].target.xpath;
 				if (event_data.type === first_event_type && !started_char){
+					// starting a new char
 					char_indexes.push(i);
 					started_char = true;
 				}

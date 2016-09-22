@@ -428,6 +428,7 @@ var Replay = (function ReplayClosure() {
     },
     addonReset: [],
     addonTiming: [],
+    currentPortMappingFailures: 0, // we'll use this to see if we're failing to find a port for a given event too many times
     reset: function _reset() {
       /* execution proceeds as callbacks so that the page's JS can execute, this
        * is the handle to the current callback */
@@ -477,8 +478,10 @@ var Replay = (function ReplayClosure() {
      * @param {array} events List of events
      * @param {string} scriptId Id of the original recording
      * @param {function} cont Callback thats executed after replay is finished
+     * @param {object} errorConts map from errors to callbacks that should be executed for those errors
      */
-    replay: function _replay(events, config, cont) {
+    replay: function _replay(events, config, cont, errorConts) {
+      if (errorConts === undefined) {errorConts = {};}
       replayLog.log('starting replay');
 
       /* Pause and reset and previous executions */
@@ -512,6 +515,7 @@ var Replay = (function ReplayClosure() {
       }
 
       this.cont = cont;
+      this.errorConts = errorConts;
       this.updateStatus(ReplayState.REPLAYING);
 
       this.record.startRecording(true);
@@ -907,10 +911,28 @@ var Replay = (function ReplayClosure() {
         console.log("Freak out.  We don't know what port to use to replay this event.");
         // it may be the tab just isn't ready yet, not added to our mappings yet.  try again in a few.
         this.setNextTimeout(1000);
+        // unless...we've been seeing this a lot, in which case this looks like a real failure
+        this.currentPortMappingFailures += 1;
+        if (this.currentPortMappingFailures >= 10){
+          // ok, this is getting ridiculous. seems like the right port isn't arriving...
+          this.setNextTimeout(999999999999);
+          console.log("We're going to slow the port checking waaaaaaay down, since this doesn't seem to be working.");
+        }
+        if (this.currentPortMappingFailures === 10){ // === rather than > because we don't want to call handler a bunch of times, only once
+          if (this.errorConts && this.errorConts.portFailure){
+            var that = this;
+            var continuation = function(){
+              that.currentPortMappingFailures = 0; // because the higher-level tool should have fixed it with the portFailure handler!
+              that.setTimeout(0);
+            }
+            this.errorConts.portFailure(continuation);
+          }
+        }
         console.log("gpm: not returning real port");
         return null;
       }
       console.log(replayPort);
+      this.currentPortMappingFailures = 0;
       console.log("gpm: returning real port");
       return replayPort;
     },
@@ -1356,7 +1378,8 @@ var Controller = (function ControllerClosure() {
       ctlLog.log('reset');
       this.record.reset();
     },
-    replayRecording: function _replayRecording(config, cont) {
+    replayRecording: function _replayRecording(config, cont, errorConts) {
+      if (errorConts === undefined) {errorConts = {};}
       ctlLog.log('replay');
       this.stop();
 
@@ -1369,12 +1392,13 @@ var Controller = (function ControllerClosure() {
       if (!config.scriptId)
         config.scriptId = record.getScriptId();
 
-      this.replay.replay(record.getEvents(), config, cont);
+      this.replay.replay(record.getEvents(), config, cont, errorConts);
       return replay;
     },
-    replayScript: function(events, config, cont) {
+    replayScript: function(events, config, cont, errorConts) {
+      if (errorConts === undefined) {errorConts = {};}
       this.setEvents(null, events);
-      return this.replayRecording(config, cont);
+      return this.replayRecording(config, cont, errorConts);
     },
     stopReplay: function(){
       this.replay.stopReplay();

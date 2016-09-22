@@ -1529,7 +1529,8 @@ var WebAutomationLanguage = (function() {
           console.log("Hey!  How'd you end up trying to find a relation on a page for which you don't have a current tab id??  That doesn't make sense.");
           console.log(pageVar);
         }
-        var sendGetRelationItems = function(){utilities.sendMessage("mainpanel", "content", "getRelationItems", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);};
+        var sendGetRelationItems = function(){
+          utilities.sendMessage("mainpanel", "content", "getRelationItems", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);};
         repeatUntil(sendGetRelationItems, function(){return relationItemsRetrieved;}, 1000);
       }
       else if (prinfo.currentRowsCounter + 1 >= prinfo.currentRows.length){
@@ -1538,6 +1539,7 @@ var WebAutomationLanguage = (function() {
         prinfo.currentRows = null;
         prinfo.currentRowsCounter = 0;
         callback(false); 
+        return;
       }
       else {
         // we still have local rows that we haven't used yet.  just advance the counter to change which is our current row

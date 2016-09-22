@@ -23,9 +23,14 @@ var SimpleRecord = (function SimpleRecordClosure() {
      * @param {object} config - Config for the trace. Currently accepts the following keys:
      *   frameMapping, tabMapping
      * @param {function} callback - callback function which should accept the replay object
+     * @param {object} optionalCallbacks - callback functions we'll call if particular
+     *   errors arise.  Currently accepts the following keys: portFailure.  Notte that
+     *   error conts should accept a continuation as first argument, for resuming replay
+     *   once the issue has been resolved according to top-level tools' preferences.
      */
-     replay: function _replay(trace, config, callback) {
-      controller.replayScript(trace, config, callback);
+     replay: function _replay(trace, config, callback, optionalCallbacks) {
+      if (optionalCallbacks === undefined) {optionalCallbacks = {};}
+      controller.replayScript(trace, config, callback, optionalCallbacks);
     },
     stopReplay: function _stopReplay() {
       controller.stopReplay();

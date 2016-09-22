@@ -40,14 +40,25 @@ function ParameterizedTrace(trace){
 	
 	this.parameterizeTypedString = function(parameter_name, original_string){
 		console.log("parameterizing string ",parameter_name, original_string);
+		var curr_node_xpath = null;
 		var curr_string = "";
 		var char_indexes = [];
 		var started_char = false;
 		for (var i = 0; i< trace.length; i++){
 			if (trace[i].type !== "dom"){ continue;} //ok to drop these from script, so ok to skip
 			var event_data = trace[i].data;
-			if (_.contains(["keydown", "keypress", "keyup", "input", "textInput"], event_data.type)){
-				//starting a new character
+			if (!(_.contains(["keydown", "keypress", "keyup", "input", "textInput"], event_data.type)) // not a key event
+					|| 
+					(trace[i].target.xpath !== curr_node_xpath && curr_node_xpath !== null)){ // event now targeting a different node (and not just bc it's the first node we've seen)
+				// if the next thing isn't a key event or if we've switched nodes, we're done with the current string!
+				console.log("processString", curr_string);
+				processString(parameter_name, original_string, curr_string, char_indexes, i - 1);
+				curr_string = "";
+			}
+			else{
+				// ok, it's still the same node and still doing key stuff
+				// so we're starting a new character
+				curr_node_xpath = trace[i].target.xpath;
 				if (event_data.type === first_event_type && !started_char){
 					char_indexes.push(i);
 					started_char = true;
@@ -58,13 +69,6 @@ function ParameterizedTrace(trace){
 				else if (event_data.type === last_event_type){
 					started_char = false;
 				}
-			}
-			else{
-				//no more entries into this string, have a non-key event
-				// todo: should also break into a new segment if we switch nodes
-				console.log("processString", curr_string);
-				processString(parameter_name, original_string, curr_string, char_indexes, i - 1);
-				curr_string = "";
 			}
 		}
 		// and let's check whatever we had at the end if it hadn't been checked yet
@@ -77,6 +81,8 @@ function ParameterizedTrace(trace){
 	function processString(parameter_name, original_string, string, char_indexes, last_key_index){
 		// the string we got as an argument was based on the keypresses, but recreating all the logic around that is a terrible pain
 		// let's try using the value of the node
+		// using value is nice because it allows us to figure out if the target string is present even if it was typed in some weird way,
+		// with the user jumping all around, or doing deletion, whatever
 
 		var lastDomEventIndex = null;
 		var targetNode = null; // let's find the most recent dom event, working backwards from last_key_index
@@ -152,7 +158,9 @@ function ParameterizedTrace(trace){
 			"text_input_event": text_input_event, 
 			"orig_value": original_string_initial_case,
 			"value": ""};
-			//now remove the unnecessary events, replace with param event
+			// now remove the unnecessary events, replace with param event
+			// todo: note that this is a bad bad approach!  learn from CoScripter!  replay all low-level events!  (also see verion in structured codebase)
+			// but it's in here now becuase recreating each keypress is a pain that I want to put off until later, and this works for current apps
 			trace = trace.slice(0,start_target_typing_index)
 			.concat([param_event])
 			.concat(trace.slice(stop_target_typing_index, trace.length));

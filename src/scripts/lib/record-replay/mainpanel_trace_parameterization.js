@@ -58,8 +58,8 @@ function ParameterizedTrace(trace){
 					char_indexes = [];
 				}
 			}
-			else{
-				// ok, it's still the same node and still doing key stuff
+			if (_.contains(["keydown", "keypress", "keyup", "input", "textInput"], event_data.type)){
+				// ok, we're doing key stuff
 				curr_node_xpath = trace[i].target.xpath;
 				if (event_data.type === first_event_type && !started_char){
 					// starting a new char

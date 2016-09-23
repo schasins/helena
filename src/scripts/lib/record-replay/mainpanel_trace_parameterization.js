@@ -114,6 +114,7 @@ function ParameterizedTrace(trace){
 
 			// what's the last place where we see everything that appears left of our target string, but none of the target string?
 			var left = typed_value_lower.slice(0, target_string_index);
+			console.log("left", left);
 			var first_key_event_index = char_indexes[0];
 
 			var start_target_typing_index = first_key_event_index;
@@ -122,7 +123,7 @@ function ParameterizedTrace(trace){
 				if (event.type === "dom" && event.data.type === last_event_type){
 					// cool, we're on the last event in a particular key sequence.  does it have the whole left in the value yet?
 					var lowerCurrString = event.target.snapshot.value.toLowerCase();
-					if (lowerCurrString.indexOf(left + original_string[0])){
+					if (lowerCurrString.indexOf(left + original_string[0]) > -1){
 						// oops, gone too far!  we've started the target string
 						break;
 					}
@@ -131,6 +132,7 @@ function ParameterizedTrace(trace){
 					}
 				}
 			}
+			console.log("start_typing_index", start_target_typing_index);
 			// what's the first place where we see the whole target string?
 			var stop_target_typing_index = last_key_index; // we know it's there by the last key, so that's a safe bet
 			for (var i = start_target_typing_index; i < last_key_index; i++){
@@ -143,9 +145,10 @@ function ParameterizedTrace(trace){
 					}
 				}
 			}
+			console.log("stop_target_typing_index", stop_target_typing_index);
 
 			// ok, so we type our target from start_target_typing_index to stop_target_typing_index
-			for (var i = start_target_typing_index; i < stop_target_typing_index; i++){
+			for (var i = stop_target_typing_index; i > start_target_typing_index; i--){
 				var event = trace[i];
 				if (event.type === "dom" && event.data.type === "textInput"){
 					text_input_event = event;
@@ -170,7 +173,6 @@ function ParameterizedTrace(trace){
 			console.log("putting a hole in for a string", original_string_initial_case);
 		}
 	}
-	
 	this.useTypedString = function(parameter_name, string){
 		for (var i=0; i< trace.length; i++){
 			var event = trace[i];

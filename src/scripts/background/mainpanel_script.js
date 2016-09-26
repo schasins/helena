@@ -751,6 +751,7 @@ var WebAutomationLanguage = (function() {
     return prefix;
   }
 
+  // returns true if we successfully parameterize this node with this relation, false if we can't
   function parameterizeNodeWithRelation(statement, relation, pageVar){
       var columns = relation.columns;
       for (var i = 0; i < columns.length; i++){
@@ -758,9 +759,10 @@ var WebAutomationLanguage = (function() {
         if (firstRowXpath === statement.currentNode){
           statement.relation = relation;
           statement.currentNode = new WebAutomationLanguage.VariableUse(columns[i], relation, pageVar);
-          return;
+          return true;
         }
       }
+      return false;
   }
 
   function unParameterizeNodeWithRelation(statement, relation){
@@ -937,7 +939,7 @@ var WebAutomationLanguage = (function() {
   };
   pub.ScrapeStatement = function(trace){
     this.trace = trace;
-    this.cleanTrace = cleanTrace(trace);
+    this.cleanTrace = cleanTrace(this.trace);
 
     // find the record-time constants that we'll turn into parameters
     var ev = firstVisibleEvent(trace);
@@ -966,19 +968,23 @@ var WebAutomationLanguage = (function() {
     };
 
     this.parameterizeForRelation = function(relation){
-      parameterizeNodeWithRelation(this, relation, this.pageVar);
-      // this is cool because now we don't need to actually run scraping interactions to get the value, so let's update the cleanTrace to reflect that
-      for (var i = this.cleanTrace.length - 1; i >= 0; i--){
-        if (this.cleanTrace[i].additional && this.cleanTrace[i].additional.scrape){
-          this.cleanTrace.splice(i, 1);
+      var parameterized = parameterizeNodeWithRelation(this, relation, this.pageVar);
+      if (parameterized){
+        // this is cool because now we don't need to actually run scraping interactions to get the value, so let's update the cleanTrace to reflect that
+        for (var i = this.cleanTrace.length - 1; i >= 0; i--){
+          if (this.cleanTrace[i].additional && this.cleanTrace[i].additional.scrape){
+            this.cleanTrace.splice(i, 1);
+          }
         }
+        console.log("shortened cleantrace", this.cleanTrace);
       }
-      console.log("shortened cleantrace", this.cleanTrace);
     };
     this.unParameterizeForRelation = function(relation){
       unParameterizeNodeWithRelation(this, relation);
       // have to go back to actually running the scraping interactions...
-      this.cleanTrace = cleanTrace(trace);
+      // note! right now unparameterizing a scrape statement adds back in all the removed scraping events, which won't always be necessary
+      // should really do it on a relation by relation basis, only remove the ones related to the current relation
+      this.cleanTrace = cleanTrace(this.trace);
     };
 
     this.args = function(){
@@ -2377,7 +2383,7 @@ var WebAutomationLanguage = (function() {
             // parent is a loop statement, so update bodyStatements
             parent.bodyStatements = newStatements;
           }
-          return true;;
+          return true;
         }
       }
       return false;

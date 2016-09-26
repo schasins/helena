@@ -923,7 +923,7 @@ var Replay = (function ReplayClosure() {
             var that = this;
             var continuation = function(){
               that.currentPortMappingFailures = 0; // because the higher-level tool should have fixed it with the portFailure handler!
-              that.setTimeout(0);
+              that.setNextTimeout(0);
             }
             this.errorConts.portFailure(continuation);
           }
@@ -1167,13 +1167,10 @@ var Replay = (function ReplayClosure() {
         var meta = v.meta;
         replayLog.log('background replay:', meta.id, v);
 
-        /* if no matching port, try again later */
         var replayPort = this.getMatchingPort(v);
         if (!replayPort){
-          var that = this;
-          //setTimeout(function(){that.simulateDomEvent(v);}, 500);
-          this.setNextTimeout(1000);
           // it may be that the target tab just isn't ready yet, hasn't been added to our mappings yet.  may need to try again in a moment.
+          // if no matching port, getMatchingPort will take care of trying again later 
           return;
         }
 

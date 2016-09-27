@@ -1616,7 +1616,7 @@ var WebAutomationLanguage = (function() {
     };
   }
 
-  // todo: for now all variable uses are uses of relations, but eventually will probably want to have scraped from outside of relations too
+  // todo: for now all variable uses are uses of relation cells, but eventually will probably want to have scraped from outside of relations too
   pub.VariableUse = function(columnObject, relation, pageVar){
     this.columnObject = columnObject;
     this.relation = relation;

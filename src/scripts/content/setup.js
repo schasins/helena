@@ -41,7 +41,12 @@ var NodeRep = (function() { var pub = {};
 	function getElementText(el){
 	  var text = getElementTextHelper(el);
 	  if (text == null || text == undefined || text == ""){ // should empty text also be null?
-	    return null;
+	  	if (el.value){
+	  		text = el.value; // for the case where we get null text because it's an input with a value, should scrape the value
+	  	}
+	  	else{
+	    	return null;
+	  	}
 	  }
 	  text = text.trim();
 	  return text;

@@ -759,10 +759,10 @@ var WebAutomationLanguage = (function() {
         if (firstRowXpath === statement.currentNode){
           statement.relation = relation;
           statement.currentNode = new WebAutomationLanguage.VariableUse(columns[i], relation, pageVar);
-          return true;
+          return columns[i];
         }
       }
-      return false;
+      return null;
   }
 
   function unParameterizeNodeWithRelation(statement, relation){
@@ -865,7 +865,7 @@ var WebAutomationLanguage = (function() {
     };
 
     this.parameterizeForRelation = function(){
-      return; // loads don't get changed based on relations
+      return []; // loads don't get changed based on relations
     };
     this.unParameterizeForRelation = function(){
       return; // loads don't get changed based on relations
@@ -920,7 +920,7 @@ var WebAutomationLanguage = (function() {
     };
 
     this.parameterizeForRelation = function(relation){
-      parameterizeNodeWithRelation(this, relation, this.pageVar);
+      return [parameterizeNodeWithRelation(this, relation, this.pageVar)];
     };
     this.unParameterizeForRelation = function(relation){
       unParameterizeNodeWithRelation(this, relation);
@@ -968,8 +968,8 @@ var WebAutomationLanguage = (function() {
     };
 
     this.parameterizeForRelation = function(relation){
-      var parameterized = parameterizeNodeWithRelation(this, relation, this.pageVar);
-      if (parameterized){
+      var relationColumnUsed = parameterizeNodeWithRelation(this, relation, this.pageVar);
+      if (relationColumnUsed){
         // this is cool because now we don't need to actually run scraping interactions to get the value, so let's update the cleanTrace to reflect that
         for (var i = this.cleanTrace.length - 1; i >= 0; i--){
           if (this.cleanTrace[i].additional && this.cleanTrace[i].additional.scrape){
@@ -978,6 +978,7 @@ var WebAutomationLanguage = (function() {
         }
         console.log("shortened cleantrace", this.cleanTrace);
       }
+      return [relationColumnUsed];
     };
     this.unParameterizeForRelation = function(relation){
       unParameterizeNodeWithRelation(this, relation);
@@ -1060,7 +1061,7 @@ var WebAutomationLanguage = (function() {
     };
 
     this.parameterizeForRelation = function(relation){
-      parameterizeNodeWithRelation(this, relation, this.pageVar);
+      var relationColumnUsed = parameterizeNodeWithRelation(this, relation, this.pageVar);
 
       // now let's also parameterize the text
       var columns = relation.columns;
@@ -1085,9 +1086,10 @@ var WebAutomationLanguage = (function() {
             components.push(right)
           }
           this.currentTypedString = new WebAutomationLanguage.Concatenate(components);
-          return;
+          return [relationColumnUsed, columns[i]];
         }
       }
+      return [relationColumnUsed];
     };
     this.unParameterizeForRelation = function(relation){
       unParameterizeNodeWithRelation(this, relation);
@@ -1127,7 +1129,7 @@ var WebAutomationLanguage = (function() {
       return [];
     };
     this.parameterizeForRelation = function(relation){
-      return;
+      return [];
     };
     this.unParameterizeForRelation = function(relation){
       return;
@@ -1179,7 +1181,7 @@ var WebAutomationLanguage = (function() {
     };
 
     this.parameterizeForRelation = function(relation){
-      return;
+      return [];
     };
     this.unParameterizeForRelation = function(relation){
       return;
@@ -1197,7 +1199,7 @@ var WebAutomationLanguage = (function() {
     };
 
     this.parameterizeForRelation = function(relation){
-      return;
+      return [];
     };
     this.unParameterizeForRelation = function(relation){
       return;
@@ -1250,7 +1252,7 @@ var WebAutomationLanguage = (function() {
     }
     this.parameterizeForRelation = function(relation){
       // todo: once we have real conditions may need to do something here
-      return;
+      return [];
     };
     this.unParameterizeForRelation = function(relation){
       return;
@@ -1261,14 +1263,15 @@ var WebAutomationLanguage = (function() {
   Loop statements not executed by run method, although may ultimately want to refactor to that
   */
 
-  pub.LoopStatement = function(relation, bodyStatements, pageVar){
+  pub.LoopStatement = function(relation, relationColumnsUsed, bodyStatements, pageVar){
     this.relation = relation;
+    this.relationColumnsUsed = relationColumnsUsed;
     this.bodyStatements = bodyStatements;
     this.pageVar = pageVar;
 
     this.toStringLines = function(){
       var relation = this.relation;
-      var varNames = _.map(relation.columns, function(columnObject){return columnObject.name;});
+      var varNames = _.map(relationColumnsUsed, function(columnObject){return columnObject.name;});
       var prefix = "for "+varNames.join(", ")+" in "+this.pageVar.toString()+"."+this.relation.name+":";
       var statementStrings = _.reduce(this.bodyStatements, function(acc, statement){return acc.concat(statement.toStringLines());}, []);
       statementStrings = _.map(statementStrings, function(line){return ("&nbsp&nbsp&nbsp&nbsp "+line);});
@@ -1276,7 +1279,7 @@ var WebAutomationLanguage = (function() {
     };
 
     this.parameterizeForRelation = function(relation){
-      _.each(this.bodyStatements, function(statement){statement.parameterizeForRelation(relation);});
+      return _.flatten(_.map(this.bodyStatements, function(statement){return statement.parameterizeForRelation(relation);}));
     };
     this.unParameterizeForRelation = function(relation){
       _.each(this.bodyStatements, function(statement){statement.unParameterizeForRelation(relation);});
@@ -2298,14 +2301,18 @@ var WebAutomationLanguage = (function() {
     };
 
     function parameterizeBodyStatementsForRelation(bodyStatementLs, relation){
-        for (var j = 0; j < bodyStatementLs.length; j++){
-          bodyStatementLs[j].parameterizeForRelation(relation);
-        }
+      var relationColumnsUsed = [];
+      for (var j = 0; j < bodyStatementLs.length; j++){
+        relationColumnsUsed = relationColumnsUsed.concat(bodyStatementLs[j].parameterizeForRelation(relation));
+      }
+      relationColumnsUsed = _.uniq(relationColumnsUsed);
+      relationColumnsUsed = _.without(relationColumnsUsed, null);
+      return relationColumnsUsed;
     }
 
     function loopStatementFromBodyAndRelation(bodyStatementLs, relation, pageVar){
       // we want to parameterize the body for the relation
-      parameterizeBodyStatementsForRelation(bodyStatementLs, relation); 
+      var relationColumnsUsed = parameterizeBodyStatementsForRelation(bodyStatementLs, relation); 
 
       // ok, and any pages to which we travel within a loop's non-loop body nodes must be counteracted with back buttons at the end
       // todo: come back and make sure we only do this for pages that aren't being opened in new tabs already, and maybe ultimately for pages that we can't convert to open in new tabs
@@ -2323,7 +2330,7 @@ var WebAutomationLanguage = (function() {
       bodyStatementLs = bodyStatementLs.concat(backStatements);
       // todo: also, this is only one of the places we introduce loops.  should do this everywhere we introduce or adjust loops.  really need to deal with the fact those aren't aligned right now
 
-      var loopStatement = new WebAutomationLanguage.LoopStatement(relation, bodyStatementLs, pageVar); 
+      var loopStatement = new WebAutomationLanguage.LoopStatement(relation, relationColumnsUsed, bodyStatementLs, pageVar); 
       return loopStatement;
     }
 

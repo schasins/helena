@@ -378,8 +378,11 @@ var RelationFinder = (function() { var pub = {};
         console.log("relation", relation);
       }
     }
-    selector.relation = relation;
-    return selector;
+    if (!maxSelector){
+      return null;
+    }
+    maxSelector.relation = relation;
+    return maxSelector;
   }
 
   function tableFeatureDict(tableNode){

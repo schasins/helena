@@ -1025,6 +1025,9 @@ var WebAutomationLanguage = (function() {
     var textEntryEvents = _.filter(trace, function(ev){return WebAutomationLanguage.statementType(ev) === StatementTypes.KEYBOARD;});
     var lastTextEntryEvent = textEntryEvents[textEntryEvents.length - 1];
     this.typedString = lastTextEntryEvent.target.snapshot.value;
+    if (!this.typedString){
+      this.typedString = "";
+    }
     this.typedStringLower = this.typedString.toLowerCase();
     var domEvents = _.filter(trace, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
     var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);

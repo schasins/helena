@@ -91,6 +91,35 @@ function getFeatures(element){
     var prop = style[i];
     info[prop] = style.getPropertyValue(prop);
   }
+
+  // this may be a table cell, in which case we'll add a couple extra features
+  var $element = $(element);
+  var $table = $element.closest('table');
+  if ($table.length > 0){
+    // cool, it is in a table
+    // want index and reverse index for rows and columns
+    var $rows = $table.find("tr"); // might not be good for nested tables, although at least we'll have chosen the deepest table that contains the $element.  todo: be better
+    for (var i = 0; i < $rows.length; i++){
+      var $row = $rows[i];
+      if ($row.contains(element)){
+        info.row_index = i;
+        info.row_reverse_index = $rows.length - i;
+        break;
+      }
+    }
+    var $tr = $element.closest('tr');
+    var $cells = $tr.find(info.nodeName); // same issue as comment above potentially.  todo: try again
+    for (var i = 0; i < $cells.length; i++){
+      var $cell = $cells[i];
+      if ($cell.contains(element)){
+        info.col_index = i;
+        info.col_reverse_index = $cells.length - i;
+        break;
+      }
+    }
+  }
+
+
   return info;
 }
 

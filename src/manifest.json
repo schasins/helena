@@ -40,6 +40,7 @@
       "scripts/lib/underscore-min.js", 
       "scripts/lib/html2canvas.js", 
       "scripts/lib/html2canvas.svg.js", 
+      "scripts/lib/stableStringify.js", 
       "scripts/content/recording_UI.js",
       "scripts/content/relation_finding.js",
       "scripts/content/xpath_rep.js"

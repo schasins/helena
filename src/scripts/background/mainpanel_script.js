@@ -1531,18 +1531,26 @@ var WebAutomationLanguage = (function() {
       console.log("getnextrow", this, prinfo.currentRowsCounter);
       if (prinfo.currentRows === null){
         var relationItemsRetrieved = false;
-        utilities.listenForMessageOnce("content", "mainpanel", "relationItems", function(data){
+        utilities.listenForMessageOnce("content", "mainpanel", "freshRelationItems", function(data){
           relationItemsRetrieved = true;
           prinfo.currentRows = data.relation;
           prinfo.currentRowsCounter = 0;
           callback(true);
+        });
+        var noFreshRelationsFoundTimes = 0;
+        utilities.listenForMessage("content", "mainpanel", "noFreshRelationsFound", function(data){
+          noFreshRelationsFoundTimes += 1;
+          if (noFreshRelationsFoundTimes > 60){
+            // ok, time to give up at this point...
+            // todo: actually stop.  also remove this listener.  also remove the other listener
+          }
         });
         if (!pageVar.currentTabId()){
           console.log("Hey!  How'd you end up trying to find a relation on a page for which you don't have a current tab id??  That doesn't make sense.");
           console.log(pageVar);
         }
         var sendGetRelationItems = function(){
-          utilities.sendMessage("mainpanel", "content", "getRelationItems", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);};
+          utilities.sendMessage("mainpanel", "content", "getFreshRelationItems", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);};
         repeatUntil(sendGetRelationItems, function(){return relationItemsRetrieved;}, 1000);
       }
       else if (prinfo.currentRowsCounter + 1 >= prinfo.currentRows.length){
@@ -1561,6 +1569,8 @@ var WebAutomationLanguage = (function() {
         var runningNextInteraction = false;
         utilities.listenForMessageOnce("content", "mainpanel", "runningNextInteraction", function(data){
           relationItemsRetrieved = true;
+          // cool, and we'll get to the situation where currentRows is null, so we'll start retrieving fresh items
+          prinfo.currentRows = null;
           relation.getNextRow(pageVar, callback);
         });
 

@@ -593,7 +593,9 @@ var RelationFinder = (function() { var pub = {};
     processedLikelyRelationRequest = true;
   }
 
+  var readyForGetRelationItems = true; // this will be adjusted when we're in the midst of running next button interactions
   pub.getRelationItems = function(msg){
+    if (!readyForGetRelationItems){ return; }
     var relation = pub.interpretRelationSelector(msg);
     var relationData = _.map(relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
     utilities.sendMessage("content", "mainpanel", "relationItems", {relation: relationData});
@@ -866,6 +868,17 @@ var RelationFinder = (function() { var pub = {};
   function unHighlightNextOrMoreButton(){
     if (nextOrMoreButtonHighlight !== null){
       clearHighlight(nextOrMoreButtonHighlight);
+    }
+  }
+
+  // below the methods for actually using the next button when we need the next page of results
+
+  pub.runNextInteraction = function(data){
+    readyForGetRelationItems = false;
+    utilities.sendMessage("content", "mainpanel", "runningNextInteraction", {}); // todo: will this always reach the page?  if not, big trouble
+    var button = findNextButton(data.next_button_data);
+    if (button !== null){
+      button.click();
     }
   }
 

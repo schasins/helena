@@ -256,6 +256,16 @@ var NextTypes = {
   SCROLLFORMORE: 4
 };
 
+var NextStyles = {
+  SAMEPAGE: 1,
+  NEWPAGE: 2
+};
+
+var NextStylesToNextTypes = {
+  1: [NextTypes.NONE, NextTypes.MOREBUTTON, NextTypes.SCROLLFORMORE],
+  2: [NextTypes.NEXTBUTTON]
+};
+
 var TraceManipulationUtilities = (function() { var pub = {};
 
   pub.lastTopLevelCompletedEvent = function(trace){

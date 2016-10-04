@@ -1552,6 +1552,26 @@ var WebAutomationLanguage = (function() {
         prinfo.currentRowsCounter = 0;
         callback(false); 
         return;
+
+        // so now we've got to change this to going and getting the next page of the list, then having a callback that runs getNextRow(pageVar, callback)
+        // and we should do the above only if we find there are no more next buttons, or no more items
+        // we leave it up to the content script to say hey, no, there are no more here
+
+        // here's what we want to do once we've actually clicked on the next button, more button, etc
+        var runningNextInteraction = false;
+        utilities.listenForMessageOnce("content", "mainpanel", "runningNextInteraction", function(data){
+          relationItemsRetrieved = true;
+          relation.getNextRow(pageVar, callback);
+        });
+
+        // here's us telling the content script to take care of clicking on the next button, more button, etc
+        if (!pageVar.currentTabId()){
+          console.log("Hey!  How'd you end up trying to click next button on a page for which you don't have a current tab id??  That doesn't make sense.");
+          console.log(pageVar);
+        }
+        var sendRunNextInteraction = function(){
+          utilities.sendMessage("mainpanel", "content", "runNextInteraction", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);};
+        repeatUntil(sendRunNextInteraction, function(){return runningNextInteraction;}, 1000);
       }
       else {
         // we still have local rows that we haven't used yet.  just advance the counter to change which is our current row

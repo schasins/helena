@@ -1450,13 +1450,13 @@ var WebAutomationLanguage = (function() {
     initialize();
 
     this.setNewAttributes = function(selector, selectorVersion, excludeFirst, columns, demonstrationTimeRelation, numRowsInDemo, nextType, nextButtonSelector){
-      this.selector = msg.selector;
-      this.selectorVersion = msg.selector_version;
-      this.excludeFirst = msg.exclude_first;
-      this.demonstrationTimeRelation = msg.demonstration_time_relation;
-      this.numRowsInDemo = msg.num_rows_in_demo;
-      this.nextType = msg.next_type;
-      this.nextButtonSelector = msg.next_button_selector;
+      this.selector = selector;
+      this.selectorVersion = selectorVersion;
+      this.excludeFirst = excludeFirst;
+      this.demonstrationTimeRelation = demonstrationTimeRelation;
+      this.numRowsInDemo = numRowsInDemo;
+      this.nextType = nextType;
+      this.nextButtonSelector = nextButtonSelector;
 
       initialize();
 
@@ -1553,7 +1553,8 @@ var WebAutomationLanguage = (function() {
             utilities.stopListeningForMessageWithKey("content", "mainpanel", "freshRelationItems", "freshRelationItemsListener");
             relation.noMoreRows(prinfo, callback);
           }
-          else if (data.type === RelationItemsOutputs.NONEWITEMSYET){
+          else if (data.type === RelationItemsOutputs.NONEWITEMSYET || (data.type === RelationItemsOutputs.NEWITEMS && data.relation.length === 0)){
+            // todo: currently if we get data but it's only 0 rows, it goes here.  is that just an unnecessary delay?  should we just believe that that's the final answer?
             missesSoFar += 1;
           }
           else if (data.type === RelationItemsOutputs.NEWITEMS){
@@ -1611,6 +1612,8 @@ var WebAutomationLanguage = (function() {
     this.getCurrentText = function(pageVar, columnObject){
       var prinfo = pageVar.pageRelations[this.name+"_"+this.id]
       if (prinfo === undefined){ console.log("Bad!  Shouldn't be calling getCurrentText on a pageVar for which we haven't yet called getNextRow."); return null; }
+      if (prinfo.currentRows === undefined) {console.log("Bad!  Shouldn't be calling getCurrentText on a prinfo with no currentRows.", prinfo); return null;}
+      if (prinfo.currentRows[prinfo.currentRowsCounter] === undefined) {console.log("Bad!  Shouldn't be calling getCurrentText on a prinfo with a currentRowsCounter that doesn't correspond to a row in currentRows.", prinfo); return null;}
       return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index].text; // in the current row, value at the index associated with nodeName
     }
 

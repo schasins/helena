@@ -921,11 +921,14 @@ var RelationFinder = (function() { var pub = {};
       utilities.sendMessage("content", "mainpanel", "freshRelationItems", {type: RelationItemsOutputs.NOMOREITEMS, relation: null});
       return;
     }
+    // below is commented out in case there are cases where after first load, it may take a while for the data to all get there (get empty list first, that kind of deal)  Does that happen or is this a wasted opportunity to cache?
+    /*
     if (!nextInteractionSinceLastGetFreshRelationItems[strMsg] && (strMsg in currentRelationData)){
       // we have a cached version and the data shouldn't have changed since we cached it
       utilities.sendMessage("content", "mainpanel", "freshRelationItems", {type: RelationItemsOutputs.NEWITEMS, relation: currentRelationData[strMsg]});
       return;
     }
+    */
     // ok, don't have a cached version, either because never collected before, or bc done a next interaction since then.  better grab the data afresh
     var relationData = pub.getRelationItems(msg, false);
     var crd = currentRelationData[strMsg];

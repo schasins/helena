@@ -1582,7 +1582,7 @@ var WebAutomationLanguage = (function() {
         // essentially, we want to run getNextRow again, ready to grab new data from the page that's now been loaded or updated
         var runningNextInteraction = false;
         utilities.listenForMessageOnce("content", "mainpanel", "runningNextInteraction", function(data){
-          relationItemsRetrieved = true;
+          runningNextInteraction = true;
           // cool, and we'll get to the situation where currentRows is null, so we'll start retrieving fresh items
           prinfo.currentRows = null;
           relation.getNextRow(pageVar, callback);

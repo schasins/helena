@@ -1518,9 +1518,18 @@ var WebAutomationLanguage = (function() {
       setTimeout(function(){repeatUntil(repeatFunction, untilFunction, interval);}, interval);
     }
 
+    this.noMoreRows = function(prinfo, callback){
+      // no more rows -- let the callback know we're done
+      // clear the stored relation data also
+      prinfo.currentRows = null;
+      prinfo.currentRowsCounter = 0;
+      callback(false); 
+    };
+
     this.getNextRow = function(pageVar, callback){ // has to be called on a page, since a relation selector can be applied to many pages.  higher-level tool must control where to apply
       // todo: this is a very simplified version that assumes there's only one page of results.  add the rest soon.
 
+      // ok, what's the page info on which we're manipulating this relation?
       console.log(pageVar.pageRelations);
       var prinfo = pageVar.pageRelations[this.name+"_"+this.id]; // separate relations can have same name (no rule against that) and same id (undefined if not yet saved to server), but since we assign unique names when not saved to server and unique ides when saved to server, should be rare to have same both.  todo: be more secure in future
       if (prinfo === undefined){ // if we haven't seen the frame currently associated with this pagevar, need to clear our state and start fresh
@@ -1528,44 +1537,49 @@ var WebAutomationLanguage = (function() {
         pageVar.pageRelations[this.name+"_"+this.id] = prinfo;
       }
 
+      // now that we have the page info to manipulate, what do we need to do to get the next row?
       console.log("getnextrow", this, prinfo.currentRowsCounter);
       if (prinfo.currentRows === null){
+        // cool!  no data right now, so we have to go to the page and ask for some
+
+        // ok, here's what we'll do once we actually get some new items sent over
         var relationItemsRetrieved = false;
-        utilities.listenForMessageOnce("content", "mainpanel", "freshRelationItems", function(data){
-          relationItemsRetrieved = true;
-          prinfo.currentRows = data.relation;
-          prinfo.currentRowsCounter = 0;
-          callback(true);
-        });
-        var noFreshRelationsFoundTimes = 0;
-        utilities.listenForMessage("content", "mainpanel", "noFreshRelationsFound", function(data){
-          noFreshRelationsFoundTimes += 1;
-          if (noFreshRelationsFoundTimes > 60){
-            // ok, time to give up at this point...
-            // todo: actually stop.  also remove this listener.  also remove the other listener
+        var missesSoFar = 0;
+        utilities.listenForMessageWithKey("content", "mainpanel", "freshRelationItems", "freshRelationItemsListener", function(data){ // with key so that we can remove the listener whenever we decide it's time to stop listening
+          if (data.type === RelationItemsOutputs.NOMOREITEMS || (data.type === RelationItemsOutputs.NONEWITEMSYET && missesSoFar > 60)){
+            // NOMOREITEMS -> definitively out of items.  this relation is done
+            // NONEWITEMSYET && missesSoFar > 60 -> ok, time to give up at this point...
+            relationItemsRetrieved = true; // to stop us from continuing to ask for freshitems
+            utilities.stopListeningForMessageWithKey("content", "mainpanel", "freshRelationItems", "freshRelationItemsListener");
+            relation.noMoreRows(prinfo, callback);
+          }
+          else if (data.type === RelationItemsOutputs.NONEWITEMSYET){
+            missesSoFar += 1;
+          }
+          else if (data.type === RelationItemsOutputs.NEWITEMS){
+            // yay, we have real data!
+            relationItemsRetrieved = true; // to stop us from continuing to ask for freshitems
+            utilities.stopListeningForMessageWithKey("content", "mainpanel", "freshRelationItems", "freshRelationItemsListener");
+            prinfo.currentRows = data.relation;
+            prinfo.currentRowsCounter = 0;
+            callback(true);
+          }
+          else{
+            console.log("woaaaaaah freak out, there's freshRelationItems that have an unknown type.");
           }
         });
-        if (!pageVar.currentTabId()){
-          console.log("Hey!  How'd you end up trying to find a relation on a page for which you don't have a current tab id??  That doesn't make sense.");
-          console.log(pageVar);
-        }
+
+        // and here's us asking for fresh relation items to be sent over
+        if (!pageVar.currentTabId()){ console.log("Hey!  How'd you end up trying to find a relation on a page for which you don't have a current tab id??  That doesn't make sense.", pageVar); }
         var sendGetRelationItems = function(){
           utilities.sendMessage("mainpanel", "content", "getFreshRelationItems", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);};
         repeatUntil(sendGetRelationItems, function(){return relationItemsRetrieved;}, 1000);
       }
       else if (prinfo.currentRowsCounter + 1 >= prinfo.currentRows.length){
-        // no more rows -- let the callback know we're done
-        // clear the stored relation data also
-        prinfo.currentRows = null;
-        prinfo.currentRowsCounter = 0;
-        callback(false); 
-        return;
-
-        // so now we've got to change this to going and getting the next page of the list, then having a callback that runs getNextRow(pageVar, callback)
-        // and we should do the above only if we find there are no more next buttons, or no more items
-        // we leave it up to the content script to say hey, no, there are no more here
+        // ok, we had some data but we've run out.  time to try running the next button interaction and see if we can retrieve some more
 
         // here's what we want to do once we've actually clicked on the next button, more button, etc
+        // essentially, we want to run getNextRow again, ready to grab new data from the page that's now been loaded or updated
         var runningNextInteraction = false;
         utilities.listenForMessageOnce("content", "mainpanel", "runningNextInteraction", function(data){
           relationItemsRetrieved = true;
@@ -1575,16 +1589,14 @@ var WebAutomationLanguage = (function() {
         });
 
         // here's us telling the content script to take care of clicking on the next button, more button, etc
-        if (!pageVar.currentTabId()){
-          console.log("Hey!  How'd you end up trying to click next button on a page for which you don't have a current tab id??  That doesn't make sense.");
-          console.log(pageVar);
-        }
+        if (!pageVar.currentTabId()){ console.log("Hey!  How'd you end up trying to click next button on a page for which you don't have a current tab id??  That doesn't make sense.", pageVar); }
         var sendRunNextInteraction = function(){
           utilities.sendMessage("mainpanel", "content", "runNextInteraction", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);};
         repeatUntil(sendRunNextInteraction, function(){return runningNextInteraction;}, 1000);
       }
       else {
         // we still have local rows that we haven't used yet.  just advance the counter to change which is our current row
+        // the easy case :)
         prinfo.currentRowsCounter += 1;
         callback(true);
       }

@@ -74,6 +74,15 @@ var utilities = (function() { var pub = {};
     pub.listenForMessage(from, to, subject, fn, key);
   }
 
+  pub.stopListeningForMessageWithKey = function(from, to, subect, key){
+    if (to === "background" || to === "mainpanel"){
+      delete runtimeListeners[key];
+    }
+    else if (to === "content"){
+      delete extensionListeners[key];
+    }
+  }
+
   pub.sendMessage = function(from, to, subject, content, frame_ids_include, frame_ids_exclude, tab_ids_include, tab_ids_exclude){
     if ((from ==="background" || from ==="mainpanel") && to === "content"){
       var msg = {from: from, subject: subject, content: content, frame_ids_include: frame_ids_include, frame_ids_exclude: frame_ids_exclude};
@@ -256,14 +265,10 @@ var NextTypes = {
   SCROLLFORMORE: 4
 };
 
-var NextStyles = {
-  SAMEPAGE: 1,
-  NEWPAGE: 2
-};
-
-var NextStylesToNextTypes = {
-  1: [NextTypes.NONE, NextTypes.MOREBUTTON, NextTypes.SCROLLFORMORE],
-  2: [NextTypes.NEXTBUTTON]
+var RelationItemsOutputs = {
+  NOMOREITEMS: 1,
+  NONEWITEMSYET: 2,
+  NEWITEMS: 3
 };
 
 var TraceManipulationUtilities = (function() { var pub = {};

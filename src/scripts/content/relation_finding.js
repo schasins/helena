@@ -603,28 +603,9 @@ var RelationFinder = (function() { var pub = {};
     return relationData;
   };
 
-  var nextInteractionSinceLastGetFreshRelationItems = false; // this will be adjusted when we're in the midst of running next button interactions
-  var currentRelationData = {};
-  pub.getFreshRelationItems = function(msg){
-    var strMsg = StableStringify.stringify(msg);
-    if (!nextInteractionSinceLastGetFreshRelationItems && (strMsg in currentRelationData)){
-      return currentRelationData[strMsg];
-    }
-    // ok, don't have a cached version.  better grab the data afresh
-    var relationData = pub.getRelationItems(msg, false);
-    var crd = currentRelationData[strMsg];
-    if (crd && crd.length === relationData.length && crd === relationData){ // todo: equality c'mon
-      return null;
-    }
-    // whee, it's not nothing.  we can update the state
-    nextInteractionSinceLastGetFreshRelationItems = false;
-    // we only want the fresh ones!
-    var startIndex = 0;
-    if (crd){ startIndex = crd.length; }
-    var freshItems = relationData.slice(startIndex, relationData.length);
-    currentRelationData[strMsg] = relationData;
-    utilities.sendMessage("content", "mainpanel", "freshRelationItems", {relation: relationData});
-  };
+  function selectorId(selectorObject){
+    return StableStringify.stringify(selectorObject);
+  }
 
 /**********************************************************************
  * Highlight stuff
@@ -894,82 +875,74 @@ var RelationFinder = (function() { var pub = {};
     }
   }
 
-  // below the methods for actually using the next button when we need the next page of results
-  var noMoreItems = false;
-  pub.runNextInteraction = function(data){
-    utilities.sendMessage("content", "mainpanel", "runningNextInteraction", {}); // todo: will this always reach the page?  if not, big trouble
-    nextInteractionSinceLastGetFreshRelationItems = true;
+/**********************************************************************
+ * Handling everything we need for actually running the next interactions during replays
+ **********************************************************************/
 
-    var next_button_type = data.next_button_data.type;
+  var nextInteractionSinceLastGetFreshRelationItems = {}; // this will be adjusted when we're in the midst of running next button interactions
+  var currentRelationData = {};
+  var noMoreItemsAvailable = {};
+
+  // below the methods for actually using the next button when we need the next page of results
+  // this also identifies if there are no more items to retrieve, in which case that info is stored in case someone tries to run getFreshRelationItems on us
+  pub.runNextInteraction = function(msg){
+    utilities.sendMessage("content", "mainpanel", "runningNextInteraction", {}); // todo: will this always reach the page?  if not, big trouble
+    var sid = selectorId(msg);
+    nextInteractionSinceLastGetFreshRelationItems[sid] = true; // note that we're assuming that the next interaction for a given relation only affects that relation
+
+    var next_button_type = msg.next_type;
 
     if (next_button_type === NextTypes.SCROLLFORMORE){
       var get_more_items = function(){window.scrollBy(0,1000);};
     }
     else if (next_button_type === NextTypes.MOREBUTTON || next_button_type === NextTypes.NEXTBUTTON){
-      var button = findNextButton(data.next_button_data);
+      console.log("msg.next_button_selector", msg.next_button_selector);
+      var button = findNextButton(msg.next_button_selector);
       if (button !== null){
         button.click();
       }
       else{
-        noMoreItems = true;
+        noMoreItemsAvailable[sid] = true;
       }
     }
     else if (next_button_type === NextTypes.NONE){
-      noMoreItems = true;
+      noMoreItemsAvailable[sid] = true;
     }
     else{
       console.log("Failure.  Don't know how to produce items because don't know next button type.  Guessing we just want the current page items.");
-      noMoreItems = true;
+      noMoreItemsAvailable[sid] = true;
     }
   }
 
-  pub.getMoreItems = function(data){
-    // make sure we're set up before we try to send items back to the mainpanel
-    // sending items without the frame id will cause the script to fail
-    if (SimpleRecord.getFrameId() === null){
-      setTimeout(function(){getMoreItems(data);},500);
+  pub.getFreshRelationItems = function(msg){
+    var strMsg = selectorId(msg);
+    if (noMoreItemsAvailable[strMsg]){
+      // that's it, we're done.  last use of the next interaction revealed there's nothing left
+      utilities.sendMessage("content", "mainpanel", "freshRelationItems", {type: RelationItemsOutputs.NOMOREITEMS, relation: null});
       return;
     }
-
-    var send_done = function(list){utilities.sendMessage("content", "mainpanel", "moreItems", {"items":list,"no_more_items":true});};
-    var send_not_done = function(list){utilities.sendMessage("content", "mainpanel", "moreItems", {"items":list,"no_more_items":false});};
-    
-    console.log(data);
-    var selector = data.selector;
-    var item_limit = data.item_limit;
-    var next_button_type = data.next_button_data.type;
-    
-    if (next_button_type === NextTypes.SCROLLFORMORE){
-      var get_more_items = function(){window.scrollBy(0,1000);};
-      wholeList(selector, item_limit, get_more_items, send_done); // todo: inefficient to actually send all the items!  do better!
+    if (!nextInteractionSinceLastGetFreshRelationItems[strMsg] && (strMsg in currentRelationData)){
+      // we have a cached version and the data shouldn't have changed since we cached it
+      utilities.sendMessage("content", "mainpanel", "freshRelationItems", {type: RelationItemsOutputs.NEWITEMS, relation: currentRelationData[strMsg]});
+      return;
     }
-    else if (next_button_type === NextTypes.MOREBUTTON){
-      var get_more_items = function(){getNextPage(data);};
-      wholeList(selector, item_limit, get_more_items, send_done); // todo: inefficient to actually send all the items!  do better!
+    // ok, don't have a cached version, either because never collected before, or bc done a next interaction since then.  better grab the data afresh
+    var relationData = pub.getRelationItems(msg, false);
+    var crd = currentRelationData[strMsg];
+    if (crd && crd.length === relationData.length && crd === relationData){ // todo: equality c'mon
+      // data still looks the same as it looked before.  no new items yet.
+      utilities.sendMessage("content", "mainpanel", "freshRelationItems", {type: RelationItemsOutputs.NONEWITEMSYET, relation: null});
+      return;
     }
-    else if (next_button_type === NextTypes.NEXTBUTTON){
-      //send the current page's contents.  next button clicking handled elsewhere
-      var list_so_far = useSelector(selector);
-      var button = findNextButton(data.next_button_data);
-      if (button === null){
-        send_done(list_so_far); // todo: do we really want to do this detection right now?
-      }
-      else{
-        send_not_done(list_so_far);
-      }
-    }
-    else if (next_button_type === NextTypes.NONE){
-      var list_so_far = useSelector(selector);
-      send_done(list_so_far);
-    }
-    else{
-      console.log("Failure.  Don't know how to produce items because don't know next button type.  Guessing we just want the current page items.");
-      var list_so_far = useSelector(selector);
-      send_done(list_so_far);
-    }
-  }
-
-
+    // whee, we have some new stuff.  we can update the state
+    nextInteractionSinceLastGetFreshRelationItems = false;
+    // we only want the fresh ones!
+    var startIndex = 0;
+    if (crd){ startIndex = crd.length; }
+    var freshItems = relationData.slice(startIndex, relationData.length);
+    currentRelationData[strMsg] = relationData;
+    utilities.sendMessage("content", "mainpanel", "freshRelationItems", {type: RelationItemsOutputs.NEWITEMS, relation: relationData});
+  };
 
 
 return pub;}());

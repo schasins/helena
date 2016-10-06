@@ -538,6 +538,7 @@ var RelationFinder = (function() { var pub = {};
 
     // this (above) is the candidate we auto-generate from the page, but want to compare to the relations the server suggested
     // criteria (1) largest number of target xpaths in the first row, (2) largest number of rows retrieved from the page, (3), largest num of rows in original demonstration (4) largest number of columns associated with relation
+    // and if it's tied after all of that, pick the one from the server since it might have next interaction associated, might have good col names
 
     var bestSelectorIsNew = true;
     var currBestSelector = selectorData;
@@ -585,7 +586,7 @@ var RelationFinder = (function() { var pub = {};
     newMsg.exclude_first = currBestSelector.exclude_first;
     newMsg.num_rows_in_demonstration = currBestSelector.relation.length;
     newMsg.selector = currBestSelector.selector;
-    newMsg.selector_version = 1; // right now they're all 1
+    newMsg.selector_version = 1; // right now they're all 1.  someday may want to be able to add new versions of selectors that are processed differently
     newMsg.columns = currBestSelector.columns;
     newMsg.first_page_relation = currBestSelector.relation;
 

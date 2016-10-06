@@ -933,7 +933,7 @@ var RelationFinder = (function() { var pub = {};
     // ok, don't have a cached version, either because never collected before, or bc done a next interaction since then.  better grab the data afresh
     var relationData = pub.getRelationItems(msg, false);
     var crd = currentRelationData[strMsg];
-    if (crd && crd.length === relationData.length && crd === relationData){ // todo: equality c'mon
+    if (crd && crd.length === relationData.length && _.isEqual(crd, relationData)){
       // data still looks the same as it looked before.  no new items yet.
       utilities.sendMessage("content", "mainpanel", "freshRelationItems", {type: RelationItemsOutputs.NONEWITEMSYET, relation: null});
       return;

@@ -1633,6 +1633,9 @@ var WebAutomationLanguage = (function() {
       var rel = this.messageRelationRepresentation();
       ServerTranslationUtilities.JSONifyRelation(rel);
       $.post('http://kaofang.cs.berkeley.edu:8080/saverelation', {relation: rel});
+      // nested, so if we don't unJSONify after JSONifying, the suffixes (in the column objects) remain stringified, which is annoying, so have to do below
+      // todo: probably do a better solution to this
+      ServerTranslationUtilities.unJSONifyRelation(rel);
     }
 
     var tabReached = false;

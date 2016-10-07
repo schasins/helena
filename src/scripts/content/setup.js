@@ -31,9 +31,21 @@ utilities.sendMessage("content", "mainpanel", "requestCurrentRecordingWindow", {
 var NodeRep = (function() { var pub = {};
 	pub.nodeToMainpanelNodeRepresentation = function(node){
 	  if (node === null){
-	    return {text: "", xpath: "", frame: SimpleRecord.getFrameId()};
+	    return {text: "", link: "", xpath: "", frame: SimpleRecord.getFrameId()};
 	  }
-	  return {text: NodeRep.nodeToText(node), xpath: nodeToXPath(node), frame: SimpleRecord.getFrameId()};
+	  return {text: NodeRep.nodeToText(node), link: nodeToLink(node), xpath: nodeToXPath(node), frame: SimpleRecord.getFrameId()};
+	};
+
+	function nodeToLink(node){
+	  if (node.href){
+	    return node.href;
+	  }
+	  // ok, a parent may still have a link
+	  var pars = $(node).parent('*[href]');
+	  if (pars.length < 1){
+	    return "";
+	  }
+	  return pars[0].href;
 	}
 
 	pub.nodeToText = function(node){

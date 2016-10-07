@@ -33,10 +33,10 @@ var NodeRep = (function() { var pub = {};
 	  if (node === null){
 	    return {text: "", link: "", xpath: "", frame: SimpleRecord.getFrameId()};
 	  }
-	  return {text: NodeRep.nodeToText(node), link: nodeToLink(node), xpath: nodeToXPath(node), frame: SimpleRecord.getFrameId()};
+	  return {text: NodeRep.nodeToText(node), link: NodeRep.nodeToLink(node), xpath: nodeToXPath(node), frame: SimpleRecord.getFrameId()};
 	};
 
-	function nodeToLink(node){
+	pub.nodeToLink = function(node){
 	  if (node.href){
 	    return node.href;
 	  }

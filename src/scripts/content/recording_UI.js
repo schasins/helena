@@ -78,7 +78,7 @@ var Tooltip = (function() { var pub = {};
     if(tooltipColor === undefined) { tooltipColor = tooltipColorDefault;}
     if(tooltipBorderColor === undefined) { tooltipBorderColor = tooltipBorderColorDefault;}
     var $node = $(node);
-    var nodeText = "SHIFT + ALT + click to scrape:<br>"+NodeRep.nodeToText(node);
+    var nodeText = "SHIFT + ALT + click to scrape:<br>"+NodeRep.nodeToText(node)+"<br>SHIFT + ALT + CTRL + click to scrape:<br>"+NodeRep.nodeToLink(node);
     var offset = $node.offset();
     var boundingBox = node.getBoundingClientRect();
     var newDiv = $('<div>'+nodeText+'<div/>');
@@ -112,6 +112,7 @@ var Scraping = (function() { var pub = {};
   additional_recording_handlers.scrape = function(node, eventMessage){
     if (eventMessage.data.type !== "click") {return true;} //only actually scrape on clicks, but still want to record that we're in scraping mode
     var data = NodeRep.nodeToMainpanelNodeRepresentation(node,false);
+    data.linkScraping = eventMessage.data.ctrlKey; // convention is CTRL means we want to scrape the link, not the text 
     utilities.sendMessage("content", "mainpanel", "scrapedData", data);
     return data;
   };

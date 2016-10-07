@@ -127,11 +127,25 @@ var RecorderUI = (function() {
   };
 
   // during recording, when user scrapes, show the text so user gets feedback on what's happening
-  var scraped = {};
+  var scraped = {}; // dictionary based on xpath since we can get multiple DOM events that scrape same data from same node
+  // todo: note that since we're indexing on xpath, if had same xpath on multiple different pages, this would fail to show us some data.  bad!
+  // actually, I think this whole thing may be unnecessary.  we've just been adding in the same xpath to the xpaths list to control
+  // how we display it anyway, so the indexing isn't really getting us anything, isn't eliminating anything, and we haven't had any trouble.
+  // looks like an artifact of an old style.  todo: get rid of it when have a chance.
   var xpaths = []; // want to show texts in the right order
   pub.processScrapedData = function(data){
-    scraped[data.xpath] = data.text; // dictionary based on xpath since we can get multiple DOM events that scrape same data from same node
-    xpaths.push(data.xpath);
+    var xpath = data.xpath;
+    var id = "";
+    if (data.linkScraping){
+      id = xpath+"_link"; 
+      scraped[id] = data.link;
+    }
+    else{
+      // just wanted to scrape text
+      id = xpath+"_text";
+      scraped[id] = data.text;
+    }
+    xpaths.push(id);
     $div = $("#scraped_items_preview");
     $div.html("");
     for (var i = 0; i < xpaths.length; i++){
@@ -548,7 +562,7 @@ var ReplayScript = (function() {
         EventM.setLoadCausedBy(ev, lastDOMEvent);
         EventM.addDOMOutputLoadEvent(lastDOMEvent, ev);
         // now that we have a cause for the load event, we can make it invisible
-        EventM.setVisible(ev);
+        EventM.setVisible(ev, false);
       }
     });
     return trace;
@@ -572,6 +586,7 @@ var ReplayScript = (function() {
     }
     var e1type = WebAutomationLanguage.statementType(e1);
     var e2type = WebAutomationLanguage.statementType(e2);
+    console.log("allowedInSameSegment", e1type, e2type);
     // if either is invisible, can be together, because an invisible event allowed anywhere
     if (e1type === null || e2type === null){
       return true;
@@ -660,7 +675,7 @@ var ReplayScript = (function() {
           else if (sType === StatementTypes.MOUSE){
             statements.push(new WebAutomationLanguage.ClickStatement(seg));
           }
-          else if (sType === StatementTypes.SCRAPE){
+          else if (sType === StatementTypes.SCRAPE || sType === StatementTypes.SCRAPELINK){
             statements.push(new WebAutomationLanguage.ScrapeStatement(seg));
           }
           else if (sType === StatementTypes.KEYBOARD){
@@ -681,10 +696,11 @@ var ReplayScript = (function() {
  **********************************************************************/
 
 var StatementTypes = {
-  MOUSE: "click",
-  KEYBOARD: "type",
-  LOAD: "load",
-  SCRAPE: "extract"
+  MOUSE: 1,
+  KEYBOARD: 2,
+  LOAD: 3,
+  SCRAPE: 4,
+  SCRAPELINK: 5
 };
 
 var WebAutomationLanguage = (function() {
@@ -706,7 +722,10 @@ var WebAutomationLanguage = (function() {
     else if (ev.type === "dom"){
       if (statementToEventMapping.mouse.indexOf(ev.data.type) > -1){
         if (ev.additional.scrape){
-          return StatementTypes.SCRAPE
+          if (ev.additional.scrape.linkScraping){
+            return StatementTypes.SCRAPELINK;
+          }
+          return StatementTypes.SCRAPE;
         }
         return StatementTypes.MOUSE;
       }
@@ -733,12 +752,16 @@ var WebAutomationLanguage = (function() {
 
   // helper functions that some statements will use
 
-  function nodeRepresentation(statement){
+  function nodeRepresentation(statement, linkScraping){
+    if (linkScraping === undefined){ linkScraping = false; }
     if (statement.currentNode instanceof WebAutomationLanguage.VariableUse){
-      return statement.currentNode.toString();
+      return statement.currentNode.toString(linkScraping);
     }
     if (statement.trace[0].additional.visualization === "whole page"){
       return "whole page";
+    }
+    if (linkScraping){
+      return statement.trace[0].additional.scrape.link; // we don't have a better way to visualize links than just giving text
     }
     return "<img src='"+statement.trace[0].additional.visualization+"' style='max-height: 150px; max-width: 350px;'>";
   }
@@ -752,13 +775,14 @@ var WebAutomationLanguage = (function() {
   }
 
   // returns true if we successfully parameterize this node with this relation, false if we can't
-  function parameterizeNodeWithRelation(statement, relation, pageVar){
+  function parameterizeNodeWithRelation(statement, relation, pageVar, link){
+      if (link === undefined) {link = false;}
       var columns = relation.columns;
       for (var i = 0; i < columns.length; i++){
         var firstRowXpath = columns[i].firstRowXpath;
         if (firstRowXpath === statement.currentNode){
           statement.relation = relation;
-          statement.currentNode = new WebAutomationLanguage.VariableUse(columns[i], relation, pageVar);
+          statement.currentNode = new WebAutomationLanguage.VariableUse(columns[i], relation, pageVar, link);
           return columns[i];
         }
       }
@@ -950,9 +974,24 @@ var WebAutomationLanguage = (function() {
     this.currentNode = this.node;
     this.origNode = this.node;
 
+    // are we scraping a link or just the text?
+    this.scrapeLink = false;
+    for (var i = 0; i <  trace.length; i++){
+      if (trace[i].additional && trace[i].additional.scrape){
+        if (trace[i].additional.scrape.linkScraping){
+          this.scrapeLink = true;
+          break;
+        }
+      }
+    }
+
     this.toStringLines = function(){
-      var nodeRep = nodeRepresentation(this);
-      return ["scrape("+this.pageVar.toString()+", "+nodeRep+")"];
+      var nodeRep = nodeRepresentation(this, this.scrapeLink);
+      var sString = "scrape(";
+      //if (this.scrapeLink){
+      //  sString = "scrapeLink(";
+      //}
+      return [sString+this.pageVar.toString()+", "+nodeRep+")"];
     };
 
     this.pbvs = function(){
@@ -968,7 +1007,7 @@ var WebAutomationLanguage = (function() {
     };
 
     this.parameterizeForRelation = function(relation){
-      var relationColumnUsed = parameterizeNodeWithRelation(this, relation, this.pageVar);
+      var relationColumnUsed = parameterizeNodeWithRelation(this, relation, this.pageVar, this.scrapeLink);
       if (relationColumnUsed){
         // this is cool because now we don't need to actually run scraping interactions to get the value, so let's update the cleanTrace to reflect that
         for (var i = this.cleanTrace.length - 1; i >= 0; i--){
@@ -998,14 +1037,24 @@ var WebAutomationLanguage = (function() {
     this.postReplayProcessing = function(trace, temporaryStatementIdentifier){
       if (this.currentNode instanceof WebAutomationLanguage.VariableUse){
         // this scrape statement is parameterized, so we can just grab the current value from the node...
-        this.currentNodeCurrentValue = this.currentNode.currentText();
+        if (this.scrapeLink){
+          this.currentNodeCurrentValue = this.currentNode.currentLink();
+        }
+        else{
+          this.currentNodeCurrentValue = this.currentNode.currentText();
+        }
       }
       else{
         // it's not just a relation item, so relation extraction hasn't extracted it, so we have to actually look at the trace
         // find the scrape that corresponds to this scrape statement based on temporarystatementidentifier
         for (var i = 0; i < trace.length; i++){
           if (EventM.getTemporaryStatementIdentifier(trace[i]) === temporaryStatementIdentifier && trace[i].additional && trace[i].additional.scrape && trace[i].additional.scrape.text){
-            this.currentNodeCurrentValue = trace[i].additional.scrape.text;
+            if (this.scrapeLink){
+              this.currentNodeCurrentValue = trace[i].additional.scrape.link;
+            }
+            else{
+              this.currentNodeCurrentValue = trace[i].additional.scrape.text;
+            }
             return;
           }
         }
@@ -1357,6 +1406,11 @@ var WebAutomationLanguage = (function() {
       return this.relation[currentRowsCounter][columnObject.index];
     }
 
+    this.getCurrentLink = function(pageVar, columnObject){
+      console.log("yo, why are you trying to get a link from a text relation???");
+      return "";
+    }
+
     this.getCurrentMappingFromVarNamesToValues = function(pageVar){
       var map = {};
       for (var i = 0; i < this.columns.length; i++){
@@ -1617,6 +1671,14 @@ var WebAutomationLanguage = (function() {
       return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index].text; // in the current row, value at the index associated with nodeName
     }
 
+    this.getCurrentLink = function(pageVar, columnObject){
+      var prinfo = pageVar.pageRelations[this.name+"_"+this.id]
+      if (prinfo === undefined){ console.log("Bad!  Shouldn't be calling getCurrentLink on a pageVar for which we haven't yet called getNextRow."); return null; }
+      if (prinfo.currentRows === undefined) {console.log("Bad!  Shouldn't be calling getCurrentLink on a prinfo with no currentRows.", prinfo); return null;}
+      if (prinfo.currentRows[prinfo.currentRowsCounter] === undefined) {console.log("Bad!  Shouldn't be calling getCurrentLink on a prinfo with a currentRowsCounter that doesn't correspond to a row in currentRows.", prinfo); return null;}
+      return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index].link; // in the current row, value at the index associated with nodeName
+    }
+
     this.getCurrentMappingFromVarNamesToValues = function(pageVar){
       var map = {};
       for (var i = 0; i < this.columns.length; i++){
@@ -1668,12 +1730,17 @@ var WebAutomationLanguage = (function() {
   }
 
   // todo: for now all variable uses are uses of relation cells, but eventually will probably want to have scraped from outside of relations too
-  pub.VariableUse = function(columnObject, relation, pageVar){
+  pub.VariableUse = function(columnObject, relation, pageVar, link){
+    if (link === undefined){ link = false; }
     this.columnObject = columnObject;
     this.relation = relation;
     this.pageVar = pageVar;
+    this.link = link; // is this variable use actually using the link of the node rather than just the node or the text
 
     this.toString = function(){
+      if (this.link){
+        return this.columnObject.name + ".link";
+      }
       return this.columnObject.name;
     };
 
@@ -1683,6 +1750,10 @@ var WebAutomationLanguage = (function() {
 
     this.currentText = function(){
       return this.relation.getCurrentText(this.pageVar, this.columnObject);
+    };
+
+    this.currentLink = function(){
+      return this.relation.getCurrentLink(this.pageVar, this.columnObject);
     };
   }
 

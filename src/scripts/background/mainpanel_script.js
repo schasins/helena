@@ -1173,7 +1173,7 @@ var WebAutomationLanguage = (function() {
     this.scrapeStatements = scrapeStatements;
 
     this.toStringLines = function(){
-      var nodeRepLs = _.map(this.scrapeStatements, function(statement){return nodeRepresentation(statement);});
+      var nodeRepLs = _.map(this.scrapeStatements, function(statement){return nodeRepresentation(statement, statement.scrapeLink);});
       return ["addOutputRow(["+nodeRepLs.join(",")+"])"];
     };
 

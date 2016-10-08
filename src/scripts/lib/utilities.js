@@ -222,6 +222,10 @@ var Highlight = (function() { var pub = {};
     highlightCount +=1;
     $target = $(target);
     var offset = $target.offset();
+    if (!target.getBoundingClientRect){
+      console.log("can't highlight: ", target);
+      return;
+    }
     var boundingBox = target.getBoundingClientRect();
     var newDiv = $('<div/>');
     var idName = 'vpbd-hightlight-' + highlightCount;

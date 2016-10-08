@@ -112,7 +112,7 @@ var Scraping = (function() { var pub = {};
   additional_recording_handlers.scrape = function(node, eventMessage){
     if (eventMessage.data.type !== "click") {return true;} //only actually scrape on clicks, but still want to record that we're in scraping mode
     var data = NodeRep.nodeToMainpanelNodeRepresentation(node,false);
-    data.linkScraping = eventMessage.data.ctrlKey; // convention is CTRL means we want to scrape the link, not the text 
+    data.linkScraping = eventMessage.data.ctrlKey || eventMessage.data.metaKey; // convention is CTRL means we want to scrape the link, not the text 
     utilities.sendMessage("content", "mainpanel", "scrapedData", data);
     return data;
   };

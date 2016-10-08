@@ -689,6 +689,17 @@ var RelationFinder = (function() { var pub = {};
     pub.sendSelector(selectorObj);
   }
 
+  function findAncestorLikeSpec(spec_ancestor, node){
+    //will return exactly the same node if there's only one item in first_row_items
+    console.log("findAncestorLikeSpec", spec_ancestor, node);
+    var spec_xpath_list = XPathList.xPathToXPathList(nodeToXPath(spec_ancestor));
+    var xpath_list = XPathList.xPathToXPathList(nodeToXPath(node));
+    var ancestor_xpath_list = xpath_list.slice(0,spec_xpath_list.length);
+    var ancestor_xpath_string = XPathList.xPathToString(ancestor_xpath_list);
+    var ancestor_xpath_nodes = xPathToNodes(ancestor_xpath_string);
+    return ancestor_xpath_nodes[0];
+  }
+
   function editingClick(event){
     if (listeningForNextButtonClick){
       // don't want to do normal editing click...
@@ -729,60 +740,72 @@ var RelationFinder = (function() { var pub = {};
     }
     // we've done all our highlight stuff, know we no longer need that
     // dehighlight our old list
-    _.each(currentSelectorHighlightNodes, clearHighlight);
+    _.each(currentSelectorHighlightNodes, Highlight.clearHighlight);
 
     if (!removalClick){
       // ok, so we're trying to add a node.  is the node another cell in an existing row?  or another row?  could be either.
-      // for now, assume it's another cell in an existing row
-      // todo: give the user an interaction that allows him or her say it's actually another row
-      // todo: put some kind of outline around the ones we think of the user as having actually demonstrated to us?  the ones we're actually using to generate the selector?  so that he/she knows which to actually click on to change things
-      // maybe green outlines (or color-corresponding outlines) around the ones we're trying to include, red outlines around the ones we're trying to exclude.
+      // for now we're assuming it's always about adding rows, since it's already possible to add columns by demonstrating first row
 
-      // let's figure out which row it should be
-      // go through all rows, find common ancestor of the cells in the row + our new item, pick whichever row produces an ancestor deepest in the tree
-      var currRelation = currentSelectorToEdit.relation;
-      var deepestCommonAncestor = null;
-      var deepestCommonAncestorDepth = 0;
-      var currRelationIndex = 0;
-      for (var i = 0; i < currRelation.length; i++){
-        var nodes = currRelation[i];
-        var ancestor = findCommonAncestor(nodes.concat([target]));
-        var depth = $(ancestor).parents().length;
-        if (depth > deepestCommonAncestorDepth){
-          deepestCommonAncestor = ancestor;
-          deepestCommonAncestorDepth = depth;
-          currRelationIndex = i;
+      var newCellInExistingRow = false;
+      if (newCellInExistingRow){
+        // for now, assume it's another cell in an existing row
+        // todo: give the user an interaction that allows him or her say it's actually another row
+        // todo: put some kind of outline around the ones we think of the user as having actually demonstrated to us?  the ones we're actually using to generate the selector?  so that he/she knows which to actually click on to change things
+        // maybe green outlines (or color-corresponding outlines) around the ones we're trying to include, red outlines around the ones we're trying to exclude.
+
+        // let's figure out which row it should be
+        // go through all rows, find common ancestor of the cells in the row + our new item, pick whichever row produces an ancestor deepest in the tree
+        var currRelation = currentSelectorToEdit.relation;
+        var deepestCommonAncestor = null;
+        var deepestCommonAncestorDepth = 0;
+        var currRelationIndex = 0;
+        for (var i = 0; i < currRelation.length; i++){
+          var nodes = currRelation[i];
+          var ancestor = findCommonAncestor(nodes.concat([target]));
+          var depth = $(ancestor).parents().length;
+          if (depth > deepestCommonAncestorDepth){
+            deepestCommonAncestor = ancestor;
+            deepestCommonAncestorDepth = depth;
+            currRelationIndex = i;
+          }
+        }
+
+        var columns = columnsFromNodeAndSubnodes(deepestCommonAncestor, currRelation[currRelationIndex].concat([target]));
+        currentSelectorToEdit.columns = columns;
+
+        // let's check whether the common ancestor has actually changed.  if no, this is easy and we can just change the columns
+        // if yes, it gets more complicated
+        var origAncestor = findCommonAncestor(currRelation[currRelationIndex]);
+        var newAncestor = findCommonAncestor(currRelation[currRelationIndex].concat([target]));
+        if (origAncestor === newAncestor){
+          // we've already updated the columns, so we're ready
+          pub.newSelectorGuess(currentSelectorToEdit);
+          return;
+        }
+        // drat, the ancestor has actually changed.
+        // let's assume that all the items in our current positive nodes list will have *corresponding* parent nodes...  (based on difference in depth.  not really a good assumption, but we already assume that we have fixed xpaths to get to subcomponents, so we're already making that assumption)
+        var xpath = nodeToXPath(newAncestor);
+        var xpathlen = xpath.split("/").length;
+        var xpathO = nodeToXPath(origAncestor);
+        var xpathlenO = xpath.split("/").length;
+        var depthDiff = xpathlenO - xpathlen;
+        for (var i = 0; i < currentSelectorToEdit.positive_nodes.length; i++){
+          var ixpath = nodeToXPath(currentSelectorToEdit.positive_nodes[i]);
+          var components = ixpath.split("/");
+          components = components.slice(0, components.length - depthDiff);
+          var newxpath = components.join("/");
+          currentSelectorToEdit.positive_nodes[i] = xPathToNodes(newxpath)[0];
+        }
+        if (currentSelectorToEdit.positive_nodes.indexOf(deepestCommonAncestor) === -1){
+          currentSelectorToEdit.positive_nodes.push(deepestCommonAncestor);
         }
       }
+      else{
+        // this one's the easy case!  the click is telling us to add a row, rather than to add a cell to an existing row
+        var appropriateAncestor = findAncestorLikeSpec(currentSelectorToEdit.positive_nodes[0], target);
+        currentSelectorToEdit.positive_nodes.push(appropriateAncestor);
+      }
 
-      var columns = columnsFromNodeAndSubnodes(deepestCommonAncestor, currRelation[currRelationIndex].concat([target]));
-      currentSelectorToEdit.columns = columns;
-
-      // let's check whether the common ancestor has actually changed.  if no, this is easy and we can just change the columns
-      // if yes, it gets more complicated
-      var origAncestor = findCommonAncestor(currRelation[currRelationIndex]);
-      var newAncestor = findCommonAncestor(currRelation[currRelationIndex].concat([target]));
-      if (origAncestor === newAncestor){
-        // we've already updated the columns, so we're ready
-        pub.newSelectorGuess(currentSelectorToEdit);
-        return;
-      }
-      // drat, the ancestor has actually changed.
-      // let's assume that all the items in our current positive nodes list will have *corresponding* parent nodes...  (based on difference in depth.  not really a good assumption, but we already assume that we have fixed xpaths to get to subcomponents, so we're already making that assumption)
-      var xpath = nodeToXPath(newAncestor);
-      var xpathlen = xpath.split("/").length;
-      var xpathO = nodeToXPath(origAncestor);
-      var xpathlenO = xpath.split("/").length;
-      var depthDiff = xpathlenO - xpathlen;
-      for (var i = 0; i < currentSelectorToEdit.positive_nodes.length; i++){
-        var ixpath = nodeToXPath(currentSelectorToEdit.positive_nodes[i]);
-        var components = ixpath.split("/").slice(0, components.length - depthDiff);
-        var newxpath = components.join("/");
-        currentSelectorToEdit.positive_nodes[i] = xPathToNodes(newxpath)[0];
-      }
-      if (currentSelectorToEdit.positive_nodes.indexOf(deepestCommonAncestor) === -1){
-        currentSelectorToEdit.positive_nodes.push(deepestCommonAncestor);
-      }
     }
 
     var newSelector = synthesizeSelector(currentSelectorToEdit.positive_nodes, currentSelectorToEdit.negative_nodes, currentSelectorToEdit.columns);
@@ -872,7 +895,7 @@ var RelationFinder = (function() { var pub = {};
 
   function unHighlightNextOrMoreButton(){
     if (nextOrMoreButtonHighlight !== null){
-      clearHighlight(nextOrMoreButtonHighlight);
+      Highlight.clearHighlight(nextOrMoreButtonHighlight);
     }
   }
 

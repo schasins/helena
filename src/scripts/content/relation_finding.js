@@ -639,18 +639,26 @@ var RelationFinder = (function() { var pub = {};
     // utilities.sendMessage("mainpanel", "content", "editRelation", {selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns}, null, null, [tab.id]);};
     currentSelectorToEdit = msg;
     document.addEventListener('click', editingClick, true);
-    pub.setRelation(currentSelectorToEdit)
-    pub.highlightSelector(currentSelectorToEdit);
-    // start with the assumption that the first row should definitely be included
-    msg.positive_nodes = [findCommonAncestor(currentSelectorToEdit.relation[0]),findCommonAncestor(currentSelectorToEdit.relation[1])];
-    msg.negative_nodes = [];
-    pub.sendSelector(currentSelectorToEdit);
-    if (msg.next_type === NextTypes.NEXTBUTTON || msg.next_type === NextTypes.MOREBUTTON){
-      highlightNextOrMoreButton(msg.next_button_selector);
-    }
+    // don't try to process the page till it's loaded!  jquery onloaded stuff will run immediately if page already loaded, once loaded else
+    var editingSetup = function(){
+      pub.setRelation(currentSelectorToEdit);
+      if (currentSelectorToEdit.relation.length < 1){
+        // ugh, but maybe the page just hasn't really finished loading, so try again in a sec
+        setTimeout(editingSetup, 1000);
+      }
+      pub.highlightSelector(currentSelectorToEdit);
+      // start with the assumption that the first row should definitely be included
+      msg.positive_nodes = [findCommonAncestor(currentSelectorToEdit.relation[0]),findCommonAncestor(currentSelectorToEdit.relation[1])];
+      msg.negative_nodes = [];
+      pub.sendSelector(currentSelectorToEdit);
+      if (msg.next_type === NextTypes.NEXTBUTTON || msg.next_type === NextTypes.MOREBUTTON){
+        highlightNextOrMoreButton(msg.next_button_selector);
+      }
 
-    // we want to highlight the currently hovered node
-    document.addEventListener('mouseenter', highlightHovered, true);
+      // we want to highlight the currently hovered node
+      document.addEventListener('mouseenter', highlightHovered, true);
+    };
+    $(editingSetup);
   };
 
   var currentHoverHighlight = null;

@@ -223,7 +223,7 @@ var Highlight = (function() { var pub = {};
     $target = $(target);
     var offset = $target.offset();
     if (!target.getBoundingClientRect){
-      console.log("can't highlight: ", target);
+      // document sometimes gets hovered, and there's no getboundingclientrect for it
       return;
     }
     var boundingBox = target.getBoundingClientRect();

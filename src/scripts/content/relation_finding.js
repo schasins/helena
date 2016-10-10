@@ -1020,7 +1020,7 @@ var RelationFinder = (function() { var pub = {};
     if (crd){ startIndex = crd.length; }
     var freshItems = relationData.slice(startIndex, relationData.length);
     currentRelationData[strMsg] = relationData;
-    utilities.sendMessage("content", "mainpanel", "freshRelationItems", {type: RelationItemsOutputs.NEWITEMS, relation: relationData});
+    utilities.sendMessage("content", "mainpanel", "freshRelationItems", {type: RelationItemsOutputs.NEWITEMS, relation: freshItems});
   };
 
 

@@ -205,6 +205,20 @@ var MiscUtilities = (function() { var pub = {};
     return event.target; // this used to be fancier.  unclear if this will always be necessary
   }
 
+  pub.depthOf = function(object) {
+    var level = 1;
+    var key;
+    for(key in object) {
+        if (!object.hasOwnProperty(key)) continue;
+
+        if(typeof object[key] == 'object'){
+            var depth = pub.depthOf(object[key]) + 1;
+            level = Math.max(depth, level);
+        }
+    }
+    return level;
+  }
+
 return pub; }());
 
 

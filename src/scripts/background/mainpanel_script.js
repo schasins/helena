@@ -281,6 +281,21 @@ var RecorderUI = (function() {
     $relDiv.append(table);
   };
 
+  pub.setColumnColors = function(colorLs, columnLs, tabid){
+    var $div = $("#new_script_content").find("#color_selector");
+    $div.html("Select the right color for the cell you want to add:   ");
+    // for now we'll only have boxes for existing colors, since don't currently support adding additional columns
+    // but eventually should offer user opportunity to select the next unused color, intro a new col.  todo
+    for (var i = 0; i < columnLs.length; i++){
+      var colorDiv = $("<div style='width: 20px; height:20px; display:inline-block; background-color:"+colorLs[i]+"'></div>");
+      (function(){
+        var col = columnLs[i].index;
+        colorDiv.click(function(){utilities.sendMessage("mainpanel", "content", "currentColumnIndex", {index: col}, null, null, [tabid]);});
+      })();
+      $div.append(colorDiv);
+    }
+  };
+
   pub.updateDisplayedScript = function(){
     var program = ReplayScript.prog;
     var scriptString = program.toString();
@@ -1722,6 +1737,7 @@ var WebAutomationLanguage = (function() {
       tabReached = true;
       this.setNewAttributes(msg.selector, msg.selector_version, msg.exclude_first, msg.columns, msg.demonstration_time_relation, msg.num_rows_in_demo, msg.next_type, msg.next_button_selector);
       RecorderUI.updateDisplayedRelation(this);
+      RecorderUI.setColumnColors(msg.colors, msg.columns, msg.tab_id);
     };
 
     this.clearRunningState = function(){

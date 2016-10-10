@@ -78,13 +78,24 @@ var RelationFinder = (function() { var pub = {};
       var candidate_xpath = XPathList.xPathToXPathList(nodeToXPath(candidateRow));
       var null_subitems = 0;
       for (var j = 0; j < suffixes.length; j++){
-        var xpath = candidate_xpath.concat(suffixes[j]);
-        var xpath_string = XPathList.xPathToString(xpath);
-        var nodes = xPathToNodes(xpath_string);
-        if (nodes.length > 0){
-          candidate_subitems.push(nodes[0]);
+        // note that suffixes[j] will be depth 2 if only one suffix available, depth 3 if list of suffixes available; todo: clean that up
+        var suffixLs = suffixes[j];
+        if (MiscUtilities.depthOf(suffixLs) === 2){
+          suffixLs = [suffixLs];
         }
-        else{
+        var foundSubItem = false;
+        for (var k = 0; k < suffixLs.length; k++){
+          var xpath = candidate_xpath.concat(suffixLs[k]);
+          var xpath_string = XPathList.xPathToString(xpath);
+          var nodes = xPathToNodes(xpath_string);
+          if (nodes.length > 0){
+            candidate_subitems.push(nodes[0]);
+            foundSubItem = true;
+            break;
+          }
+        }
+        if (!foundSubItem){
+          // uh oh, none of the suffixes available to us were able to actually find a node
           null_subitems += 1;
           candidate_subitems.push(null);
         }
@@ -247,14 +258,18 @@ var RelationFinder = (function() { var pub = {};
     return null;
   }
 
+  function suffixFromAncestor(ancestor, descendant){
+    var axpl = XPathList.xPathToXPathList(nodeToXPath(ancestor));
+    var dxpl = XPathList.xPathToXPathList(nodeToXPath(descendant));
+    var suffix = dxpl.slice(axpl.length, dxpl.length);
+    return suffix;
+  }
+
   function columnsFromNodeAndSubnodes(node, subnodes){
-    var nodexpl = XPathList.xPathToXPathList(nodeToXPath(node));
-    var nodexpllength = nodexpl.length;
     columns = [];
     for (var i = 0; i < subnodes.length; i++){
       var xpath = nodeToXPath(subnodes[i]);
-      var subnodexpl = XPathList.xPathToXPathList(xpath);
-      var suffix = subnodexpl.slice(nodexpllength, subnodexpl.length);
+      var suffix = suffixFromAncestor(node, subnodes[i]);
       columns.push({xpath: xpath, suffix: suffix, id: null});
     }
     return columns;
@@ -645,6 +660,7 @@ var RelationFinder = (function() { var pub = {};
       if (currentSelectorToEdit.relation.length < 1){
         // ugh, but maybe the page just hasn't really finished loading, so try again in a sec
         setTimeout(editingSetup, 1000);
+        return;
       }
       pub.highlightSelector(currentSelectorToEdit);
       // start with the assumption that the first row should definitely be included
@@ -660,6 +676,10 @@ var RelationFinder = (function() { var pub = {};
     };
     $(editingSetup);
   };
+
+  pub.setEditRelationIndex = function(i){
+    currentSelectorToEdit.editingClickColumnIndex = i;
+  }
 
   var currentHoverHighlight = null;
   function highlightHovered(event){
@@ -686,6 +706,7 @@ var RelationFinder = (function() { var pub = {};
     var relationData = _.map(relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});}); // mainpanel rep version
     selectorObj.demonstration_time_relation = relationData;
     selectorObj.relation = null; // don't send the relation
+    selectorObj.colors = colors;
     utilities.sendMessage("content", "mainpanel", "editRelation", selectorObj);
     selectorObj.relation = relation; // restore the relation
   };
@@ -810,8 +831,31 @@ var RelationFinder = (function() { var pub = {};
       }
       else{
         // this one's the easy case!  the click is telling us to add a row, rather than to add a cell to an existing row
+        // or it may be telling us to add a cell in an existing row to an existing column, which also should not require us to change
+        // the ancestor node.  if it does require changing the ancestor node,then we will run into trouble bc won't find appropriate ancestor
+        // todo: better structure available here?  maybe merge this and the above?
         var appropriateAncestor = findAncestorLikeSpec(currentSelectorToEdit.positive_nodes[0], target);
-        currentSelectorToEdit.positive_nodes.push(appropriateAncestor);
+        var currColumnObj = currentSelectorToEdit.columns[currentSelectorToEdit.editingClickColumnIndex];
+        var currSuffixes = currColumnObj.suffix;
+        if (MiscUtilities.depthOf(currSuffixes) === 2){
+          // when we have only one suffix, we don't store it in a list, but the below is cleaner if we just have a list; todo: clean up
+          currSuffixes = [currSuffixes];
+        }
+
+        // is this suffix already in our suffixes?  if yes, we can just add the ancestor/row node, don't need to mess with columns
+        var newSuffix = suffixFromAncestor(appropriateAncestor, target);
+        var newSuffixAlreadyPresent = _.reduce(currSuffixes, function(acc, currSuffix){return acc || _.isEqual(currSuffix, newSuffix);}, false);
+        if (!newSuffixAlreadyPresent){
+          // ok it's not in our current suffixes, so we'll have to make the new suffixes list
+          currSuffixes.push(newSuffix);     
+          currColumnObj.suffix = currSuffixes;     
+        }
+    
+        // is this ancestor node already in our positive_nodes?  if no, make new selector.  if yes, we're already set
+        if (currentSelectorToEdit.positive_nodes.indexOf(appropriateAncestor) === -1){
+          // this ancestor node (row node) is new to us, better add it to the positive examples
+          currentSelectorToEdit.positive_nodes.push(appropriateAncestor);
+        }
       }
 
     }

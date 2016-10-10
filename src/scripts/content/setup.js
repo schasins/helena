@@ -20,6 +20,7 @@ utilities.listenForMessage("mainpanel", "content", "currentRecordingWindow", fun
 utilities.listenForMessage("mainpanel", "content", "backButton", function(){history.back();});
 utilities.listenForMessage("mainpanel", "content", "pageStats", function(){ utilities.sendMessage("content", "mainpanel", "pageStats", {"numNodes": $('*').length});});
 utilities.listenForMessage("mainpanel", "content", "runNextInteraction", function(msg){RelationFinder.runNextInteraction(msg);});
+utilities.listenForMessage("mainpanel", "content", "currentColumnIndex", function(msg){RelationFinder.setEditRelationIndex(msg.index);});
 
 utilities.sendMessage("content", "background", "requestTabID", {});
 utilities.sendMessage("content", "mainpanel", "requestCurrentRecordingWindow", {});

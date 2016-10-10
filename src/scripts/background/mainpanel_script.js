@@ -266,7 +266,8 @@ var RecorderUI = (function() {
         var xpath = columns[j].xpath;
         var columnTitle = $("<input></input>");
         columnTitle.val(columns[j].name);
-        columnTitle.change(function(){console.log(columnTitle.val(), xpath); relationObj.setColumnName(columns[j], columnTitle.val()); RecorderUI.updateDisplayedScript();});
+        var closJ = j;
+        columnTitle.change(function(){console.log(columnTitle.val(), xpath); relationObj.setColumnName(columns[closJ], columnTitle.val()); RecorderUI.updateDisplayedScript();});
         var td = $("<td></td>");
         td.append(columnTitle);
         tr.append(td);

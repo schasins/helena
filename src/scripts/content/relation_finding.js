@@ -969,7 +969,7 @@ var RelationFinder = (function() { var pub = {};
     var next_button_type = msg.next_type;
 
     if (next_button_type === NextTypes.SCROLLFORMORE){
-      var get_more_items = function(){window.scrollBy(0,1000);};
+      window.scrollBy(0,10000);
     }
     else if (next_button_type === NextTypes.MOREBUTTON || next_button_type === NextTypes.NEXTBUTTON){
       console.log("msg.next_button_selector", msg.next_button_selector);

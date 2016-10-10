@@ -41,6 +41,9 @@ var OutputHandler = (function() {
     };
 
     this.sendDatasetSlice = function(){
+      if (this.currentDatasetSlice.length === 0){
+        return; // no need to send/save rows if we have no rows
+      }
     	this.sentDatasetSlice = this.currentDatasetSlice;
     	this.currentDatasetSlice = {};
       $.post('http://kaofang.cs.berkeley.edu:8080/datasetslice', {id: this.id, values: this.sentDatasetSlice}, function(resp){/* todo: add better error handling eventually*/ return;});

@@ -80,7 +80,7 @@ var RelationFinder = (function() { var pub = {};
       for (var j = 0; j < suffixes.length; j++){
         // note that suffixes[j] will be depth 2 if only one suffix available, depth 3 if list of suffixes available; todo: clean that up
         var suffixLs = suffixes[j];
-        if (MiscUtilities.depthOf(suffixLs) === 2){
+        if (MiscUtilities.depthOf(suffixLs) < 3){
           suffixLs = [suffixLs];
         }
         var foundSubItem = false;
@@ -842,7 +842,7 @@ var RelationFinder = (function() { var pub = {};
         var appropriateAncestor = findAncestorLikeSpec(currentSelectorToEdit.positive_nodes[0], target);
         var currColumnObj = currentSelectorToEdit.columns[currentSelectorToEdit.editingClickColumnIndex];
         var currSuffixes = currColumnObj.suffix;
-        if (MiscUtilities.depthOf(currSuffixes) === 2){
+        if (MiscUtilities.depthOf(currSuffixes) < 3){
           // when we have only one suffix, we don't store it in a list, but the below is cleaner if we just have a list; todo: clean up
           currSuffixes = [currSuffixes];
         }

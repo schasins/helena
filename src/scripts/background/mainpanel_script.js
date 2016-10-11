@@ -2465,7 +2465,10 @@ var WebAutomationLanguage = (function() {
           // we're making that assumption again about just one outputpagevar.  also that everything is happening in one tab.  must come back and revisit this
           var currPage = statement.outputPageVars[0];
           var backPage = statement.pageVar;
-          backStatements.push(new WebAutomationLanguage.BackStatement(currPage, backPage));
+          if (currPage.originalTabId() === backPage.originalTabId()){
+            // only need to add back button if they're actually in the same tab (may be in diff tabs if CTRL+click, or popup, whatever)
+            backStatements.push(new WebAutomationLanguage.BackStatement(currPage, backPage));
+          }
         }
       }
       backStatements.reverse(); // must do the back button in reverse order

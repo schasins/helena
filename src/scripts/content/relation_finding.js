@@ -487,7 +487,12 @@ var RelationFinder = (function() { var pub = {};
     selectorData.numMatchedXpaths = numMatchedXpaths(targetXpaths, rel[0]);
     selectorData.numRows = rel.length;
     selectorData.numRowsInDemo = selectorData.numRows;
-    selectorData.numColumns = rel[0].length;
+    if (rel.length < 1){
+      selectorData.numColumns = 0;
+    }
+    else{
+      selectorData.numColumns = rel[0].length;
+    }
   }
 
   function recordComparisonAttributesServerSelector(selectorData, targetXpaths){

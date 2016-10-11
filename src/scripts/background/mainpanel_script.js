@@ -2402,13 +2402,13 @@ var WebAutomationLanguage = (function() {
       // ok we hit the end of the loop without returning after finding a new page to work on.  time to close tabs
       tabsToCloseAfter = _.uniq(tabsToCloseAfter);
       
-      /*
+      
       for (var i = 0; i < tabsToCloseAfter.length; i++){
         chrome.tabs.remove(tabsToCloseAfter[i], function(){
           // do we need to do anything?
         }); 
       }
-      */
+      
 
     };
 

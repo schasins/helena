@@ -80,7 +80,7 @@ var RelationFinder = (function() { var pub = {};
       for (var j = 0; j < suffixes.length; j++){
         // note that suffixes[j] will be depth 2 if only one suffix available, depth 3 if list of suffixes available; todo: clean that up
         var suffixLs = suffixes[j];
-        if (MiscUtilities.depthOf(suffixLs) === 2){
+        if (MiscUtilities.depthOf(suffixLs) < 3){ // <3 rather than === 2 because we use empty suffix for single-col datasets
           suffixLs = [suffixLs];
         }
         var foundSubItem = false;
@@ -529,6 +529,7 @@ var RelationFinder = (function() { var pub = {};
     return alternativeRel;
   }
 
+  var processedCount = 0;
   var processedLikelyRelationRequest = false;
   pub.likelyRelation = function(msg){
     if (processedLikelyRelationRequest){
@@ -609,6 +610,16 @@ var RelationFinder = (function() { var pub = {};
     newMsg.selector_version = 1; // right now they're all 1.  someday may want to be able to add new versions of selectors that are processed differently
     newMsg.columns = currBestSelector.columns;
     newMsg.first_page_relation = currBestSelector.relation;
+
+    if (currBestSelector.relation.length < 1){
+      processedCount += 1;
+      if (processedCount < 10){
+        // ok, looks like we don't actually have any data yet.  might be because data hasn't fully loaded on page yet
+        // the mainpanel will keep asking for likelyrelations, so let's wait a while, see if the next time works; try 10 times
+        // todo: not sure this is where we want to deal with this?
+        return;
+      }
+    }
 
     utilities.sendMessage("content", "mainpanel", "likelyRelation", newMsg);
     processedLikelyRelationRequest = true;

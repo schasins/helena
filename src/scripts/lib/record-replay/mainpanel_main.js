@@ -677,11 +677,13 @@ var Replay = (function ReplayClosure() {
      *     default will use whatever strategy is set in the parameters.
     */
     setNextTimeout: function _setNextTimeout(time) {
+      console.log("setNextTimeout", time, this);
       if (typeof time == 'undefined')
         time = this.getNextTime();
 
       var replay = this;
       this.callbackHandle = setTimeout(function() {
+        console.log("chose time: ", time);
         replay.guts();
       }, time);
     },
@@ -915,7 +917,7 @@ var Replay = (function ReplayClosure() {
         this.currentPortMappingFailures += 1;
         if (this.currentPortMappingFailures >= 10){
           // ok, this is getting ridiculous. seems like the right port isn't arriving...
-          this.setNextTimeout(999999999999);
+          this.setNextTimeout(60000);
           console.log("We're going to slow the port checking waaaaaaay down, since this doesn't seem to be working.");
         }
         if (this.currentPortMappingFailures === 10){ // === rather than > because we don't want to call handler a bunch of times, only once
@@ -951,6 +953,7 @@ var Replay = (function ReplayClosure() {
         replayLog.log('assume port is top level page');
         var topFrame = portInfo.top;
         if (topFrame) {
+          console.log("top level page for findportintab");
           if (matchUrls(frame.URL, topFrame.URL))
             return ports.getPort(topFrame.portId);
         }

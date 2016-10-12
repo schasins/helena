@@ -190,7 +190,7 @@ var TimeoutStrategy = {
       brokenPortStrategy: BrokenPortStrategy.RETRY,
       atomic: true,
       cascadeCheck: true,
-      urlSimilarity: 0.8,
+      urlSimilarity: 0.2,
       defaultUser: false
     },
     capture: {

@@ -1256,6 +1256,29 @@ var WebAutomationLanguage = (function() {
     };
   };
 
+  pub.ClosePageStatement = function(pageVarCurr){
+    this.pageVarCurr = pageVarCurr;
+
+    this.toStringLines = function(){
+      return [this.pageVarCurr.toString() + ".close()" ];
+    };
+
+    this.run = function(programObj, rbbcontinuation){
+      console.log("run close statement");
+
+      chrome.tabs.remove(this.pageVarCurr.currentTabId(), function(){
+          rbbcontinuation();
+        }); 
+    };
+
+    this.parameterizeForRelation = function(relation){
+      return [];
+    };
+    this.unParameterizeForRelation = function(relation){
+      return;
+    };
+  };
+
   pub.ContinueStatement = function(){
     this.toStringLines = function(){
       return ["continue"];
@@ -2099,7 +2122,7 @@ var WebAutomationLanguage = (function() {
         var basicBlockStatements = [];
         var nextBlockStartIndex = loopyStatements.length;
         for (var i = 0; i < loopyStatements.length; i++){
-          if (loopyStatements[i] instanceof WebAutomationLanguage.LoopStatement || loopyStatements[i] instanceof WebAutomationLanguage.BackStatement){
+          if (!ringerBased(loopyStatements[i])){ // todo: is this the right condition?
             nextBlockStartIndex = i;
             break;
           }
@@ -2402,13 +2425,13 @@ var WebAutomationLanguage = (function() {
       // ok we hit the end of the loop without returning after finding a new page to work on.  time to close tabs
       tabsToCloseAfter = _.uniq(tabsToCloseAfter);
       
-      /*
+      
       for (var i = 0; i < tabsToCloseAfter.length; i++){
         chrome.tabs.remove(tabsToCloseAfter[i], function(){
           // do we need to do anything?
         }); 
       }
-      */
+      
 
     };
 
@@ -2468,6 +2491,11 @@ var WebAutomationLanguage = (function() {
           if (currPage.originalTabId() === backPage.originalTabId()){
             // only need to add back button if they're actually in the same tab (may be in diff tabs if CTRL+click, or popup, whatever)
             backStatements.push(new WebAutomationLanguage.BackStatement(currPage, backPage));
+          }
+          else{
+            // we're going back to messing with an earlier page, so should close the current page
+            // insert a statement that will do that
+            backStatements.push(new WebAutomationLanguage.ClosePageStatement(currPage));
           }
         }
       }

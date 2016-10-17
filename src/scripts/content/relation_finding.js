@@ -703,7 +703,7 @@ var RelationFinder = (function() { var pub = {};
   };
 
   pub.highlightSelector = function(selectorObj){
-    pub.highlightRelation(selectorObj.relation, true, true); // we want to allow clicks on the highlights (see editingClick)
+    return pub.highlightRelation(selectorObj.relation, true, true); // we want to allow clicks on the highlights (see editingClick)
   };
 
   pub.sendSelector = function(selectorObj){
@@ -719,6 +719,9 @@ var RelationFinder = (function() { var pub = {};
   var currentSelectorHighlightNodes = [];
   pub.newSelectorGuess = function(selectorObj){
     pub.setRelation(selectorObj);
+    for (var i = 0; i < currentSelectorHighlightNodes.length; i++){
+      Highlight.clearHighlight(currentSelectorHighlightNodes[i]);
+    }
     currentSelectorHighlightNodes = pub.highlightSelector(selectorObj);
     pub.sendSelector(selectorObj);
   }

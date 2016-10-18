@@ -678,7 +678,23 @@ var RelationFinder = (function() { var pub = {};
 
       // we want to highlight the currently hovered node
       document.addEventListener('mouseenter', highlightHovered, true);
+
+      // also, if we have a selector highlighted, and the user scrolls, we're going to need to update...
+      var didScroll = false;
+      $("*").scroll(function() {
+        didScroll = true;
+      });
+
+      setInterval(function() {
+        if ( didScroll ) {
+          didScroll = false;
+          // Ok, we're ready to redo the relation highlighting with new page situation
+          console.log("scroll updating");
+          pub.newSelectorGuess(currentSelectorToEdit);
+        }
+        }, 250);
     };
+
     $(editingSetup);
   };
 

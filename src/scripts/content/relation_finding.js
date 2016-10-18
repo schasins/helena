@@ -993,7 +993,24 @@ var RelationFinder = (function() { var pub = {};
     var next_button_type = msg.next_type;
 
     if (next_button_type === NextTypes.SCROLLFORMORE){
-      window.scrollTo(0,document.body.scrollHeight);
+      var crd = currentRelationData[sid];
+      var knowTheLastElement = false;
+      // let's try scrolling to last element if we know it
+      if (crd && crd.length > 0 && crd[crd.length - 1] && crd[crd.length - 1].length > 0){
+        var lastRowReps = crd[crd.length - 1];
+        var lastElementXpath = lastRowReps[lastRowReps.length - 1].xpath;
+        var lastElementNodes = xPathToNodes(lastElementXpath);
+        if (lastElementNodes.length > 0){
+          var lastElement = lastElementNodes[0];
+          lastElement.scrollIntoView();
+          knowTheLastElement = true;
+        }
+      }
+      // but if we don't know it, just try scrolling window to the bottom
+      // sadly, this doesn't work for everything.  (for instance, if have an overlay with a relation, the overlay may not get scrolled w window scroll)
+      if (!knowTheLastElement){
+        window.scrollTo(0, document.body.scrollHeight);
+      }
     }
     else if (next_button_type === NextTypes.MOREBUTTON || next_button_type === NextTypes.NEXTBUTTON){
       console.log("msg.next_button_selector", msg.next_button_selector);

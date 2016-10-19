@@ -1258,6 +1258,7 @@ var WebAutomationLanguage = (function() {
 
   pub.ClosePageStatement = function(pageVarCurr){
     this.pageVarCurr = pageVarCurr;
+    var that = this;
 
     this.toStringLines = function(){
       return [this.pageVarCurr.toString() + ".close()" ];
@@ -1267,6 +1268,7 @@ var WebAutomationLanguage = (function() {
       console.log("run close statement");
 
       chrome.tabs.remove(this.pageVarCurr.currentTabId(), function(){
+          that.pageVarCurr.clearCurrentTabId();
           rbbcontinuation();
         }); 
     };
@@ -1863,6 +1865,10 @@ var WebAutomationLanguage = (function() {
       }
     };
 
+    this.clearCurrentTabId = function(){
+      this.tabId = undefined;
+    };
+
     this.nonOutlierProcessing = function(pageData, continuation){
       // wasn't an outlier, so let's actually update the pageStats
       this.updatePageStats(pageData);
@@ -1984,9 +1990,11 @@ var WebAutomationLanguage = (function() {
     }
 
     function updatePageVars(recordTimeTrace, replayTimeTrace, continuation){
+      // console.log("updatePageVars", recordTimeTrace, replayTimeTrace);
       var recordTimeCompletedToReplayTimeCompleted = alignRecordTimeAndReplayTimeCompletedEvents(recordTimeTrace, replayTimeTrace);
       var recEvents = recordTimeCompletedToReplayTimeCompleted[0];
       var repEvents = recordTimeCompletedToReplayTimeCompleted[1];
+      // console.log("recEvents:", recEvents, "repEvents", repEvents);
       updatePageVarsHelper(recEvents, repEvents, 0, continuation);
     }
 
@@ -1999,6 +2007,7 @@ var WebAutomationLanguage = (function() {
         if (pageVar === undefined){
           updatePageVarsHelper(recEvents, repEvents, i + 1, continuation);
         }
+        // console.log("Setting pagevar current tab id to:", repEvents[i].data.tabId);
         pageVar.setCurrentTabId(repEvents[i].data.tabId, function(){updatePageVarsHelper(recEvents, repEvents, i + 1, continuation);});
       }
     }

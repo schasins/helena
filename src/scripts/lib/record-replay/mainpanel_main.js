@@ -678,6 +678,9 @@ var Replay = (function ReplayClosure() {
     */
     setNextTimeout: function _setNextTimeout(time) {
       console.log("setNextTimeout", time, this);
+      if (this.callbackHandle){
+        clearTimeout(this.callbackHandle); // we'll always choose the next time to run based on the most recent setNextTimeout, so clear out whatever might already be there 
+      }
       if (typeof time == 'undefined')
         time = this.getNextTime();
 
@@ -906,8 +909,8 @@ var Replay = (function ReplayClosure() {
             }
           }
         }
+      } // end the kind of top-level else
 
-      }
       if (!replayPort){
         console.log(v, portMapping, tabMapping);
         console.log("Freak out.  We don't know what port to use to replay this event.");

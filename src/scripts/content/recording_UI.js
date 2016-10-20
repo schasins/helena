@@ -32,19 +32,43 @@ var RecordingHandlers = (function() { var pub = {};
     }
   }
 
-  pub.updateScraping = function(event){
-    pub.checkScrapingOn(event);
-    pub.checkScrapingOff(event);
-  }
+  // scraping is happening if ctrl and c are held down
+  ctrlDown = false;
+  cDown = false;
 
-  pub.checkScrapingOn = function(event){
-    if (!currentlyScraping() && Scraping.scrapingCriteria(event)){ 
+  pub.updateScraping = function(event){
+    pub.updateScrapingTrackingVars(event);
+    pub.checkScrapingOn();
+    pub.checkScrapingOff();
+  };
+
+  pub.updateScrapingTrackingVars = function(event){
+    if (event.ctrlKey){
+      ctrlDown = true;
+    }
+    else{
+      ctrlDown = false;
+    }
+
+    if (event.keyCode === 67){ // c
+      if (event.type === "keydown"){
+        cDown = true;
+      }
+      else if (event.type === "keyup"){
+        cDown = false;
+      }
+    }
+
+  };
+
+  pub.checkScrapingOn = function(){
+    if (!currentlyScraping() && (ctrlDown && cDown)){
       Scraping.startProcessingScrape();
     }
-  }
+  };
 
-  pub.checkScrapingOff = function(event){
-    if (currentlyScraping() && currentlyRecording() && !(Scraping.scrapingCriteria(event))){ // this is for keyup, so user is exiting the scraping mode
+  pub.checkScrapingOff = function(){
+    if (currentlyScraping() && currentlyRecording() && !(ctrlDown && cDown)){
       Scraping.stopProcessingScrape();
     }
   }
@@ -52,8 +76,8 @@ return pub;}());
 
 document.addEventListener('mouseover', RecordingHandlers.mouseoverHandler, true);
 document.addEventListener('mouseout', RecordingHandlers.mouseoutHandler, true);
-document.addEventListener('keydown', RecordingHandlers.checkScrapingOn, true);
-document.addEventListener('keyup', RecordingHandlers.checkScrapingOff, true);
+document.addEventListener('keydown', RecordingHandlers.updateScraping, true);
+document.addEventListener('keyup', RecordingHandlers.updateScraping, true);
 
 /**********************************************************************
  * For getting current status
@@ -78,7 +102,7 @@ var Tooltip = (function() { var pub = {};
     if(tooltipColor === undefined) { tooltipColor = tooltipColorDefault;}
     if(tooltipBorderColor === undefined) { tooltipBorderColor = tooltipBorderColorDefault;}
     var $node = $(node);
-    var nodeText = "SHIFT + ALT + click to scrape:<br>"+NodeRep.nodeToText(node)+"<br>SHIFT + ALT + CTRL + click to scrape:<br>"+NodeRep.nodeToLink(node);
+    var nodeText = MiscUtilities.scrapeConditionString+" to scrape:<br>"+NodeRep.nodeToText(node)+"<br>"+MiscUtilities.scrapeConditionLinkString+" to scrape:<br>"+NodeRep.nodeToLink(node);
     var offset = $node.offset();
     var boundingBox = node.getBoundingClientRect();
     var newDiv = $('<div>'+nodeText+'<div/>');
@@ -110,9 +134,9 @@ var Scraping = (function() { var pub = {};
 
   // note that this line must run after the r+r content script runs (to produce the additional_recording_handlers object)
   additional_recording_handlers.scrape = function(node, eventMessage){
-    if (eventMessage.data.type !== "click") {return true;} //only actually scrape on clicks, but still want to record that we're in scraping mode
+    if (eventMessage.data.type !== "click") {return false;} // false says to drop the event. if we're in scrape mode but it's not a click, we don't care about it
     var data = NodeRep.nodeToMainpanelNodeRepresentation(node,false);
-    data.linkScraping = eventMessage.data.ctrlKey || eventMessage.data.metaKey; // convention is CTRL means we want to scrape the link, not the text 
+    data.linkScraping = eventMessage.data.altKey || eventMessage.data.metaKey; // convention is ALT means we want to scrape the link, not the text 
     utilities.sendMessage("content", "mainpanel", "scrapedData", data);
     return data;
   };

@@ -172,6 +172,9 @@ return pub; }());
 
 var MiscUtilities = (function() { var pub = {};
 
+  pub.scrapeConditionString = "CTRL + C + click";
+  pub.scrapeConditionLinkString = "CTRL + C + ALT + click";
+
   pub.levenshteinDistance = function(a, b) {
     if(a.length === 0) return b.length; 
     if(b.length === 0) return a.length; 

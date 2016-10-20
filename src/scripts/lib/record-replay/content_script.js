@@ -229,6 +229,12 @@ function recordEvent(eventData) {
     }
 	  var handler = additional_recording_handlers[key];
 	  var ret_val = handler(target, eventMessage);
+    if (ret_val === false){
+      // additional recording handlers are allowed to throw out events by returning false
+      // this may not be a good design, so something to consider in future
+      // also, is false really the value that should do this?
+      return; // the message including the eventMessage will never be sent, so this event will never be recorded
+    }
     if (ret_val !== null){
       eventMessage.additional[key] = ret_val;
     }

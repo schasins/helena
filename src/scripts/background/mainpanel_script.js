@@ -1809,8 +1809,10 @@ var WebAutomationLanguage = (function() {
     var q3 = sortedList.get(Math.ceil((sortedList.length() * (3 / 4))));
     var iqr = q3 - q1;
 
-    var minValue = q1 - iqr * 1.5;
-    var maxValue = q3 + iqr * 1.5;
+    //var minValue = q1 - iqr * 1.5;
+    //var maxValue = q3 + iqr * 1.5;
+    var minValue = q1 - iqr * 3;
+    var maxValue = q3 + iqr * 3;
     console.log("**************");
     console.log(sortedList.array);
     console.log(q1, q3, iqr);

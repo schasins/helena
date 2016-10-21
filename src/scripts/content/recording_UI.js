@@ -34,7 +34,6 @@ var RecordingHandlers = (function() { var pub = {};
 
   // scraping is happening if ctrl and c are held down
   ctrlDown = false;
-  cDown = false;
   altDown = false;
 
   pub.updateScraping = function(event){
@@ -57,16 +56,6 @@ var RecordingHandlers = (function() { var pub = {};
     else{
       altDown = false;
     }
-
-    if (event.keyCode === 66){ // b
-      if (event.type === "keydown"){
-        cDown = true;
-      }
-      else if (event.type === "keyup"){
-        cDown = false;
-      }
-    }
-
   };
 
   pub.checkScrapingOn = function(){
@@ -144,17 +133,21 @@ var Scraping = (function() { var pub = {};
   additional_recording_handlers.scrape = function(node, eventMessage){
     if (eventMessage.data.type !== "click") {return true;} // not a click, so don't need to record info, but do want to note that it happened during a scrape
     var data = NodeRep.nodeToMainpanelNodeRepresentation(node,false);
-    data.linkScraping = eventMessage.data.altKey || eventMessage.data.metaKey; // convention is ALT means we want to scrape the link, not the text 
+    data.linkScraping = eventMessage.data.shiftKey || eventMessage.data.metaKey; // convention is ALT means we want to scrape the link, not the text 
     utilities.sendMessage("content", "mainpanel", "scrapedData", data);
     return data;
   };
 
   additional_recording_filters.scrape = function(eventData){
+    return false;
+
+    /*
     if (eventData.keyCode === 66 && (eventData.type === "keypress" || eventData.type === "keydown")){
       // we're going to see a ton of these because holding c for scraping mode makes them.  we're going to ignore, although this could cause problems for some interactions
       return true;
     }
     return false;
+    */
     /*
     if (eventData.type === "click"){
       return false; // this is a scraping event, so want to keep it; don't filter

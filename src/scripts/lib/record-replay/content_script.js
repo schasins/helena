@@ -232,6 +232,13 @@ function recordEvent(eventData) {
     }
   }
 
+  // now we need to handle the timeStamp, which is milliseconds from epoch in old Chrome, but milliseconds from start of current page load in new Chrome
+  if (data.timeStamp < 307584000000){
+    // if you've been waiting on this page for 10 years, you're out of luck
+    // we're assuming this is new Chrome's time since page load
+    data.timeStamp = data.timeStamp + performance.timing.navigationStart;
+  }
+
   /* handle any event recording the addons need */
   for (var i = 0, ii = addonPostRecord.length; i < ii; ++i) {
     addonPostRecord[i](eventData, eventMessage);

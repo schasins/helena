@@ -35,6 +35,7 @@ var RecordingHandlers = (function() { var pub = {};
   // scraping is happening if ctrl and c are held down
   ctrlDown = false;
   cDown = false;
+  altDown = false;
 
   pub.updateScraping = function(event){
     pub.updateScrapingTrackingVars(event);
@@ -50,7 +51,14 @@ var RecordingHandlers = (function() { var pub = {};
       ctrlDown = false;
     }
 
-    if (event.keyCode === 67){ // c
+    if (event.altKey){
+      altDown = true;
+    }
+    else{
+      altDown = false;
+    }
+
+    if (event.keyCode === 66){ // b
       if (event.type === "keydown"){
         cDown = true;
       }
@@ -62,13 +70,13 @@ var RecordingHandlers = (function() { var pub = {};
   };
 
   pub.checkScrapingOn = function(){
-    if (!currentlyScraping() && (ctrlDown && cDown)){
+    if (!currentlyScraping() && (ctrlDown && altDown)){
       Scraping.startProcessingScrape();
     }
   };
 
   pub.checkScrapingOff = function(){
-    if (currentlyScraping() && currentlyRecording() && !(ctrlDown && cDown)){
+    if (currentlyScraping() && currentlyRecording() && !(ctrlDown && altDown)){
       Scraping.stopProcessingScrape();
     }
   }
@@ -142,6 +150,12 @@ var Scraping = (function() { var pub = {};
   };
 
   additional_recording_filters.scrape = function(eventData){
+    if (eventData.keyCode === 66 && (eventData.type === "keypress" || eventData.type === "keydown")){
+      // we're going to see a ton of these because holding c for scraping mode makes them.  we're going to ignore, although this could cause problems for some interactions
+      return true;
+    }
+    return false;
+    /*
     if (eventData.type === "click"){
       return false; // this is a scraping event, so want to keep it; don't filter
     }
@@ -152,6 +166,7 @@ var Scraping = (function() { var pub = {};
       return false; // keyup events can end our scraping mode, so keep those
     }
     return true; // filter everything else
+    */
     /*
     else if (eventData.keyCode === "c" && eventData.type !== "keyup") { // c is the special case because this is the one we're pressing down so we'll get a ton if we're not careful
       return true; // true says to drop the event.  c is the one we want to get rid of, unless it's 

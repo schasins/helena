@@ -17,11 +17,15 @@ var pageEventId = 0; /* counter to give each event on page a unique id */
 var lastRecordEvent; /* last event recorded */
 var lastRecordSnapshot; /* snapshot (before and after) for last event */
 var curRecordSnapshot; /* snapshot (before and after) the current event */
+
 var additional_recording_handlers = {}; // so that other tools using an interface to r+r can put data in event messages
 var additional_recording_handlers_on = {};
 
 additional_recording_handlers_on.___additionalData___ = true;
 additional_recording_handlers.___additionalData___ = function(){return {};}; // the only default additional handler, for copying data from record event objects to replay event objects
+
+var additional_recording_filters_on = {}; // so that other tools using an interface to r+r can process event even before most processing done
+var additional_recording_filters = {};
 
 /* Replay variables */
 var lastReplayEvent; /* last event replayed */
@@ -109,6 +113,16 @@ function recordEvent(eventData) {
   /* check if we are stopped, then just return */
   if (recording == RecordState.STOPPED)
     return true;
+
+  for (var key in additional_recording_filters_on){
+    if (!additional_recording_filters_on[key] || !additional_recording_filters[key]){ // on may be false, or may lack a handler if user attached something silly
+      continue;
+    }
+    var filterIt = additional_recording_filters[key](eventData);
+    if (filterIt){
+      return; // the message including the eventMessage will never be sent, so this event will never be recorded
+    }
+  }
 
   var type = eventData.type;
   var dispatchType = getEventType(type);

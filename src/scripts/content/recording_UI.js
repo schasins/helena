@@ -141,6 +141,10 @@ var Scraping = (function() { var pub = {};
     return data;
   };
 
+  additional_recording_filters.scrape = function(eventData){
+    if (eventData.type !== "click") {return true;} // true says to drop the event.  it's not a click and we're in scrape mode, so we should drop
+  }
+
   // must keep track of current hovered node so we can highlight it when the user enters scraping mode
   var mostRecentMousemoveTarget = null;
   document.addEventListener('mousemove', updateMousemoveTarget, true);
@@ -152,11 +156,13 @@ var Scraping = (function() { var pub = {};
   var currentHighlightNode = null
   pub.startProcessingScrape = function(){
     additional_recording_handlers_on.scrape = true;
+    additional_recording_filters_on.scrape = true;
     currentHighlightNode = Highlight.highlightNode(mostRecentMousemoveTarget, "#E04343", true, false); // want highlight shown now, want clicks to fall through
   }
 
   pub.stopProcessingScrape = function(){
     additional_recording_handlers_on.scrape = false;
+    additional_recording_filters_on.scrape = false;
     Highlight.clearHighlight(currentHighlightNode);
   }
 

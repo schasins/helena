@@ -293,6 +293,10 @@ var Record = (function RecordClosure() {
       } else {
         var waitTime = time - lastTime;
       }
+      if (waitTime < 0 || waitTime > 10000){
+        console.log("waitTime", waitTime);
+        console.log(e, this.events[this.events.length - 1]);
+      }
       if (!('timing' in e))
         e.timing = {};
       e.timing.waitTime = waitTime;

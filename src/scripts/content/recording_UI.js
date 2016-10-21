@@ -134,7 +134,7 @@ var Scraping = (function() { var pub = {};
 
   // note that this line must run after the r+r content script runs (to produce the additional_recording_handlers object)
   additional_recording_handlers.scrape = function(node, eventMessage){
-    if (eventMessage.data.type !== "click") {return false;} // false says to drop the event. if we're in scrape mode but it's not a click, we don't care about it
+    if (eventMessage.data.type !== "click") {return true;} // not a click, so don't need to record info, but do want to note that it happened during a scrape
     var data = NodeRep.nodeToMainpanelNodeRepresentation(node,false);
     data.linkScraping = eventMessage.data.altKey || eventMessage.data.metaKey; // convention is ALT means we want to scrape the link, not the text 
     utilities.sendMessage("content", "mainpanel", "scrapedData", data);
@@ -142,7 +142,22 @@ var Scraping = (function() { var pub = {};
   };
 
   additional_recording_filters.scrape = function(eventData){
-    if (eventData.type !== "click") {return true;} // true says to drop the event.  it's not a click and we're in scrape mode, so we should drop
+    if (eventData.type === "click"){
+      return false; // this is a scraping event, so want to keep it; don't filter
+    }
+    else if (eventData.keyCode === 18){
+      return false; // 18 is alt.  need to listen to this so we can have that turned on for link scraping
+    } 
+    else if (eventData.type === "keyup"){
+      return false; // keyup events can end our scraping mode, so keep those
+    }
+    return true; // filter everything else
+    /*
+    else if (eventData.keyCode === "c" && eventData.type !== "keyup") { // c is the special case because this is the one we're pressing down so we'll get a ton if we're not careful
+      return true; // true says to drop the event.  c is the one we want to get rid of, unless it's 
+    }
+    return false;
+    */
   }
 
   // must keep track of current hovered node so we can highlight it when the user enters scraping mode

@@ -1800,6 +1800,8 @@ var WebAutomationLanguage = (function() {
   }
 
   function outlier(sortedList, potentialItem){ // note that first arg should be SortedArray not just sorted array
+    // for now, difficult to deal with...
+    return false;
     if (sortedList.length <= 10) {
       // it's just too soon to know if this is an outlier...
       return false;

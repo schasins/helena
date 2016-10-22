@@ -667,6 +667,11 @@ var RelationFinder = (function() { var pub = {};
 
   var currentSelectorToEdit = null;
   pub.editRelation = function(msg){
+    if (currentSelectorToEdit !== null){
+      // we've already set up to edit a selector, and we should never use the same tab to edit multiples
+      // always close tab and reload.  so don't run setup again
+      return;
+    }
     // utilities.sendMessage("mainpanel", "content", "editRelation", {selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns}, null, null, [tab.id]);};
     currentSelectorToEdit = msg;
     document.addEventListener('click', editingClick, true);

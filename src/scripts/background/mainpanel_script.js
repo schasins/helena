@@ -2155,6 +2155,7 @@ var WebAutomationLanguage = (function() {
           _.each(cleanTrace, function(ev){EventM.setTemporaryStatementIdentifier(ev, i);});
           trace = trace.concat(cleanTrace);
         }
+        trace = filterScrapingKeypresses(trace);
 
         // now that we have the trace, let's figure out how to parameterize it
         // note that this should only be run once the current___ variables in the statements have been updated!  otherwise won't know what needs to be parameterized, will assume nothing
@@ -2351,6 +2352,56 @@ var WebAutomationLanguage = (function() {
       }
       var that = this;
       $.post('http://kaofang.cs.berkeley.edu:8080/retrieverelations', { pages: reqList }, function(resp){that.processServerRelations(resp);});
+    }
+
+    function filterScrapingKeypresses(trace){
+      // if we ever get a sequence within the trace that's just the ctrl and alt keys going down
+      // and coming back up, that's just us getting scraping going
+      // we're only getting rid of the ones where there's nothing in the middle, not even a scraping click
+      // which happens when we remove events that are in scraping mode because we already know relation item
+      var scrapingKeyCodes = [17, 18];
+      var keyDown = {};
+      for (var i = 0; i < scrapingKeyCodes.length; i++){
+        keyDown[scrapingKeyCodes[i]] = false;
+      }
+      var inSlice = false;
+      var firstIndex = null;
+      var allDown = false;
+      var slicesToRemove = [];
+      for (var i = 0; i < trace.length; i++){
+        var ev = trace[i];
+        if ((ev.data.type === "keydown" || ev.data.type === "keypress") && scrapingKeyCodes.indexOf(ev.data.keyCode) > -1){
+          keyDown[ev.data.keyCode] = true;
+          if (!inSlice){
+            inSlice = true;
+            firstIndex = i;
+          }
+          var allDown = allDown || _.reduce(scrapingKeyCodes, function(acc, code){ return acc && keyDown[code]; }, true);
+        }
+        else if (ev.data.type === "keyup" && scrapingKeyCodes.indexOf(ev.data.keyCode) > -1){
+          keyDown[ev.data.keyCode] = false;
+        }
+        else{
+          if (inSlice){
+            // ok, up until we reached this, we were in a slice
+            // if they all went down and they're now all up, we're going to remove this slice
+            var allUp = _.reduce(scrapingKeyCodes, function(acc, code){ return acc && !keyDown[code]; }, true);
+            if (allDown && allUp){
+              slicesToRemove.push([firstIndex, i]);
+            }
+            // in any case, time to put all the state variables back to starting position
+            inSlice = false;
+            firstIndex = null;
+            allDown = false;
+          }
+        }
+      }
+
+      for (var i = slicesToRemove.length - 1; i >= 0; i--){
+        var inds = slicesToRemove[i];
+        trace = trace.slice(inds[0], inds[1]);
+      }
+      return trace;
     }
 
     this.processServerRelations = function(resp, currentStartIndex, tabsToCloseAfter, tabMapping){

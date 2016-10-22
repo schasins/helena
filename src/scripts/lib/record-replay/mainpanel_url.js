@@ -16,10 +16,12 @@ var matchUrls;
   matchUrls = function _matchUrls(origUrl, matchedUrl, similarity) {
     if (!similarity)
       similarity = params.replay.urlSimilarity;
+    console.log(similarity);
 
     var commonUrl = lcs(origUrl, matchedUrl);
     var commonRatio = commonUrl.length /
                       Math.max(origUrl.length, matchedUrl.length);
+    console.log("commonratio:", commonRatio);
     if (commonRatio > similarity)
       return true;
 

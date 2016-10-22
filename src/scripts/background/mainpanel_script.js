@@ -1256,6 +1256,31 @@ var WebAutomationLanguage = (function() {
     };
   };
 
+  pub.ClosePageStatement = function(pageVarCurr){
+    this.pageVarCurr = pageVarCurr;
+    var that = this;
+
+    this.toStringLines = function(){
+      return [this.pageVarCurr.toString() + ".close()" ];
+    };
+
+    this.run = function(programObj, rbbcontinuation){
+      console.log("run close statement");
+
+      chrome.tabs.remove(this.pageVarCurr.currentTabId(), function(){
+          that.pageVarCurr.clearCurrentTabId();
+          rbbcontinuation();
+        }); 
+    };
+
+    this.parameterizeForRelation = function(relation){
+      return [];
+    };
+    this.unParameterizeForRelation = function(relation){
+      return;
+    };
+  };
+
   pub.ContinueStatement = function(){
     this.toStringLines = function(){
       return ["continue"];
@@ -1775,6 +1800,8 @@ var WebAutomationLanguage = (function() {
   }
 
   function outlier(sortedList, potentialItem){ // note that first arg should be SortedArray not just sorted array
+    // for now, difficult to deal with...
+    return false;
     if (sortedList.length <= 10) {
       // it's just too soon to know if this is an outlier...
       return false;
@@ -1784,8 +1811,10 @@ var WebAutomationLanguage = (function() {
     var q3 = sortedList.get(Math.ceil((sortedList.length() * (3 / 4))));
     var iqr = q3 - q1;
 
-    var minValue = q1 - iqr * 1.5;
-    var maxValue = q3 + iqr * 1.5;
+    //var minValue = q1 - iqr * 1.5;
+    //var maxValue = q3 + iqr * 1.5;
+    var minValue = q1 - iqr * 3;
+    var maxValue = q3 + iqr * 3;
     console.log("**************");
     console.log(sortedList.array);
     console.log(q1, q3, iqr);
@@ -1838,6 +1867,10 @@ var WebAutomationLanguage = (function() {
       else{
         continuation();
       }
+    };
+
+    this.clearCurrentTabId = function(){
+      this.tabId = undefined;
     };
 
     this.nonOutlierProcessing = function(pageData, continuation){
@@ -1961,9 +1994,11 @@ var WebAutomationLanguage = (function() {
     }
 
     function updatePageVars(recordTimeTrace, replayTimeTrace, continuation){
+      // console.log("updatePageVars", recordTimeTrace, replayTimeTrace);
       var recordTimeCompletedToReplayTimeCompleted = alignRecordTimeAndReplayTimeCompletedEvents(recordTimeTrace, replayTimeTrace);
       var recEvents = recordTimeCompletedToReplayTimeCompleted[0];
       var repEvents = recordTimeCompletedToReplayTimeCompleted[1];
+      // console.log("recEvents:", recEvents, "repEvents", repEvents);
       updatePageVarsHelper(recEvents, repEvents, 0, continuation);
     }
 
@@ -1976,6 +2011,7 @@ var WebAutomationLanguage = (function() {
         if (pageVar === undefined){
           updatePageVarsHelper(recEvents, repEvents, i + 1, continuation);
         }
+        // console.log("Setting pagevar current tab id to:", repEvents[i].data.tabId);
         pageVar.setCurrentTabId(repEvents[i].data.tabId, function(){updatePageVarsHelper(recEvents, repEvents, i + 1, continuation);});
       }
     }
@@ -2099,7 +2135,7 @@ var WebAutomationLanguage = (function() {
         var basicBlockStatements = [];
         var nextBlockStartIndex = loopyStatements.length;
         for (var i = 0; i < loopyStatements.length; i++){
-          if (loopyStatements[i] instanceof WebAutomationLanguage.LoopStatement || loopyStatements[i] instanceof WebAutomationLanguage.BackStatement){
+          if (!ringerBased(loopyStatements[i])){ // todo: is this the right condition?
             nextBlockStartIndex = i;
             break;
           }
@@ -2465,7 +2501,15 @@ var WebAutomationLanguage = (function() {
           // we're making that assumption again about just one outputpagevar.  also that everything is happening in one tab.  must come back and revisit this
           var currPage = statement.outputPageVars[0];
           var backPage = statement.pageVar;
-          backStatements.push(new WebAutomationLanguage.BackStatement(currPage, backPage));
+          if (currPage.originalTabId() === backPage.originalTabId()){
+            // only need to add back button if they're actually in the same tab (may be in diff tabs if CTRL+click, or popup, whatever)
+            backStatements.push(new WebAutomationLanguage.BackStatement(currPage, backPage));
+          }
+          else{
+            // we're going back to messing with an earlier page, so should close the current page
+            // insert a statement that will do that
+            backStatements.push(new WebAutomationLanguage.ClosePageStatement(currPage));
+          }
         }
       }
       backStatements.reverse(); // must do the back button in reverse order

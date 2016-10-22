@@ -17,11 +17,15 @@ var pageEventId = 0; /* counter to give each event on page a unique id */
 var lastRecordEvent; /* last event recorded */
 var lastRecordSnapshot; /* snapshot (before and after) for last event */
 var curRecordSnapshot; /* snapshot (before and after) the current event */
+
 var additional_recording_handlers = {}; // so that other tools using an interface to r+r can put data in event messages
 var additional_recording_handlers_on = {};
 
 additional_recording_handlers_on.___additionalData___ = true;
 additional_recording_handlers.___additionalData___ = function(){return {};}; // the only default additional handler, for copying data from record event objects to replay event objects
+
+var additional_recording_filters_on = {}; // so that other tools using an interface to r+r can process event even before most processing done
+var additional_recording_filters = {};
 
 /* Replay variables */
 var lastReplayEvent; /* last event replayed */
@@ -109,6 +113,16 @@ function recordEvent(eventData) {
   /* check if we are stopped, then just return */
   if (recording == RecordState.STOPPED)
     return true;
+
+  for (var key in additional_recording_filters_on){
+    if (!additional_recording_filters_on[key] || !additional_recording_filters[key]){ // on may be false, or may lack a handler if user attached something silly
+      continue;
+    }
+    var filterIt = additional_recording_filters[key](eventData);
+    if (filterIt){
+      return; // the message including the eventMessage will never be sent, so this event will never be recorded
+    }
+  }
 
   var type = eventData.type;
   var dispatchType = getEventType(type);
@@ -218,6 +232,13 @@ function recordEvent(eventData) {
     }
   }
 
+  // now we need to handle the timeStamp, which is milliseconds from epoch in old Chrome, but milliseconds from start of current page load in new Chrome
+  if (data.timeStamp < 307584000000){
+    // if you've been waiting on this page for 10 years, you're out of luck
+    // we're assuming this is new Chrome's time since page load
+    data.timeStamp = data.timeStamp + performance.timing.navigationStart;
+  }
+
   /* handle any event recording the addons need */
   for (var i = 0, ii = addonPostRecord.length; i < ii; ++i) {
     addonPostRecord[i](eventData, eventMessage);
@@ -229,6 +250,12 @@ function recordEvent(eventData) {
     }
 	  var handler = additional_recording_handlers[key];
 	  var ret_val = handler(target, eventMessage);
+    if (ret_val === false){
+      // additional recording handlers are allowed to throw out events by returning false
+      // this may not be a good design, so something to consider in future
+      // also, is false really the value that should do this?
+      return; // the message including the eventMessage will never be sent, so this event will never be recorded
+    }
     if (ret_val !== null){
       eventMessage.additional[key] = ret_val;
     }

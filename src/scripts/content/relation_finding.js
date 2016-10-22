@@ -689,7 +689,23 @@ var RelationFinder = (function() { var pub = {};
 
       // we want to highlight the currently hovered node
       document.addEventListener('mouseenter', highlightHovered, true);
+
+      // also, if we have a selector highlighted, and the user scrolls, we're going to need to update...
+      var didScroll = false;
+      $("*").scroll(function() {
+        didScroll = true;
+      });
+
+      setInterval(function() {
+        if ( didScroll ) {
+          didScroll = false;
+          // Ok, we're ready to redo the relation highlighting with new page situation
+          console.log("scroll updating");
+          pub.newSelectorGuess(currentSelectorToEdit);
+        }
+        }, 250);
     };
+
     $(editingSetup);
   };
 
@@ -714,7 +730,7 @@ var RelationFinder = (function() { var pub = {};
   };
 
   pub.highlightSelector = function(selectorObj){
-    pub.highlightRelation(selectorObj.relation, true, true); // we want to allow clicks on the highlights (see editingClick)
+    return pub.highlightRelation(selectorObj.relation, true, true); // we want to allow clicks on the highlights (see editingClick)
   };
 
   pub.sendSelector = function(selectorObj){
@@ -730,6 +746,9 @@ var RelationFinder = (function() { var pub = {};
   var currentSelectorHighlightNodes = [];
   pub.newSelectorGuess = function(selectorObj){
     pub.setRelation(selectorObj);
+    for (var i = 0; i < currentSelectorHighlightNodes.length; i++){
+      Highlight.clearHighlight(currentSelectorHighlightNodes[i]);
+    }
     currentSelectorHighlightNodes = pub.highlightSelector(selectorObj);
     pub.sendSelector(selectorObj);
   }
@@ -853,7 +872,7 @@ var RelationFinder = (function() { var pub = {};
         var appropriateAncestor = findAncestorLikeSpec(currentSelectorToEdit.positive_nodes[0], target);
         var currColumnObj = currentSelectorToEdit.columns[currentSelectorToEdit.editingClickColumnIndex];
         var currSuffixes = currColumnObj.suffix;
-        if (MiscUtilities.depthOf(currSuffixes) === 2){
+        if (MiscUtilities.depthOf(currSuffixes) < 3){
           // when we have only one suffix, we don't store it in a list, but the below is cleaner if we just have a list; todo: clean up
           currSuffixes = [currSuffixes];
         }
@@ -985,7 +1004,24 @@ var RelationFinder = (function() { var pub = {};
     var next_button_type = msg.next_type;
 
     if (next_button_type === NextTypes.SCROLLFORMORE){
-      window.scrollTo(0,document.body.scrollHeight);
+      var crd = currentRelationData[sid];
+      var knowTheLastElement = false;
+      // let's try scrolling to last element if we know it
+      if (crd && crd.length > 0 && crd[crd.length - 1] && crd[crd.length - 1].length > 0){
+        var lastRowReps = crd[crd.length - 1];
+        var lastElementXpath = lastRowReps[lastRowReps.length - 1].xpath;
+        var lastElementNodes = xPathToNodes(lastElementXpath);
+        if (lastElementNodes.length > 0){
+          var lastElement = lastElementNodes[0];
+          lastElement.scrollIntoView();
+          knowTheLastElement = true;
+        }
+      }
+      // but if we don't know it, just try scrolling window to the bottom
+      // sadly, this doesn't work for everything.  (for instance, if have an overlay with a relation, the overlay may not get scrolled w window scroll)
+      if (!knowTheLastElement){
+        window.scrollTo(0, document.body.scrollHeight);
+      }
     }
     else if (next_button_type === NextTypes.MOREBUTTON || next_button_type === NextTypes.NEXTBUTTON){
       console.log("msg.next_button_selector", msg.next_button_selector);

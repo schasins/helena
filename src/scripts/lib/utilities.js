@@ -157,7 +157,12 @@ var ServerTranslationUtilities = (function() { var pub = {};
 
   pub.unJSONifyRelation = function(relation){
     relation.selector = JSON.parse(relation.selector);
-    relation.next_button_selector = JSON.parse(relation.next_button_selector);
+    if (relation.next_button_selector){
+      relation.next_button_selector = JSON.parse(relation.next_button_selector);
+    }
+    else{
+      relation.next_button_selector = null;
+    }
     for (var k = 0; k < relation.columns.length; k++){
       relation.columns[k].suffix = JSON.parse(relation.columns[k].suffix); // is this the best place to deal with going between our object attributes and the server strings?
     }
@@ -166,6 +171,9 @@ var ServerTranslationUtilities = (function() { var pub = {};
 return pub; }());
 
 var MiscUtilities = (function() { var pub = {};
+
+  pub.scrapeConditionString = "CTRL + ALT + click";
+  pub.scrapeConditionLinkString = "CTRL + ALT + SHIFT + click";
 
   pub.levenshteinDistance = function(a, b) {
     if(a.length === 0) return b.length; 

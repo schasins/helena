@@ -32,19 +32,40 @@ var RecordingHandlers = (function() { var pub = {};
     }
   }
 
-  pub.updateScraping = function(event){
-    pub.checkScrapingOn(event);
-    pub.checkScrapingOff(event);
-  }
+  // scraping is happening if ctrl and c are held down
+  ctrlDown = false;
+  altDown = false;
 
-  pub.checkScrapingOn = function(event){
-    if (!currentlyScraping() && Scraping.scrapingCriteria(event)){ 
+  pub.updateScraping = function(event){
+    pub.updateScrapingTrackingVars(event);
+    pub.checkScrapingOn();
+    pub.checkScrapingOff();
+  };
+
+  pub.updateScrapingTrackingVars = function(event){
+    if (event.ctrlKey){
+      ctrlDown = true;
+    }
+    else{
+      ctrlDown = false;
+    }
+
+    if (event.altKey){
+      altDown = true;
+    }
+    else{
+      altDown = false;
+    }
+  };
+
+  pub.checkScrapingOn = function(){
+    if (!currentlyScraping() && (ctrlDown && altDown)){
       Scraping.startProcessingScrape();
     }
-  }
+  };
 
-  pub.checkScrapingOff = function(event){
-    if (currentlyScraping() && currentlyRecording() && !(Scraping.scrapingCriteria(event))){ // this is for keyup, so user is exiting the scraping mode
+  pub.checkScrapingOff = function(){
+    if (currentlyScraping() && currentlyRecording() && !(ctrlDown && altDown)){
       Scraping.stopProcessingScrape();
     }
   }
@@ -52,8 +73,8 @@ return pub;}());
 
 document.addEventListener('mouseover', RecordingHandlers.mouseoverHandler, true);
 document.addEventListener('mouseout', RecordingHandlers.mouseoutHandler, true);
-document.addEventListener('keydown', RecordingHandlers.checkScrapingOn, true);
-document.addEventListener('keyup', RecordingHandlers.checkScrapingOff, true);
+document.addEventListener('keydown', RecordingHandlers.updateScraping, true);
+document.addEventListener('keyup', RecordingHandlers.updateScraping, true);
 
 /**********************************************************************
  * For getting current status
@@ -78,7 +99,7 @@ var Tooltip = (function() { var pub = {};
     if(tooltipColor === undefined) { tooltipColor = tooltipColorDefault;}
     if(tooltipBorderColor === undefined) { tooltipBorderColor = tooltipBorderColorDefault;}
     var $node = $(node);
-    var nodeText = "SHIFT + ALT + click to scrape:<br>"+NodeRep.nodeToText(node)+"<br>SHIFT + ALT + CTRL + click to scrape:<br>"+NodeRep.nodeToLink(node);
+    var nodeText = MiscUtilities.scrapeConditionString+" to scrape:<br>"+NodeRep.nodeToText(node)+"<br>"+MiscUtilities.scrapeConditionLinkString+" to scrape:<br>"+NodeRep.nodeToLink(node);
     var offset = $node.offset();
     var boundingBox = node.getBoundingClientRect();
     var newDiv = $('<div>'+nodeText+'<div/>');
@@ -110,12 +131,42 @@ var Scraping = (function() { var pub = {};
 
   // note that this line must run after the r+r content script runs (to produce the additional_recording_handlers object)
   additional_recording_handlers.scrape = function(node, eventMessage){
-    if (eventMessage.data.type !== "click") {return true;} //only actually scrape on clicks, but still want to record that we're in scraping mode
+    if (eventMessage.data.type !== "click") {return true;} // not a click, so don't need to record info, but do want to note that it happened during a scrape
     var data = NodeRep.nodeToMainpanelNodeRepresentation(node,false);
-    data.linkScraping = eventMessage.data.ctrlKey || eventMessage.data.metaKey; // convention is CTRL means we want to scrape the link, not the text 
+    data.linkScraping = eventMessage.data.shiftKey || eventMessage.data.metaKey; // convention is ALT means we want to scrape the link, not the text 
     utilities.sendMessage("content", "mainpanel", "scrapedData", data);
     return data;
   };
+
+  additional_recording_filters.scrape = function(eventData){
+    return false;
+
+    /*
+    if (eventData.keyCode === 66 && (eventData.type === "keypress" || eventData.type === "keydown")){
+      // we're going to see a ton of these because holding c for scraping mode makes them.  we're going to ignore, although this could cause problems for some interactions
+      return true;
+    }
+    return false;
+    */
+    /*
+    if (eventData.type === "click"){
+      return false; // this is a scraping event, so want to keep it; don't filter
+    }
+    else if (eventData.keyCode === 18){
+      return false; // 18 is alt.  need to listen to this so we can have that turned on for link scraping
+    } 
+    else if (eventData.type === "keyup"){
+      return false; // keyup events can end our scraping mode, so keep those
+    }
+    return true; // filter everything else
+    */
+    /*
+    else if (eventData.keyCode === "c" && eventData.type !== "keyup") { // c is the special case because this is the one we're pressing down so we'll get a ton if we're not careful
+      return true; // true says to drop the event.  c is the one we want to get rid of, unless it's 
+    }
+    return false;
+    */
+  }
 
   // must keep track of current hovered node so we can highlight it when the user enters scraping mode
   var mostRecentMousemoveTarget = null;
@@ -128,11 +179,13 @@ var Scraping = (function() { var pub = {};
   var currentHighlightNode = null
   pub.startProcessingScrape = function(){
     additional_recording_handlers_on.scrape = true;
+    additional_recording_filters_on.scrape = true;
     currentHighlightNode = Highlight.highlightNode(mostRecentMousemoveTarget, "#E04343", true, false); // want highlight shown now, want clicks to fall through
   }
 
   pub.stopProcessingScrape = function(){
     additional_recording_handlers_on.scrape = false;
+    additional_recording_filters_on.scrape = false;
     Highlight.clearHighlight(currentHighlightNode);
   }
 
@@ -289,7 +342,10 @@ var RelationPreview = (function() { var pub = {};
   var knownRelations = [];
   function setup(){
     console.log("running setup");
-    $.post('http://kaofang.cs.berkeley.edu:8080/allpagerelations', { url: window.location.href }, function(resp){ 
+    // have to use postForMe right now to make the extension do the acutal post request, because modern Chrome won't let us
+    // requrest http content from https pages and we don't currently have ssl certificate for kaofang
+    utilities.sendMessage("content", "background", "postForMe", {url: 'http://kaofang.cs.berkeley.edu:8080/allpagerelations', params: { url: window.location.href }});
+    utilities.listenForMessageOnce("content", "background", "postForMe", function(resp){
       console.log(resp);
       knownRelations = resp.relations;
       preprocessKnownRelations();

@@ -1057,11 +1057,13 @@ var RelationFinder = (function() { var pub = {};
     // whee, we have some new stuff.  we can update the state
     nextInteractionSinceLastGetFreshRelationItems = false;
     // we only want the fresh ones!
-    var startIndex = 0;
-    if (crd){ startIndex = crd.length; }
-    var freshItems = relationData.slice(startIndex, relationData.length);
+    var newItems = relationData; // start by assuming that's everything
+    if (crd && _.isEqual(crd, relationData.slice(0, crd.length))){
+      // cool, this is a case of loading more into the same page, so we want to just grab the end
+      newItems = relationData.slice(crd.length, relationData.length);
+    }
     currentRelationData[strMsg] = relationData;
-    utilities.sendMessage("content", "mainpanel", "freshRelationItems", {type: RelationItemsOutputs.NEWITEMS, relation: freshItems});
+    utilities.sendMessage("content", "mainpanel", "freshRelationItems", {type: RelationItemsOutputs.NEWITEMS, relation: newItems});
   };
 
 

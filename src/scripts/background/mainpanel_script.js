@@ -1027,8 +1027,9 @@ var WebAutomationLanguage = (function() {
       if (relationColumnUsed){
         // this is cool because now we don't need to actually run scraping interactions to get the value, so let's update the cleanTrace to reflect that
         for (var i = this.cleanTrace.length - 1; i >= 0; i--){
-          if (this.cleanTrace[i].additional && this.cleanTrace[i].additional.scrape && !(["keyup", "keypress", "keydown"].indexOf(this.cleanTrace[i].data.type) > -1)){
-            // todo: above say to keep all keyup, keydown, keypress events.  is this necessary?
+          if (this.cleanTrace[i].additional && this.cleanTrace[i].additional.scrape){
+            // todo: do we need to add this to the above condition:
+            // && !(["keyup", "keypress", "keydown"].indexOf(this.cleanTrace[i].data.type) > -1)
             this.cleanTrace.splice(i, 1);
           }
         }

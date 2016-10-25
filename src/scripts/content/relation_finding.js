@@ -375,11 +375,17 @@ var RelationFinder = (function() { var pub = {};
       return ps;
   }
 
-  function synthesizeSelectorForSubsetThatProducesLargestRelation(rowNodes){
+  function synthesizeSelectorForSubsetThatProducesLargestRelation(rowNodes, smallestSubsetToConsider){
+    // todo: in future, can we just order the combos by number of rowNodes included in the combo, stop once we get one that has a good selector?
+    // could this avoid wasting so much time on this?  even in cases where we don't already have server-suggested to help us with smallestSubsetToConsider?
     var combos = combinations(rowNodes);
     var maxNumCells = -1;
     var maxSelector = null;
     for (var i = 0; i < combos.length; i++){
+      // the if below is an inefficient way to do this!  do it better in future!  just make the smaller set of combos! todo
+      if (combos.length < smallestSubsetToConsider){
+        continue;
+      }
       var combo = combos[i];
       if (combo.length < 1){ continue; }
       var selector = pub.synthesizeFromSingleRow(combo);
@@ -547,12 +553,34 @@ var RelationFinder = (function() { var pub = {};
       nodes.push(node);
     }
 
+    var maxNodesCoveredByServerRelations = 0;
+    var serverSuggestedRelations = msg.serverSuggestedRelations;
+    for (var i = 0; i < serverSuggestedRelations.length; i++){
+      var rel = serverSuggestedRelations[i];
+      if (rel === null){
+        continue;
+      }
+      var columns = rel.columns;
+      var relXpaths = _.pluck(columns, "xpath");
+      console.log(relXpaths);
+      var matched = 0;
+      for (var j = 0; j < xpaths.length; j++){
+        if (relXpaths.indexOf(xpaths[j]) > -1){
+          matched += 1;
+        }
+      }
+      if (matched > maxNodesCoveredByServerRelations){
+        maxNodesCoveredByServerRelations = matched;
+      }
+    }
+    console.log("maxNodesCoveredByServerRelations", maxNodesCoveredByServerRelations);
+
     // if this is actually in an html table, let's take a shortcut, since some sites use massive tables and trying to run the other approach would take forever
     var selectorData = synthesizeSelectorForWholeSetTable(nodes);
 
     if (selectorData === null){
       // ok, no table, we have to do the standard, possibly slow approach
-      selectorData = synthesizeSelectorForSubsetThatProducesLargestRelation(nodes);
+      selectorData = synthesizeSelectorForSubsetThatProducesLargestRelation(nodes, maxNodesCoveredByServerRelations + 1);
     }
     var relationData = _.map(selectorData.relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
     selectorData.relation = relationData;

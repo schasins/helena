@@ -293,10 +293,6 @@ var Record = (function RecordClosure() {
       } else {
         var waitTime = time - lastTime;
       }
-      if (waitTime < 0 || waitTime > 10000){
-        console.log("waitTime", waitTime);
-        console.log(e, this.events[this.events.length - 1]);
-      }
       if (!('timing' in e))
         e.timing = {};
       e.timing.waitTime = waitTime;
@@ -432,6 +428,7 @@ var Replay = (function ReplayClosure() {
     },
     addonReset: [],
     addonTiming: [],
+    matchedCompletedEvents: [],
     currentPortMappingFailures: 0, // we'll use this to see if we're failing to find a port for a given event too many times
     reset: function _reset() {
       /* execution proceeds as callbacks so that the page's JS can execute, this
@@ -455,6 +452,9 @@ var Replay = (function ReplayClosure() {
       this.cont = null;
       this.firstEventReplayed = false;
       this.startTime = 0;
+
+      // useful for helping us figure out whether a completed event has happened or not;
+      this.matchedCompletedEvents = [];
 
       /* Call the resets for the addons */
       var addonReset = this.addonReset;
@@ -681,7 +681,6 @@ var Replay = (function ReplayClosure() {
      *     default will use whatever strategy is set in the parameters.
     */
     setNextTimeout: function _setNextTimeout(time) {
-      console.log("setNextTimeout", time, this);
       if (this.callbackHandle){
         clearTimeout(this.callbackHandle); // we'll always choose the next time to run based on the most recent setNextTimeout, so clear out whatever might already be there 
       }
@@ -690,7 +689,6 @@ var Replay = (function ReplayClosure() {
 
       var replay = this;
       this.callbackHandle = setTimeout(function() {
-        console.log("chose time: ", time);
         replay.guts();
       }, time);
     },
@@ -1058,7 +1056,7 @@ var Replay = (function ReplayClosure() {
       var index = this.index;
 
       /* check if the script finished */
-      console.log("index", index, events.length);
+      // console.log("index", index, events.length);
       console.log(events[index]);
       if (index >= events.length) {
         //no more events to actively replay, but may need to wait for some
@@ -1121,16 +1119,27 @@ var Replay = (function ReplayClosure() {
         var completedAfterLastDom = false;
         var domIndex = null;
         var completedWithinWindowBeforeDom = false;
+        var completedBeforePriorMatchedCompletedEvent = false;
         var win = 5;
+        var lastMatchedCompletedEventIndex = this.matchedCompletedEvents[this.matchedCompletedEvents.length - 1];
         for (var i = replayTimeEvents.length - 1; i >= 0; i--){
           // debug todo: remove next two lines
           var ev = replayTimeEvents[i];
           console.log(i, domIndex, ev.type, ev.data);
 
+          // for now, commenting out the below, deciding to be willing to go all the way back to the last top-level completed event that we've already matched
+          /*
           if (domIndex !== null && i < (domIndex - win)){
             // ok, we've gone too far, we've passed the window around the domIndex
             break;
           }
+          */
+
+          if (i <= lastMatchedCompletedEventIndex){
+            // ok, we've gone too far.  we've now reached a completed event that we already matched in the past, so can't use this one again
+            break;
+          }
+
 
           var ev = replayTimeEvents[i];
           if (domIndex === null && ev.type === "dom"){
@@ -1140,11 +1149,13 @@ var Replay = (function ReplayClosure() {
           else if (domIndex === null && ev.type === "completed" && ev.data.type === "main_frame"){
             // we've found a completed top-level after the last dom event
             completedAfterLastDom = true;
+            this.matchedCompletedEvents.push(i);
             break;
           }
           else if (domIndex !== null && ev.type === "completed" && ev.data.type === "main_frame"){
             // since we're still going, but we've found the domIndex already, this is a completed event before the last dom event
             completedWithinWindowBeforeDom = true;
+            this.matchedCompletedEvents.push(i);
             break;
           }
         }

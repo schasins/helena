@@ -1027,7 +1027,8 @@ var WebAutomationLanguage = (function() {
       if (relationColumnUsed){
         // this is cool because now we don't need to actually run scraping interactions to get the value, so let's update the cleanTrace to reflect that
         for (var i = this.cleanTrace.length - 1; i >= 0; i--){
-          if (this.cleanTrace[i].additional && this.cleanTrace[i].additional.scrape){
+          if (this.cleanTrace[i].additional && this.cleanTrace[i].additional.scrape && !(["keyup", "keypress", "keydown"].indexOf(this.cleanTrace[i].data.type) > -1)){
+            // todo: above say to keep all keyup, keydown, keypress events.  is this necessary?
             this.cleanTrace.splice(i, 1);
           }
         }
@@ -2367,25 +2368,29 @@ var WebAutomationLanguage = (function() {
       var inSlice = false;
       var firstIndex = null;
       var allDown = false;
+      var allUp = false;
       var slicesToRemove = [];
       for (var i = 0; i < trace.length; i++){
         var ev = trace[i];
-        if ((ev.data.type === "keydown" || ev.data.type === "keypress") && scrapingKeyCodes.indexOf(ev.data.keyCode) > -1){
+        if (((ev.data.type === "keydown" || ev.data.type === "keypress") && scrapingKeyCodes.indexOf(ev.data.keyCode) > -1) && !allUp){
+          // note that we shouldn't keep removing keydown events if we've already had all the keyup events, thus !allUp at the end there
+          // otherwise if we follow a scrape by, say, a ctrl+click to open in a new tab, the ctrl for the click will be removed
+          // got to stick to just the stuff that's about turning scraping mode on and off
           keyDown[ev.data.keyCode] = true;
           if (!inSlice){
             inSlice = true;
             firstIndex = i;
           }
-          var allDown = allDown || _.reduce(scrapingKeyCodes, function(acc, code){ return acc && keyDown[code]; }, true);
+          allDown = allDown || _.reduce(scrapingKeyCodes, function(acc, code){ return acc && keyDown[code]; }, true);
         }
         else if (ev.data.type === "keyup" && scrapingKeyCodes.indexOf(ev.data.keyCode) > -1){
           keyDown[ev.data.keyCode] = false;
+          allUp = _.reduce(scrapingKeyCodes, function(acc, code){ return acc && !keyDown[code]; }, true);
         }
         else{
           if (inSlice){
             // ok, up until we reached this, we were in a slice
             // if they all went down and they're now all up, we're going to remove this slice
-            var allUp = _.reduce(scrapingKeyCodes, function(acc, code){ return acc && !keyDown[code]; }, true);
             if (allDown && allUp){
               slicesToRemove.push([firstIndex, i]);
             }
@@ -2399,7 +2404,8 @@ var WebAutomationLanguage = (function() {
 
       for (var i = slicesToRemove.length - 1; i >= 0; i--){
         var inds = slicesToRemove[i];
-        trace = trace.slice(inds[0], inds[1]);
+        console.log("removing", trace.slice(inds[0], inds[1]));
+        trace.splice(inds[0], inds[1]);
       }
       return trace;
     }
@@ -2426,6 +2432,8 @@ var WebAutomationLanguage = (function() {
           _.each(statementSlice, function(statement){trace = trace.concat(statement.cleanTrace);});
           //_.each(trace, function(ev){EventM.clearDisplayInfo(ev);}); // strip the display info back out from the event objects
 
+          console.log("processServerrelations program: ", program);
+          console.log("processServerrelations trace indexes: ", startIndex, i);
           console.log("processServerrelations trace:", trace.length);
 
           var nextIndex = i + 1;

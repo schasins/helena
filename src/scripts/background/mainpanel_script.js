@@ -1248,6 +1248,8 @@ var WebAutomationLanguage = (function() {
       utilities.sendMessage("mainpanel", "content", "backButton", {}, null, null, [this.pageVarCurr.currentTabId()]);
       // todo: is it enough to just send this message and hope all goes well, or do we need some kind of acknowledgement?
       // update pageVarBack to make sure it has the right tab associated
+
+      // todo: if we've been pressing next or more button within this loop, we might have to press back button a bunch of times!  or we might not if they chose not to make it a new page!  how to resolve????
     };
 
     this.parameterizeForRelation = function(relation){

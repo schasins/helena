@@ -59,13 +59,13 @@ var RecordingHandlers = (function() { var pub = {};
   };
 
   pub.checkScrapingOn = function(){
-    if (!currentlyScraping() && (ctrlDown && altDown)){
+    if (!currentlyScraping() && (altDown)){
       Scraping.startProcessingScrape();
     }
   };
 
   pub.checkScrapingOff = function(){
-    if (currentlyScraping() && currentlyRecording() && !(ctrlDown && altDown)){
+    if (currentlyScraping() && currentlyRecording() && !(altDown)){
       Scraping.stopProcessingScrape();
     }
   }

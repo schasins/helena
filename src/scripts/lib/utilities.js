@@ -183,9 +183,9 @@ var MiscUtilities = (function() { var pub = {};
   }
 
   // this is silly, but it does seem the easiest way to deal with this
-  pub.useCorrectScrapingConditionStrings = function(normalScrapeStringToReplace, linkScrapeStringToReplace){
-    $("body").html($("body").html().replace(new RegExp(normalScrapeStringToReplace,"g"), pub.scrapeConditionString));
-    $("body").html($("body").html().replace(new RegExp(linkScrapeStringToReplace,"g"), pub.scrapeConditionLinkString));
+  pub.useCorrectScrapingConditionStrings = function(selectorstring, normalScrapeStringToReplace, linkScrapeStringToReplace){
+    $(selectorstring).html($(selectorstring).html().replace(new RegExp(normalScrapeStringToReplace,"g"), pub.scrapeConditionString));
+    $(selectorstring).html($(selectorstring).html().replace(new RegExp(linkScrapeStringToReplace,"g"), pub.scrapeConditionLinkString));
   }
 
   pub.levenshteinDistance = function(a, b) {

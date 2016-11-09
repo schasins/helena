@@ -174,6 +174,19 @@ var MiscUtilities = (function() { var pub = {};
 
   pub.scrapeConditionString = "ALT + click";
   pub.scrapeConditionLinkString = "ALT + SHIFT + click";
+  var osString = window.navigator.platform;
+  if (osString.indexOf("Linux") > -1){
+    // there's a weird thing where just ALT + click doesn't raise events in Linux Chrome
+    // pressing CTRL at the same time causes the events to be raised without (at the moment, apparently) messing up other stuff
+    pub.scrapeConditionString = "ALT + CTRL + click";
+    pub.scrapeConditionLinkString = "ALT + CTRL + SHIFT + click";
+  }
+
+  // this is silly, but it does seem the easiest way to deal with this
+  pub.useCorrectScrapingConditionStrings = function(normalScrapeStringToReplace, linkScrapeStringToReplace){
+    $("body").html($("body").html().replace(new RegExp(normalScrapeStringToReplace,"g"), pub.scrapeConditionString));
+    $("body").html($("body").html().replace(new RegExp(linkScrapeStringToReplace,"g"), pub.scrapeConditionLinkString));
+  }
 
   pub.levenshteinDistance = function(a, b) {
     if(a.length === 0) return b.length; 

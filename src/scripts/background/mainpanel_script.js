@@ -7,6 +7,8 @@ function setUp(){
   utilities.listenForMessage("content", "mainpanel", "scrapedData", RecorderUI.processScrapedData);
   utilities.listenForMessage("content", "mainpanel", "requestCurrentRecordingWindow", RecorderUI.sendCurrentRecordingWindow);
   
+
+  MiscUtilities.useCorrectScrapingConditionStrings("___SCRAPINGCONDITIONSTRING___", "___LINKSCRAPINGCONDITIONSTRING___"); // important to do this one first, what with everything going all stringy
   //handle user interactions with the mainpanel
   //$("button").button(); 
   $( "#tabs" ).tabs();

@@ -345,7 +345,7 @@ var RelationPreview = (function() { var pub = {};
     // have to use postForMe right now to make the extension do the acutal post request, because modern Chrome won't let us
     // requrest http content from https pages and we don't currently have ssl certificate for kaofang
     utilities.sendMessage("content", "background", "postForMe", {url: 'http://kaofang.cs.berkeley.edu:8080/allpagerelations', params: { url: window.location.href }});
-    utilities.listenForMessageOnce("content", "background", "postForMe", function(resp){
+    utilities.listenForMessageOnce("background", "content", "postForMe", function(resp){
       console.log(resp);
       knownRelations = resp.relations;
       preprocessKnownRelations();

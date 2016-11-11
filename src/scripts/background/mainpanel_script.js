@@ -637,6 +637,11 @@ var ReplayScript = (function() {
         if (e1node === e2node){
           return true;
         }
+        // we also have a special case where keyup events allowed in text, but text not allowed in keyup
+        // this is because text segments that start with keyups get a special treatment, since those are the ctrl, alt, shift type cases
+        if (e1node === StatementTypes.KEYBOARD && e2node === StatementTypes.KEYUP){
+          return true;
+        }
       }
     }
     return false;
@@ -713,7 +718,7 @@ var ReplayScript = (function() {
           else if (sType === StatementTypes.SCRAPE || sType === StatementTypes.SCRAPELINK){
             statements.push(new WebAutomationLanguage.ScrapeStatement(seg));
           }
-          else if (sType === StatementTypes.KEYBOARD){
+          else if (sType === StatementTypes.KEYBOARD || sType === StatementTypes.KEYUP){
             statements.push(new WebAutomationLanguage.TypeStatement(seg));
           }
           break;
@@ -735,7 +740,8 @@ var StatementTypes = {
   KEYBOARD: 2,
   LOAD: 3,
   SCRAPE: 4,
-  SCRAPELINK: 5
+  SCRAPELINK: 5,
+  KEYUP: 6
 };
 
 var WebAutomationLanguage = (function() {
@@ -765,6 +771,9 @@ var WebAutomationLanguage = (function() {
         return StatementTypes.MOUSE;
       }
       else if (statementToEventMapping.keyboard.indexOf(ev.data.type) > -1){
+        if (ev.data.type === "keyup"){
+          return StatementTypes.KEYUP;
+        }
         //if ([16, 17, 18].indexOf(ev.data.keyCode) > -1){
         //  // this is just shift, ctrl, or alt key.  don't need to show these to the user
         //  return null;
@@ -1110,13 +1119,16 @@ var WebAutomationLanguage = (function() {
     this.node = ev.target.xpath;
     this.pageUrl = ev.frame.topURL;
     var acceptableEventTypes = statementToEventMapping.keyboard;
-    var textEntryEvents = _.filter(trace, function(ev){return WebAutomationLanguage.statementType(ev) === StatementTypes.KEYBOARD;});
-    var lastTextEntryEvent = textEntryEvents[textEntryEvents.length - 1];
-    this.typedString = lastTextEntryEvent.target.snapshot.value;
-    if (!this.typedString){
-      this.typedString = "";
+    var textEntryEvents = _.filter(trace, function(ev){var sType = WebAutomationLanguage.statementType(ev); return (sType === StatementTypes.KEYBOARD || sType === StatementTypes.KEYUP);});
+    if (textEntryEvents.length > 0){
+      var lastTextEntryEvent = textEntryEvents[textEntryEvents.length - 1];
+      this.typedString = lastTextEntryEvent.target.snapshot.value;
+      if (!this.typedString){
+        this.typedString = "";
+      }
+      this.typedStringLower = this.typedString.toLowerCase(); 
     }
-    this.typedStringLower = this.typedString.toLowerCase();
+
     var domEvents = _.filter(trace, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
     var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
     this.outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
@@ -1185,32 +1197,35 @@ var WebAutomationLanguage = (function() {
     this.parameterizeForRelation = function(relation){
       var relationColumnUsed = parameterizeNodeWithRelation(this, relation, this.pageVar);
 
-      // now let's also parameterize the text
-      var columns = relation.columns;
-      for (var i = 0; i < columns.length; i++){
-        var text = columns[i].firstRowText;
-        if (text === null){
-          // can't parameterize for a cell that has null text
-          continue;
-        }
-        var textLower = text.toLowerCase();
-        var startIndex = this.typedStringLower.indexOf(textLower);
-        if (startIndex > -1){
-          // cool, this is the column for us then
-          var components = [];
-          var left = text.slice(0, startIndex);
-          if (left.length > 0){
-            components.push(left)
+      if (!this.onlyKeydowns && !this.onlyKeyups){
+        // now let's also parameterize the text
+        var columns = relation.columns;
+        for (var i = 0; i < columns.length; i++){
+          var text = columns[i].firstRowText;
+          if (text === null || text === undefined){
+            // can't parameterize for a cell that has null text
+            continue;
           }
-          components.push(new WebAutomationLanguage.VariableUse(columns[i], relation, this.pageVar));
-          var right = text.slice(startIndex + this.typedString.length, text.length);
-          if (right.length > 0){
-            components.push(right)
+          var textLower = text.toLowerCase();
+          var startIndex = this.typedStringLower.indexOf(textLower);
+          if (startIndex > -1){
+            // cool, this is the column for us then
+            var components = [];
+            var left = text.slice(0, startIndex);
+            if (left.length > 0){
+              components.push(left)
+            }
+            components.push(new WebAutomationLanguage.VariableUse(columns[i], relation, this.pageVar));
+            var right = text.slice(startIndex + this.typedString.length, text.length);
+            if (right.length > 0){
+              components.push(right)
+            }
+            this.currentTypedString = new WebAutomationLanguage.Concatenate(components);
+            return [relationColumnUsed, columns[i]];
           }
-          this.currentTypedString = new WebAutomationLanguage.Concatenate(components);
-          return [relationColumnUsed, columns[i]];
         }
       }
+
       return [relationColumnUsed];
     };
     this.unParameterizeForRelation = function(relation){
@@ -2643,7 +2658,13 @@ var WebAutomationLanguage = (function() {
         for (var j = 0; j < this.statements.length; j++){
           var statement = this.statements[j];
           if (relation.usedByStatement(statement)){
-            indexesToRelations[j] = relation;
+            var loopStartIndex = j;
+            // let's do something a little  different in cases where there's a keydown right before the loop, since the keyups will definitely happen within
+            // todo: may even need to look farther back for keydowns whose keyups happen within the loop body
+            if (this.statements[j-1] instanceof WebAutomationLanguage.TypeStatement && this.statements[j-1].onlyKeydowns){
+              loopStartIndex = j - 1;
+            }
+            indexesToRelations[loopStartIndex] = relation;
             break;
           }
         }

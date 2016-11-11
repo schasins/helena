@@ -616,7 +616,7 @@ var ReplayScript = (function() {
     }
     var e1type = WebAutomationLanguage.statementType(e1);
     var e2type = WebAutomationLanguage.statementType(e2);
-    console.log("allowedInSameSegment", e1type, e2type);
+    //console.log("allowedInSameSegment", e1type, e2type);
     // if either is invisible, can be together, because an invisible event allowed anywhere
     if (e1type === null || e2type === null){
       return true;
@@ -674,6 +674,9 @@ var ReplayScript = (function() {
     var currentSegmentVisibleEvent = null; // an event that should be shown to the user and thus determines the type of the statement
     _.each(trace, function(ev){
       if (allowedInSameSegment(currentSegmentVisibleEvent, ev)){
+        if (WebAutomationLanguage.statementType(ev) !== null){
+          console.log("stype(ev)", ev, WebAutomationLanguage.statementType(ev), currentSegmentVisibleEvent);
+        }
         currentSegment.push(ev);
         if (currentSegmentVisibleEvent === null && WebAutomationLanguage.statementType(ev) !== null ){ // only relevant to first segment
           currentSegmentVisibleEvent = ev;
@@ -681,12 +684,14 @@ var ReplayScript = (function() {
       }
       else{
         // the current event isn't allowed in last segment -- maybe it's on a new node or a new type of action.  need a new segment
+        console.log("making a new segment", currentSegmentVisibleEvent, ev, currentSegment, currentSegment.length);
         allSegments.push(currentSegment);
         currentSegment = [ev];
         currentSegmentVisibleEvent = ev; // if this were an invisible event, we wouldn't have needed to start a new block, so it's always ok to put this in for the current segment's visible event
       }});
     allSegments.push(currentSegment); // put in that last segment
-    allSegments = postSegmentationInvisibilityDetectionAndMerging(allSegments);
+    // allSegments = postSegmentationInvisibilityDetectionAndMerging(allSegments); // for now rather than this func, we'll try an alternative where we just show ctrl, alt, shift keypresses in a simpler way
+    console.log("allSegments", allSegments, allSegments.length);
     return allSegments;
   }
 
@@ -760,10 +765,10 @@ var WebAutomationLanguage = (function() {
         return StatementTypes.MOUSE;
       }
       else if (statementToEventMapping.keyboard.indexOf(ev.data.type) > -1){
-        if ([16, 17, 18].indexOf(ev.data.keyCode) > -1){
-          // this is just shift, ctrl, or alt key.  don't need to show these to the user
-          return null;
-        }
+        //if ([16, 17, 18].indexOf(ev.data.keyCode) > -1){
+        //  // this is just shift, ctrl, or alt key.  don't need to show these to the user
+        //  return null;
+        //}
         return StatementTypes.KEYBOARD;
       }
     }
@@ -1037,6 +1042,7 @@ var WebAutomationLanguage = (function() {
     };
 
     this.parameterizeForRelation = function(relation){
+      console.log("scraping cleantrace", this.cleanTrace);
       var relationColumnUsed = parameterizeNodeWithRelation(this, relation, this.pageVar, this.scrapeLink);
       if (relationColumnUsed){
         // this is cool because now we don't need to actually run scraping interactions to get the value, so let's update the cleanTrace to reflect that
@@ -1044,7 +1050,8 @@ var WebAutomationLanguage = (function() {
           if (this.cleanTrace[i].additional && this.cleanTrace[i].additional.scrape){
             // todo: do we need to add this to the above condition:
             // && !(["keyup", "keypress", "keydown"].indexOf(this.cleanTrace[i].data.type) > -1)
-            this.cleanTrace.splice(i, 1);
+            // todo: the below is commented out for debugging;  fix it
+            // this.cleanTrace.splice(i, 1);
           }
         }
         console.log("shortened cleantrace", this.cleanTrace);
@@ -1118,15 +1125,46 @@ var WebAutomationLanguage = (function() {
     this.origNode = this.node;
     this.currentTypedString = this.typedString;
 
+    // we want to do slightly different things for cases where the typestatement only has keydowns or only has keyups (as when ctrl, shift, alt used)
+    var onlyKeydowns = _.reduce(textEntryEvents, function(acc, e){return acc && e.data.type === "keydown"}, true);
+    if (onlyKeydowns){
+      this.onlyKeydowns = true;
+    }
+    var onlyKeyups = _.reduce(textEntryEvents, function(acc, e){return acc && e.data.type === "keyup"}, true);
+    if (onlyKeyups){
+      this.onlyKeyups = true;
+    }
+    if (onlyKeydowns || onlyKeyups){
+      this.keyEvents = textEntryEvents;
+    }
+
     this.toStringLines = function(){
-      var stringRep = "";
-      if (this.currentTypedString instanceof WebAutomationLanguage.Concatenate){
-        stringRep = this.currentTypedString.toString();
+      if (!onlyKeyups && !onlyKeydowns){
+        // normal processing, for when there's actually a typed string
+        var stringRep = "";
+        if (this.currentTypedString instanceof WebAutomationLanguage.Concatenate){
+          stringRep = this.currentTypedString.toString();
+        }
+        else{
+          stringRep = "'"+this.currentTypedString+"'";
+        }
+        return [outputPagesRepresentation(this)+"type("+this.pageVar.toString()+", "+stringRep+")"];
       }
       else{
-        stringRep = "'"+this.currentTypedString+"'";
+        var charsDict = {16: "SHIFT", 17: "CTRL", 18: "ALT"};
+        var chars = [];
+        _.each(this.keyEvents, function(ev){
+          if (ev.data.keyCode in charsDict){
+            chars.push(charsDict[ev.data.keyCode]);
+          }
+        });
+        var charsString = chars.join(", ");
+        var act = "press"
+        if (onlyKeyups){
+          act = "let up"
+        }
+        return [act + " " + charsString + " on " + this.pageVar.toString()];
       }
-      return [outputPagesRepresentation(this)+"type("+this.pageVar.toString()+", "+stringRep+")"];
     };
 
     this.pbvs = function(){
@@ -2373,6 +2411,8 @@ var WebAutomationLanguage = (function() {
     }
 
     function filterScrapingKeypresses(trace){
+      // todo: this is just debugging.  fix
+      return trace;
       // if we ever get a sequence within the trace that's just the ctrl and alt keys going down
       // and coming back up, that's just us getting scraping going
       // we're only getting rid of the ones where there's nothing in the middle, not even a scraping click

@@ -74,17 +74,18 @@ var RecorderUI = (function() {
     var trace = SimpleRecord.stopRecording();
     var program = ReplayScript.setCurrentTrace(trace, recordingWindowId);
     program.relevantRelations(); // now that we have a script, let's set some processing in motion that will figure out likely relations
-    pub.showProgramPreview();
+    pub.showProgramPreview(true); // true because we're currently processing the script, stuff is in progress
   };
 
-  pub.showProgramPreview = function(){
+  pub.showProgramPreview = function(inProgress){
+    if (inProgress === undefined){ inProgress = false; }
     var div = $("#new_script_content");
     DOMCreationUtilities.replaceContent(div, $("#script_preview")); // let's put in the script_preview node
     activateButton(div, "#run", RecorderUI.run);
     activateButton(div, "#replay", RecorderUI.replayOriginal);
     activateButton(div, '#relation_upload', RecorderUI.uploadRelation);
     RecorderUI.updateDisplayedScript();
-    RecorderUI.updateDisplayedRelations();
+    RecorderUI.updateDisplayedRelations(inProgress);
   };
 
   pub.run = function(){
@@ -155,12 +156,23 @@ var RecorderUI = (function() {
     }
   };
 
-  pub.updateDisplayedRelations = function(){
+  pub.updateDisplayedRelations = function(currentlyUpdating){
+    if (currentlyUpdating === undefined){ currentlyUpdating = false; }
+
     var relationObjects = ReplayScript.prog.relations;
+    $div = $("#new_script_content").find("#status_message");
+    $div.html("");
+    if (currentlyUpdating){
+      $div.html("Looking at webpages to find relevant tables.  Give us a moment.<br><center><img src='../icons/ajax-loader.gif'></center>");
+    }
+    else{
+      $div.html("");
+    }
+
     $div = $("#new_script_content").find("#relations");
     $div.html("");
-    if (relationObjects.length === 0){
-      $div.html("No relevant tables identified on the webpages yet.");
+    if (relationObjects.length === 0 && !currentlyUpdating){
+      $div.html("No relevant tables found.  Sorry!");  
       return;
     }
     for (var i = 0; i < relationObjects.length; i++){
@@ -2489,7 +2501,7 @@ var WebAutomationLanguage = (function() {
               // handle the actual data the page sent us
               program.processLikelyRelation(data);
               // update the control panel display
-              RecorderUI.updateDisplayedRelations();
+              RecorderUI.updateDisplayedRelations(true); // true because we're still unearthing interesting relations, so should indicate we're in progress
               // now let's go through this process all over again for the next page, if there is one
               console.log("going to processServerRelations with nextIndex: ", nextIndex);
               program.processServerRelations(resp, nextIndex, tabsToCloseAfter, tabMapping);
@@ -2500,14 +2512,14 @@ var WebAutomationLanguage = (function() {
         }
       }
       // ok we hit the end of the loop without returning after finding a new page to work on.  time to close tabs
-      tabsToCloseAfter = _.uniq(tabsToCloseAfter);
-      
-      
+      tabsToCloseAfter = _.uniq(tabsToCloseAfter);      
       for (var i = 0; i < tabsToCloseAfter.length; i++){
         chrome.tabs.remove(tabsToCloseAfter[i], function(){
           // do we need to do anything?
         }); 
       }
+      // let's also update the ui to indicate that we're no longer looking
+      RecorderUI.updateDisplayedRelations(false);
       
 
     };

@@ -9,14 +9,21 @@ function ParameterizedTrace(trace){
 		original_value = original_value.toUpperCase();
 		for (var i = 0; i< trace.length; i++){
 			if (trace[i].type !== "dom"){ continue;}
-			if (trace[i].target.xpath.name){
-				//this one has already been converted to an object, parameterized
-				continue;
+			var xpath = null;
+			if (trace[i].target.xpath.orig_value){
+				// this one has already been converted to an object, parameterized
+				// ok! this used to say we were going to continue, since we've already parameterized.  now we allow us to re-parameterize
+				// so this is now out of sync with the way the other parameterize functions work.  todo: fix the others to match!
+				// note: added the original_value field, since need that now
+				xpath = trace[i].target.xpath.orig_value;
 			}
-			var xpath = trace[i].target.xpath.toUpperCase();
+			else{
+				console.log(trace[i].target.xpath);
+				xpath = trace[i].target.xpath.toUpperCase();
+			}
 			if (xpath === original_value){
 				console.log("putting a hole in for an xpath", original_value);
-				trace[i].target.xpath = {"name": parameter_name, "value": null};
+				trace[i].target.xpath = {"name": parameter_name, "value": null, "orig_value": original_value};
 			}
 		}
 	};
@@ -27,7 +34,7 @@ function ParameterizedTrace(trace){
 			var xpath = trace[i].target.xpath;
 			if (xpath.name === parameter_name){
 				console.log("use xpath", value);
-				trace[i].target.xpath = {"name": parameter_name, "value": value};
+				trace[i].target.xpath = {"name": parameter_name, "value": value, "orig_value": xpath.orig_value};
 			}
 		}
 	};

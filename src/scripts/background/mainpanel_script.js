@@ -2342,6 +2342,37 @@ var WebAutomationLanguage = (function() {
       return pTrace;
     }
 
+    var wrapperNodeCounter = 0;
+    function parameterizeWrapperNodes(pTrace, origXpath, newXpath){
+      // todo: should we do something to exempt xpaths that are already being parameterized based on other relation elements?
+      // for now this is irrelevant because we'll come to the same conclusion  because of using fixed suffixes, but could imagine different approach later
+      var origSegs = origXpath.split("/");
+      var newSegs = newXpath.split("/");
+      if (origSegs.length !== newSegs.length){ console.log("origSegs and newSegs different length!"); }
+      var stillMatching = true;
+      for (var i = 0; i < origSegs.length; i++){ // assumption: origSegs and newSegs have same length; we'll see
+        if (stillMatching && origSegs[i] === newSegs[i]){
+          continue;
+        }
+        else if (stillMatching){
+          // woo, not the same anymore!
+          stillMatching = false;
+          continue;
+        }
+        // ok!  we're now onto the wrapper ones!
+        // the one to replace!
+        var origXpathPrefix = origSegs.slice(0,i).join("/");
+        var newXpathPrefix = newSegs.slice(0,i).join("/");
+        var pname = "wrappernode_"+wrapperNodeCounter;
+        wrapperNodeCounter += 1;
+        pTrace.parameterizeXpath(pname, origXpathPrefix);
+        pTrace.useXpath(pname, newXpathPrefix);
+        console.log("----- wrapper xpath stuff");
+        console.log(origXpathPrefix);
+        console.log(newXpathPrefix);
+      }
+    }
+
     function passArguments(pTrace, statements){
       for (var i = 0; i < statements.length; i++){
         var statement = statements[i];
@@ -2354,6 +2385,9 @@ var WebAutomationLanguage = (function() {
           }
           else if (currArg.type === "node"){
             pTrace.useXpath(pname, currArg.value);
+            // the below is kind of gross and I don't know if this is really where it should happen, but we definitely want to parameterize wrapper nodes
+            // todo: maybe find a cleaner, nice place to put this or write this.  for now this should do the trick
+            parameterizeWrapperNodes(pTrace, statement.node, currArg.value);
           }
           else if (currArg.type === "typedString"){
             pTrace.useTypedString(pname, currArg.value);

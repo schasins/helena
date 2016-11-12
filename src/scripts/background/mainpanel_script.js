@@ -1060,7 +1060,7 @@ var WebAutomationLanguage = (function() {
             // todo: do we need to add this to the above condition:
             // && !(["keyup", "keypress", "keydown"].indexOf(this.cleanTrace[i].data.type) > -1)
             // todo: the below is commented out for debugging;  fix it
-            // this.cleanTrace.splice(i, 1);
+            this.cleanTrace.splice(i, 1);
           }
         }
         console.log("shortened cleantrace", this.cleanTrace);
@@ -2461,7 +2461,7 @@ var WebAutomationLanguage = (function() {
 
     function filterScrapingKeypresses(trace){
       // todo: this is just debugging.  fix
-      return trace;
+      //return trace;
       // if we ever get a sequence within the trace that's just the ctrl and alt keys going down
       // and coming back up, that's just us getting scraping going
       // we're only getting rid of the ones where there's nothing in the middle, not even a scraping click

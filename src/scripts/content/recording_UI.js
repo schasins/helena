@@ -219,6 +219,10 @@ return pub;}());
 var Visualization = (function() { var pub = {};
   $(function(){
     additional_recording_handlers.visualization = function(node, eventMessage){
+      if (!currentlyRecording()){
+        // don't want to run this visualization stuff if we're in replay mode rather than recording mode, even though of course we're recording during replay
+        return;
+      }
       if (eventMessage instanceof KeyboardEvent){
         // ignore below.  this was when we were also checking if there was no node.value;  but in general we're having issues with trying to screenshot things for keyboard events when we really shouldn't so for now changing presentation so that there is no 'target node' for typing in the user-facing representation of the script
         // for now we're using this to determine whether the user is actually typing text into a particular node or not.  since no node.value, probably not, and we are likely to be 'focus'ed on something big, so don't want to freeze the page by screenshoting

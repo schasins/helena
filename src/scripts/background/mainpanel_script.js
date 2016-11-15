@@ -2346,30 +2346,33 @@ var WebAutomationLanguage = (function() {
     function parameterizeWrapperNodes(pTrace, origXpath, newXpath){
       // todo: should we do something to exempt xpaths that are already being parameterized based on other relation elements?
       // for now this is irrelevant because we'll come to the same conclusion  because of using fixed suffixes, but could imagine different approach later
+      if (origXpath === newXpath){return;}
       var origSegs = origXpath.split("/");
       var newSegs = newXpath.split("/");
       if (origSegs.length !== newSegs.length){ console.log("origSegs and newSegs different length!"); }
-      var stillMatching = true;
       for (var i = 0; i < origSegs.length; i++){ // assumption: origSegs and newSegs have same length; we'll see
-        if (stillMatching && origSegs[i] === newSegs[i]){
-          continue;
+        if (origSegs[origSegs.length - 1 - i] === newSegs[newSegs.length - 1 - i]){
+          // still match
+          // we do need the last segment ot match, but the one that goes all the way to the last segment is the one that inspired this
+          // so we don't need to param the last one again, but we do need to param the one prior, even if it doesn't match
+          // (the first one that doesn't match should still be parameterized)
+          // a1/b1/c1/a1/a1/a1 -> d1/e1/f1/a2/a1/a1 original already done;  we should do a1/b1/c1/a1/a1 -> d1/e1/f1/a2/a1, a1/b1/c1/a1 -> d1/e1/f1/a2
+          var origXpathPrefix = origSegs.slice(0,origSegs.length - 1 - i).join("/");
+          var newXpathPrefix = newSegs.slice(0,newSegs.length - 1 - i).join("/");
+          var pname = "wrappernode_"+wrapperNodeCounter;
+          wrapperNodeCounter += 1;
+          pTrace.parameterizeXpath(pname, origXpathPrefix);
+          pTrace.useXpath(pname, newXpathPrefix);
+          console.log("----- wrapper xpath stuff");
+          console.log(origXpathPrefix);
+          console.log(newXpathPrefix);
         }
-        else if (stillMatching){
-          // woo, not the same anymore!
-          stillMatching = false;
-          continue;
+        else {
+          // this one is now diff, so shouldn't do replacement for the one further
+          // (shouldn't do a1/b1/c1 -> d1/e1/f1 from example above)
+          // I mean, maybe we actually should do this, but not currently a reason to think it will be useful.  worth considering though
+          break;
         }
-        // ok!  we're now onto the wrapper ones!
-        // the one to replace!
-        var origXpathPrefix = origSegs.slice(0,i).join("/");
-        var newXpathPrefix = newSegs.slice(0,i).join("/");
-        var pname = "wrappernode_"+wrapperNodeCounter;
-        wrapperNodeCounter += 1;
-        pTrace.parameterizeXpath(pname, origXpathPrefix);
-        pTrace.useXpath(pname, newXpathPrefix);
-        console.log("----- wrapper xpath stuff");
-        console.log(origXpathPrefix);
-        console.log(newXpathPrefix);
       }
     }
 

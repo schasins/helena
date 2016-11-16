@@ -353,6 +353,18 @@ var RelationFinder = (function() { var pub = {};
     return filtered_feature_dict;
   }
 
+  function synthesizeEditedSelectorFromOldSelector(currentSelectorToEdit){
+    var newSelector = synthesizeSelector(currentSelectorToEdit.positive_nodes, currentSelectorToEdit.negative_nodes, currentSelectorToEdit.columns);
+    // now remember -- must keep the features of the old selector that don't relate to the actual row selector
+    newSelector.next_type = currentSelectorToEdit.next_type;
+    newSelector.next_button_selector = currentSelectorToEdit.next_button_selector;
+    newSelector.name = currentSelectorToEdit.name;
+    newSelector.id = currentSelectorToEdit.id;
+    newSelector.url = currentSelectorToEdit.url;
+    return newSelector;
+  }
+    
+
   pub.synthesizeFromSingleRow = function(rowNodes){
     var ancestor = findCommonAncestor(rowNodes);
     var positive_nodes = [ancestor];
@@ -935,7 +947,7 @@ var RelationFinder = (function() { var pub = {};
 
     }
 
-    var newSelector = synthesizeSelector(currentSelectorToEdit.positive_nodes, currentSelectorToEdit.negative_nodes, currentSelectorToEdit.columns);
+    var newSelector = synthesizeEditedSelectorFromOldSelector(currentSelectorToEdit);
     currentSelectorToEdit = newSelector;
     pub.newSelectorGuess(currentSelectorToEdit);
   }

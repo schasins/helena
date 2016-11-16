@@ -2387,9 +2387,6 @@ var WebAutomationLanguage = (function() {
           wrapperNodeCounter += 1;
           pTrace.parameterizeXpath(pname, origXpathPrefix);
           pTrace.useXpath(pname, newXpathPrefix);
-          console.log("----- wrapper xpath stuff");
-          console.log(origXpathPrefix);
-          console.log(newXpathPrefix);
         }
         else {
           // this one is now diff, so shouldn't do replacement for the one further

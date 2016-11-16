@@ -1057,7 +1057,7 @@ var Replay = (function ReplayClosure() {
 
       /* check if the script finished */
       // console.log("index", index, events.length);
-      console.log(events[index]);
+      // console.log(events[index]);
       if (index >= events.length) {
         //no more events to actively replay, but may need to wait for some
         console.log(index, "done with script");

@@ -259,6 +259,9 @@ var RecorderUI = (function() {
     var readyButton = div.find("#relation_editing_ready");
     readyButton.button();
     // once ready button clicked, we'll already have updated the relation selector info based on messages the content panel has been sending, so we can just go back to looking at the program preview
+    // the one thing we do need to change is there may now be nodes included in the relation (or excluded) that weren't before, so we should redo loop insertion
+    ReplayScript.prog.insertLoops();
+    // todo: maybe we also want to automatically save changes to server?  something to consider.  not yet sure
     readyButton.click(function(){
       RecorderUI.showProgramPreview();
       // we also want to close the tab...
@@ -821,13 +824,16 @@ var WebAutomationLanguage = (function() {
   // returns true if we successfully parameterize this node with this relation, false if we can't
   function parameterizeNodeWithRelation(statement, relation, pageVar, link){
       if (link === undefined) {link = false;}
-      var columns = relation.columns;
-      for (var i = 0; i < columns.length; i++){
-        var firstRowXpath = columns[i].firstRowXpath;
+      // note: may be tempting to use the columns' xpath attributes to decide this, but this is not ok!  now that we can have
+      // mutliple suffixes associated with a column, that xpath is not always correct
+      // but we're in luck because we know the selector has just been applied to the relevant page (to produce relation.demonstrationTimeRelation and from that relation.firstRowXpaths)
+      // so we can learn from those attributes which xpaths are relevant right now, and thus which ones the user would have produced in the current demo
+      for (var i = 0; i < relation.firstRowXPaths.length; i++){
+        var firstRowXpath = relation.firstRowXPaths[i];
         if (firstRowXpath === statement.currentNode){
           statement.relation = relation;
-          statement.currentNode = new WebAutomationLanguage.VariableUse(columns[i], relation, pageVar, link);
-          return columns[i];
+          statement.currentNode = new WebAutomationLanguage.VariableUse(relation.columns[i], relation, pageVar, link); // note that this means the elements in the firstRowXPaths and the elements in columns must be aligned!
+          return relation.columns[i]; 
         }
       }
       return null;
@@ -1705,7 +1711,7 @@ var WebAutomationLanguage = (function() {
 
       // now that we have the page info to manipulate, what do we need to do to get the next row?
       console.log("getnextrow", this, prinfo.currentRowsCounter);
-      if (prinfo.currentRows === null){
+      if (prinfo.currentRows === null || prinfo.needNewRows){
         // cool!  no data right now, so we have to go to the page and ask for some
 
         // ok, here's what we'll do once we actually get some new items sent over
@@ -1725,7 +1731,22 @@ var WebAutomationLanguage = (function() {
           }
           else if (data.type === RelationItemsOutputs.NEWITEMS){
             // yay, we have real data!
+
+            // ok, the content script is supposed to prevent us from getting the same thing that it already sent before
+            // but to be on the safe side, let's put in some extra protections so we don't try to advance too early
+            if (prinfo.currentRows && _.isEqual(prinfo.currentRows, data.relation)){
+              console.log("This really shouldn't happen.  We got the same relation back from the content script that we'd already gotten.");
+              console.log(prinfo.currentRows);
+              missesSoFar += 1;
+              return;
+            }
+            else{
+              console.log("The relations are different.");
+              console.log(prinfo.currentRows, data.relation);
+            }
+
             relationItemsRetrieved = true; // to stop us from continuing to ask for freshitems
+            prinfo.needNewRows = false; // so that we don't fall back into this same case even though we now have the items we want
             utilities.stopListeningForMessageWithKey("content", "mainpanel", "freshRelationItems", "freshRelationItemsListener");
             prinfo.currentRows = data.relation;
             prinfo.currentRowsCounter = 0;
@@ -1750,8 +1771,8 @@ var WebAutomationLanguage = (function() {
         var runningNextInteraction = false;
         utilities.listenForMessageOnce("content", "mainpanel", "runningNextInteraction", function(data){
           runningNextInteraction = true;
-          // cool, and we'll get to the situation where currentRows is null, so we'll start retrieving fresh items
-          prinfo.currentRows = null;
+          // cool, and now let's start retrieving fresh items by calling this function again
+          prinfo.needNewRows = true;
           relation.getNextRow(pageVar, callback);
         });
 
@@ -2081,6 +2102,7 @@ var WebAutomationLanguage = (function() {
         var pageVar = EventM.getLoadOutputPageVar(recEvents[i]);
         if (pageVar === undefined){
           updatePageVarsHelper(recEvents, repEvents, i + 1, continuation);
+          return;
         }
         // console.log("Setting pagevar current tab id to:", repEvents[i].data.tabId);
         pageVar.setCurrentTabId(repEvents[i].data.tabId, function(){updatePageVarsHelper(recEvents, repEvents, i + 1, continuation);});

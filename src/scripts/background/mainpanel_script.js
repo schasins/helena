@@ -258,14 +258,15 @@ var RecorderUI = (function() {
     // ready button
     var readyButton = div.find("#relation_editing_ready");
     readyButton.button();
-    // once ready button clicked, we'll already have updated the relation selector info based on messages the content panel has been sending, so we can just go back to looking at the program preview
-    // the one thing we do need to change is there may now be nodes included in the relation (or excluded) that weren't before, so we should redo loop insertion
-    ReplayScript.prog.insertLoops();
-    // todo: maybe we also want to automatically save changes to server?  something to consider.  not yet sure
+
     readyButton.click(function(){
       RecorderUI.showProgramPreview();
       // we also want to close the tab...
       chrome.tabs.remove(tabId);
+      // once ready button clicked, we'll already have updated the relation selector info based on messages the content panel has been sending, so we can just go back to looking at the program preview
+      // the one thing we do need to change is there may now be nodes included in the relation (or excluded) that weren't before, so we should redo loop insertion
+      ReplayScript.prog.insertLoops();
+      // todo: maybe we also want to automatically save changes to server?  something to consider.  not yet sure
     });
   };
 

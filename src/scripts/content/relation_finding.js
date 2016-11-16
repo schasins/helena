@@ -526,8 +526,15 @@ var RelationFinder = (function() { var pub = {};
             return defaultRel;
           }
           else if (defaultRel.numColumns === alternativeRel.numColumns){
-            // they're the same, so just return the default one
-            return defaultRel;
+            if (defaultRel.next_type !== null && alternativeRel.next_type === null){
+              // defaultRel has a next button method, but alternativeRel doesn't, so defaultRel better
+              return defaultRel;
+            }
+            else if (!(alternativeRel.next_type !== null && defaultRel.next_type === null)){
+              // it's not the case that altRel has next method and defRel doesn't, so either both have it or neither has it, so they're the same
+              // they're the same, so just return the default one
+              return defaultRel;
+            }
           }
         }
       }

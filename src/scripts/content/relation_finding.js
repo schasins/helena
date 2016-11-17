@@ -1146,10 +1146,10 @@ var RelationFinder = (function() { var pub = {};
       relationNodesIds.push(rowIds);
     });
 
+    if (!(strMsg in currentRelationSeenNodes)) { currentRelationSeenNodes[strMsg] = []; }
     // if there's supposed to be a next button or more button, or scroll for more, we have to do some special processing
     if (msg.next_type === NextTypes.NEXTBUTTON || msg.next_type === NextTypes.MOREBUTTON || msg.next_type === NextTypes.SCROLLFORMORE){
       // retrieve the list of ids we've already scraped
-      if (!(strMsg in currentRelationSeenNodes)) { currentRelationSeenNodes[strMsg] = []; }
       var alreadySeenRelationNodeIds = currentRelationSeenNodes[strMsg];
       // figure out if the new rows include nodes that were already scraped
       var newRows = [];

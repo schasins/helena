@@ -675,12 +675,17 @@ var RelationFinder = (function() { var pub = {};
   pub.getRelationItems = function(msg, sendMsg){
     if (sendMsg === undefined){ sendMsg = true; }
     var relation = pub.interpretRelationSelector(msg);
-    var relationData = _.map(relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
+    var relationData = pub.relationNodesToMainpanelNodeRepresentation(relation);
     if (sendMsg){
       utilities.sendMessage("content", "mainpanel", "relationItems", {relation: relationData});
     }
     return relationData;
   };
+
+  pub.relationNodesToMainpanelNodeRepresentation = function(relationNodes){
+    var relationData = _.map(relationNodes, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
+    return relationData;
+  }
 
   function selectorId(selectorObject){
     return StableStringify.stringify(selectorObject);
@@ -1044,6 +1049,7 @@ var RelationFinder = (function() { var pub = {};
 
   var nextInteractionSinceLastGetFreshRelationItems = {}; // this will be adjusted when we're in the midst of running next button interactions
   var currentRelationData = {};
+  var currentRelationSeenNodes = {};
   var noMoreItemsAvailable = {};
 
   // below the methods for actually using the next button when we need the next page of results
@@ -1094,6 +1100,7 @@ var RelationFinder = (function() { var pub = {};
     }
   }
 
+  relationFinderIdCounter = 0;
   pub.getFreshRelationItems = function(msg){
     var strMsg = selectorId(msg);
     if (noMoreItemsAvailable[strMsg]){
@@ -1110,9 +1117,74 @@ var RelationFinder = (function() { var pub = {};
     }
     */
     // ok, don't have a cached version, either because never collected before, or bc done a next interaction since then.  better grab the data afresh
-    var relationData = pub.getRelationItems(msg, false);
+
+    var relationNodes = pub.interpretRelationSelector(msg);
+
+    // ok, let's go through these nodes and give them ids if they've never been scraped for a node before
+    // then we want to figure out whether we're in a next interaction or a more interaction, so we now how to deal with info about whether we've scraped already
+    var relationNodesIds = [];
+    _.each(relationNodes, function(row){
+      var rowIds = [];
+      _.each(row, function(cell){
+        var id = null;
+        if (cell === null || cell === undefined) { 
+          // can't save an id on null
+          id = null; 
+        }
+        else if (!("___relationFinderId___" in cell)){
+          // have to add the relationFinderId
+          id = relationFinderIdCounter;
+          cell.___relationFinderId___ = id;
+          relationFinderIdCounter += 1;
+        }
+        else{
+          // already have relationFinderId saved
+          id = cell.___relationFinderId___;
+        }
+        rowIds.push(id);
+      });
+      relationNodesIds.push(rowIds);
+    });
+
+    // if there's supposed to be a next button or more button, or scroll for more, we have to do some special processing
+    if (msg.next_type === NextTypes.NEXTBUTTON || msg.next_type === NextTypes.MOREBUTTON || msg.next_type === NextTypes.SCROLLFORMORE){
+      // retrieve the list of ids we've already scraped
+      if (!(strMsg in currentRelationSeenNodes)) { currentRelationSeenNodes[strMsg] = []; }
+      var alreadySeenRelationNodeIds = currentRelationSeenNodes[strMsg];
+      // figure out if the new rows include nodes that were already scraped
+      var newRows = [];
+      var newRowsIds = [];
+      for (var i = 0; i < relationNodesIds.length; i++){
+        var row = relationNodesIds[i];
+        var allNew = _.reduce(row, function(acc, cell){return (acc && alreadySeenRelationNodeIds.indexOf(cell) === -1);}, true);
+        if (allNew){
+          newRows.push(relationNodes[i]);
+          newRowsIds.push(row);
+        }
+      }
+
+      // ok, now that we know which rows are actually new, what do we want to do with that information?
+      if (msg.next_type === NextTypes.NEXTBUTTON){
+        // this is a next interaction, so we should never have overlap.  wait until everything is new
+        if (relationNodes.length !== newRows.length){
+          // looks like some of our rows weren't new, so next button hasn't happened yet
+          utilities.sendMessage("content", "mainpanel", "freshRelationItems", {type: RelationItemsOutputs.NONEWITEMSYET, relation: null});
+          return;
+        }
+        // otherwise we can just carry on, since the relationNodes has the right set
+      }
+      else{
+        // ok, we're in a more-style interaction, either morebutton or scrollformore
+        // the newrows are the new rows, so let's use those!
+        relationNodes = newRows;
+        relationNodesIds = newRowsIds;
+      }
+    }
+
+    var relationData = pub.relationNodesToMainpanelNodeRepresentation(relationNodes);
     var crd = currentRelationData[strMsg];
     if (crd && crd.length === relationData.length && _.isEqual(crd, relationData)){
+      // this check should now be unnecessary.  todo: clean it up!
       // data still looks the same as it looked before.  no new items yet.
       utilities.sendMessage("content", "mainpanel", "freshRelationItems", {type: RelationItemsOutputs.NONEWITEMSYET, relation: null});
       return;
@@ -1123,9 +1195,11 @@ var RelationFinder = (function() { var pub = {};
     var newItems = relationData; // start by assuming that's everything
     if (crd && _.isEqual(crd, relationData.slice(0, crd.length))){
       // cool, this is a case of loading more into the same page, so we want to just grab the end
+      // again, this should now be unnecessary because we already filter to only new rows.  todo: clean it up
       newItems = relationData.slice(crd.length, relationData.length);
     }
     currentRelationData[strMsg] = relationData;
+    currentRelationSeenNodes[strMsg] = _.without(currentRelationSeenNodes[strMsg].concat(_.flatten(relationNodesIds)), null);
     utilities.sendMessage("content", "mainpanel", "freshRelationItems", {type: RelationItemsOutputs.NEWITEMS, relation: newItems});
   };
 

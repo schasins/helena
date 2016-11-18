@@ -2434,7 +2434,6 @@ var WebAutomationLanguage = (function() {
     function parameterizeWrapperNodes(pTrace, origXpath, newXpath){
       // todo: should we do something to exempt xpaths that are already being parameterized based on other relation elements?
       // for now this is irrelevant because we'll come to the same conclusion  because of using fixed suffixes, but could imagine different approach later
-      if (origXpath === newXpath){return;}
       var origSegs = origXpath.split("/");
       var newSegs = newXpath.split("/");
       if (origSegs.length !== newSegs.length){ console.log("origSegs and newSegs different length!", origXpath, newXpath); }
@@ -2451,6 +2450,9 @@ var WebAutomationLanguage = (function() {
           wrapperNodeCounter += 1;
           pTrace.parameterizeXpath(pname, origXpathPrefix);
           pTrace.useXpath(pname, newXpathPrefix);
+          console.log("Wrapper node correction:");
+          console.log(origXpathPrefix);
+          console.log(newXpathPrefix);
         }
         else {
           // this one is now diff, so shouldn't do replacement for the one further

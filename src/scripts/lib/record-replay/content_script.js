@@ -483,9 +483,19 @@ function simulate(events, startIndex) {
      *the future, and hope the page changes */
     if (!target) {
       if (checkTimeout(events, i)) {
-        replayLog.warn('timeout finding target, skip event: ', events, i);
-        // we timed out with this target, so lets skip the event
-        i++;
+        if (eventRecord.target.requiredFeatures){
+          // this is a special case, because the user has insisted on a few special features, and we want
+          // the top-level tool to be allowed to decide what happens if node addressing fails in this case
+          // so there will be a special error handler at the mainpanel for this
+          port.postMessage({type: 'nodeFindingWithUserRequiredFeaturesFailure', value: null, state: recording});
+        }
+        else{
+          // todo: is this really what we want?  perhaps we should let the higher-level tool know what happened
+          // we can thus let it pick the strategy.  perhaps when it isn't found, we should quit
+          replayLog.warn('timeout finding target, skip event: ', events, i);
+          // we timed out with this target, so lets skip the event
+          i++;
+        }
       }
 
       setRetry(events, i, params.replay.defaultWait);

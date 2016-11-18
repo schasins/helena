@@ -1301,6 +1301,13 @@ var Replay = (function ReplayClosure() {
       this.ack = ack;
       if (ack.setTimeout)
         this.setNextTimeout(0);
+    },
+    handleNodeFindingWithUserRequiredFeaturesFailure: function _handleNodeFindingWithUserRequiredFeaturesFailure() {
+      // todo: eventually this should actually provide a continuation as an argument!  null is wrong!
+      if (this.errorConts && this.errorConts.nodeFindingWithUserRequiredFeaturesFailure){
+        this.stopReplay();
+        this.errorConts.nodeFindingWithUserRequiredFeaturesFailure(this, null); // this is the replayObject
+      }
     }
   };
 
@@ -1528,6 +1535,9 @@ var replayHandlers = {
   },
   'prompt': function(port, request) {
     user.contentScriptQuestion(request.value, port);
+  },
+  'nodeFindingWithUserRequiredFeaturesFailure': function(port, request) {
+    replay.handleNodeFindingWithUserRequiredFeaturesFailure();
   }
 }
 

@@ -337,19 +337,45 @@ function getFeatures(element){
     return getTargetForSimilarityHelper(targetInfo, candidates);
   };
 
-  var getTargetForSimilarityFilteredByText = function(targetInfo) {
+  var getTargetForSimilarityFilteredByText = function(targetInfo, filterFeatures) {
+    console.log("getTargetForSimilarityFilteredByText", targetInfo, filterFeatures);
+    if (filterFeatures === undefined){ filterFeatures = []; }
     console.log("getTargetForSimilarityFilteredByText", targetInfo);
     var unfilteredCandidates = getAllSimilarityCandidates(targetInfo);
+
+    // soon we'll filter by text, since we're doing getTargetForSimilarityFilteredByText
+    // but we need to filter based on the user-provided filterFeatures (the ones required to be stable) first
+    var userFilteredCandidates = null;
+    if (filterFeatures.length === 0){
+      userFilteredCandidates = unfilteredCandidates
+    }
+    else{
+      userFilteredCandidates = [];
+      for (var i = 0; i < unfilteredCandidates.length; i++){
+        var matchedAllFeatures = _.reduce(filterFeatures, function(acc, feature){return (acc && (unfilteredCandidates[i][feature] === targetInfo[feature]));}, true);
+        if (matchedAllFeatures){
+          userFilteredCandidates.push(unfilteredCandidates[i]);
+        }         
+      }
+    }
+    console.log("userFilteredCandidates", userFilteredCandidates.length, userFilteredCandidates);
+    // this is a case where, because user can require features that no longer appear, we can get zero matches!
+    if (userFilteredCandidates.length === 0){
+      console.log("After filtering on user-selected features, no candidates qualify.");
+      return null;
+    }
+
+    // ok, now filter by text
     var targetText = targetInfo.textContent;
     var candidates = [];
-    for (var i = 0; i<unfilteredCandidates.length; i++){
-      if (unfilteredCandidates[i].textContent === targetText){
-        candidates.push(unfilteredCandidates[i]);
+    for (var i = 0; i < userFilteredCandidates.length; i++){
+      if (userFilteredCandidates[i].textContent === targetText){
+        candidates.push(userFilteredCandidates[i]);
       }
     }
     if (candidates.length === 0){
       //fall back to the normal one that considers all nodes
-      return getTargetForSimilarityHelper(targetInfo, unfilteredCandidates);
+      return getTargetForSimilarityHelper(targetInfo, userFilteredCandidates);
     }
     
     //otherwise, let's just run similarity on the nodes that have the same text
@@ -375,8 +401,16 @@ function getFeatures(element){
         return nodes[0];
       }
     }
+    // the top-level tool may specify that some subset of features remain stable (text, id, so on, if they have special knowledge of page design)
+    // in this case, we should grab these requiredFeatures to use as a filter
+    var filterFeatures = [];
+    if (targetInfo.requiredFeatures){
+      filterFeatures = targetInfo.requiredFeatures;
+    }
+
+    // ok, now let's use similarity-based node finding
     var features = targetInfo.snapshot;
-    var winningNode = getTargetForSimilarityFilteredByText(features);
+    var winningNode = getTargetForSimilarityFilteredByText(features, filterFeatures);
     identifiedNodesCache[xpath] = winningNode;
     return winningNode;
   }

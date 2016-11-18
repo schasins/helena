@@ -909,6 +909,11 @@ var WebAutomationLanguage = (function() {
     }
   }
 
+  function requireFeature(statement, featureName){
+    ReplayTraceManipulation.requireFeature(statement.trace, statement.node, featureName); // note that statement.node stores the xpath of the original node
+    ReplayTraceManipulation.requireFeature(statement.cleanTrace, statement.node, featureName);
+  }
+
   // the actual statements
 
   pub.LoadStatement = function(trace){
@@ -1010,6 +1015,10 @@ var WebAutomationLanguage = (function() {
 
     this.postReplayProcessing = function(trace, temporaryStatementIdentifier){
       return;
+    };
+
+    this.requireFeature = function(featureName){
+      requireFeature(this, featureName); // todo: put this method in all the other statements that have orig xpath in this.node
     };
   };
   pub.ScrapeStatement = function(trace){
@@ -1155,6 +1164,7 @@ var WebAutomationLanguage = (function() {
     }
     if (onlyKeydowns || onlyKeyups){
       this.keyEvents = textEntryEvents;
+      this.keyCodes = _.map(this.keyEvents, function(ev){ return ev.data.keyCode; });
     }
 
     this.toStringLines = function(){
@@ -1345,10 +1355,17 @@ var WebAutomationLanguage = (function() {
     this.run = function(programObj, rbbcontinuation){
       console.log("run close statement");
 
-      chrome.tabs.remove(this.pageVarCurr.currentTabId(), function(){
-          that.pageVarCurr.clearCurrentTabId();
-          rbbcontinuation();
-        }); 
+      var tabId = this.pageVarCurr.currentTabId();
+      if (tabId !== undefined && tabId !== null){
+        chrome.tabs.remove(this.pageVarCurr.currentTabId(), function(){
+            that.pageVarCurr.clearCurrentTabId();
+            rbbcontinuation();
+          }); 
+      }
+      else{
+        console.log("Warning: trying to close tab for pageVar that didn't have a tab associated at the moment.  Can happen after continue statement.");
+        rbbcontinuation();
+      }
     };
 
     this.parameterizeForRelation = function(relation){
@@ -2154,7 +2171,8 @@ var WebAutomationLanguage = (function() {
                 || statement instanceof WebAutomationLanguage.OutputRowStatement);
     }
 
-    this.runBasicBlock = function(loopyStatements, callback){
+    this.runBasicBlock = function(loopyStatements, callback, skipAllExceptBackAndClose){
+      if (skipAllExceptBackAndClose === undefined){ skipAllExceptBackAndClose = false; }
       console.log("rbb", loopyStatements.length, loopyStatements);
       // first check if we're supposed to pause, stop execution if yes
       console.log("RecorderUI.userPaused", RecorderUI.userPaused);
@@ -2177,6 +2195,11 @@ var WebAutomationLanguage = (function() {
       }
       // for now LoopStatement gets special processing
       else if (loopyStatements[0] instanceof WebAutomationLanguage.LoopStatement){
+        if (skipAllExceptBackAndClose){
+          // in this case, when we're basically 'continue'ing, it's as if this loop is empty, so skip straight to that
+          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, skipAllExceptBackAndClose);
+          return;
+        }
         console.log("rbb: loop.");
         var loopStatement = loopyStatements[0];
         loopStatement.relation.getNextRow(loopStatement.pageVar, function(moreRows){
@@ -2199,11 +2222,12 @@ var WebAutomationLanguage = (function() {
             program.environment.envBind(key, loopVarsMap[key]);
           }
           console.log("loopyStatements", loopyStatements);
-          program.runBasicBlock(loopStatement.bodyStatements, function(){
+          program.runBasicBlock(loopStatement.bodyStatements, function(){ // running extra iterations of the for loop is the only time we change the callback
             // and once we've run the body, we should do the next iteration of the loop
             // but first let's get rid of that last environment frame
+            console.log("rbb: preparing for next loop iteration, popping frame off environment.");
             program.environment = program.environment.parent;
-            program.runBasicBlock(loopyStatements, callback); // running extra iterations of the for loop is the only time we change the callback
+            program.runBasicBlock(loopyStatements, callback); 
           });
         });
         return;
@@ -2211,14 +2235,24 @@ var WebAutomationLanguage = (function() {
       // also need special processing for back statements, if statements, continue statements, whatever isn't ringer-based
       else if (!ringerBased(loopyStatements[0])){
         console.log("rbb: non-Ringer-based statement.");
+
+        if (skipAllExceptBackAndClose){
+          // in this case, when we're basically 'continue'ing, we should do nothing unless this is actually a back or close
+          if (!(loopyStatements[0] instanceof WebAutomationLanguage.BackStatement || loopyStatements[0] instanceof WebAutomationLanguage.ClosePageStatement)){
+            program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, skipAllExceptBackAndClose);
+            return;
+          }
+        }
+
+        // normal execution, either because we're not in skipallexceptbackandclose mode, or because we are but it's a back or a close
         var continuation = function(continueflag){ // remember that rbbcontinuations passed to run methods must always handle continueflag
           if (continueflag){
             // executed a continue statement, better stop going through this loop's statements, get back to the original callback
-            callback();
+            program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, true); // set skipAllExceptBackAndClose flag
             return;
           }
           // once we're done with this statement running, have to replay the remainder of the script
-          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback);
+          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, skipAllExceptBackAndClose);
         };
         loopyStatements[0].run(program, continuation); // todo: program is passed to give access to environment.  may want a better way
         return;
@@ -2234,6 +2268,12 @@ var WebAutomationLanguage = (function() {
             break;
           }
           basicBlockStatements.push(loopyStatements[i]);
+        }
+
+        if (skipAllExceptBackAndClose){
+          // in this case, when we're basically 'continue'ing, we should do nothing, so just go on to the next statement without doing anything else
+          program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, skipAllExceptBackAndClose);
+          return;
         }
 
         if (nextBlockStartIndex === 0){
@@ -2291,7 +2331,31 @@ var WebAutomationLanguage = (function() {
           };
           updatePageVars(trace, replayObject.record.events, allPageVarsOk);
 
-        });
+        },
+        // ok, we also want some error handling functions
+        {
+          nodeFindingWithUserRequiredFeaturesFailure: function(replayObject, ringerContinuation){
+            // todo: note that continuation doesn't actually have a continuation yet because of Ringer-level implementation
+            // if you decide to start using it, you'll have to go back and fix that.  see record-replay/mainpanel_main.js
+
+            // for now, if we fail to find a node where the user has insisted it has a certain set of features, we want to just skip the row
+            // essentially want the continue action, so we want the callback that's supposed to happen at the end of running the rest of the script for this iteration
+            // so we'll skip doing  program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback) (as above)
+            // instead we'll just do the callback
+            console.log("rbb: couldn't find a node based on user-required features.  skipping the rest of this row.");
+
+            // even though couldn't complete the whole trace, still need to do updatePageVars because that's how we figure out which
+            // tab is associated with which pagevar, so that we can go ahead and do tab closing and back button pressing at the end
+            var trace = [];
+          _.each(basicBlockStatements, function(statement){trace = trace.concat(statement.trace);}); // want the trace with display data, not the clean trace
+            updatePageVars(trace, replayObject.record.events, function(){
+              // in the continuation, we'll do the actual move onto the next statement
+              program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, true);
+            });
+
+          }
+        }
+        );
       }
     }
 
@@ -2373,7 +2437,7 @@ var WebAutomationLanguage = (function() {
       if (origXpath === newXpath){return;}
       var origSegs = origXpath.split("/");
       var newSegs = newXpath.split("/");
-      if (origSegs.length !== newSegs.length){ console.log("origSegs and newSegs different length!"); }
+      if (origSegs.length !== newSegs.length){ console.log("origSegs and newSegs different length!", origXpath, newXpath); }
       for (var i = 0; i < origSegs.length; i++){ // assumption: origSegs and newSegs have same length; we'll see
         if (origSegs[origSegs.length - 1 - i] === newSegs[newSegs.length - 1 - i]){
           // still match
@@ -2487,30 +2551,48 @@ var WebAutomationLanguage = (function() {
       // if we ever get a sequence within the statements that's a keydown statement, then only scraping statements, then a keyup, assume we can toss the keyup and keydown ones
 
       console.log("filterScrapingKeypresses", statements);
-      var keydownIndex = null;
-      var pairs = [];
+      var keyIndexes = [];
+      var keysdown = [];
+      var keysup = [];
+      var sets = [];
       for (var i = 0; i < statements.length; i++){
         if (statements[i] instanceof WebAutomationLanguage.TypeStatement && statements[i].onlyKeydowns){
-          keydownIndex = i;
+          keyIndexes.push(i);
+          keysdown = keysdown.concat(statements[i].keyCodes);
         }
-        else if (keydownIndex !== null && statements[i] instanceof WebAutomationLanguage.ScrapeStatement){
+        else if (keyIndexes.length > 0 && statements[i] instanceof WebAutomationLanguage.ScrapeStatement){
           continue;
         }
-        else if (keydownIndex !== null && statements[i] instanceof WebAutomationLanguage.TypeStatement && statements[i].onlyKeyups){
-          pairs.push([keydownIndex, i]);
+        else if (keyIndexes.length > 0 && statements[i] instanceof WebAutomationLanguage.TypeStatement && statements[i].onlyKeyups){
+          keyIndexes.push(i);
+          keysup = keysup.concat(statements[i].keyCodes);
+
+          // ok, do the keysdown and keysup arrays have the same elements (possibly including repeats), just reordered?
+          // todo: is this a strong enough condition?
+          keysdown.sort();
+          keysup.sort();
+          if (_.isEqual(keysdown, keysup)) {
+            sets.push(keyIndexes);
+            keyIndexes = [];
+            keysdown = [];
+            keysup = [];
+          }
         }
-        else if (keydownIndex !== null && !(statements[i] instanceof WebAutomationLanguage.ScrapeStatement)){
-          keydownIndex = null;
+        else if (keyIndexes.length > 0 && !(statements[i] instanceof WebAutomationLanguage.ScrapeStatement)){
+          keyIndexes = [];
+          keysdown = [];
+          keysup = [];
         }
       }
       // ok, for now we're only going to get rid of the keydown and keyup statements
-      // they're in pairs because may ultimately want to try manipulating scraping statements in the middle if they don't have dom events (as when relation parameterized)
+      // they're in sets because may ultimately want to try manipulating scraping statements in the middle if they don't have dom events (as when relation parameterized)
       // but for now we'll stick with this
 
-      for (var i = pairs.length - 1; i >= 0; i--){
-        var pair = pairs[i];
-        statements.splice(pair[1], 1);
-        statements.splice(pair[0], 1);
+      for (var i = sets.length - 1; i >= 0; i--){
+        var set = sets[i];
+        for (var j = set.length - 1; j >= 0; j--){
+          statements.splice(set[j], 1);
+        }
       }
       
       console.log("filterScrapingKeypresses", statements);

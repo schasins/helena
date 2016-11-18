@@ -32,7 +32,7 @@ utilities.sendMessage("content", "mainpanel", "requestCurrentRecordingWindow", {
 var NodeRep = (function() { var pub = {};
 	pub.nodeToMainpanelNodeRepresentation = function(node){
 	  if (node === null){
-	    return {text: null, link: null, xpath: null, frame: SimpleRecord.getFrameId()};
+	    return {text: "", link: "", xpath: "", frame: SimpleRecord.getFrameId()};
 	  }
 	  return {text: NodeRep.nodeToText(node), link: NodeRep.nodeToLink(node), xpath: nodeToXPath(node), frame: SimpleRecord.getFrameId()};
 	};

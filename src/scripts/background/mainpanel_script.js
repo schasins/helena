@@ -1314,7 +1314,9 @@ var WebAutomationLanguage = (function() {
     var backStatement = this;
 
     this.toStringLines = function(){
-      return [this.pageVarBack.toString() + " = " + this.pageVarCurr.toString() + ".back()" ];
+      // back statements are now invisible cleanup, not normal statements, so don't use the line below for now
+      // return [this.pageVarBack.toString() + " = " + this.pageVarCurr.toString() + ".back()" ];
+      return [];
     };
 
     this.run = function(programObj, rbbcontinuation){
@@ -1349,7 +1351,9 @@ var WebAutomationLanguage = (function() {
     var that = this;
 
     this.toStringLines = function(){
-      return [this.pageVarCurr.toString() + ".close()" ];
+      // close statements are now invisible cleanup, not normal statements, so don't use the line below for now
+      // return [this.pageVarCurr.toString() + ".close()" ];
+      return [];
     };
 
     this.run = function(programObj, rbbcontinuation){

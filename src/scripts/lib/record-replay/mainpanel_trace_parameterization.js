@@ -309,7 +309,15 @@ function ParameterizedTrace(trace){
 		console.log("successfully cloned trace");
 		var prop_corrections = {};
 		for (var i = 0; i< cloned_trace.length; i++){
-			if (cloned_trace[i].type === "dom"){
+			if (cloned_trace[i].type === "completed"){
+				// correct url if it's a parameterized url
+				var url = cloned_trace[i].data.url;
+				if (url.name){
+					console.log("Correcting url to ", url.value);
+					cloned_trace[i].data.url = url.value;
+				}
+			}
+			else if (cloned_trace[i].type === "dom"){
 				// do any prop corrections we might need, as when we've recorded a value but want to enforce a diff
 				if (cloned_trace[i].meta.nodeSnapshot && cloned_trace[i].meta.nodeSnapshot.prop){
 					var xpath = cloned_trace[i].meta.nodeSnapshot.prop.xpath;

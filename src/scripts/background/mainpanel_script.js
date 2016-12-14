@@ -829,6 +829,12 @@ var WebAutomationLanguage = (function() {
       // mutliple suffixes associated with a column, that xpath is not always correct
       // but we're in luck because we know the selector has just been applied to the relevant page (to produce relation.demonstrationTimeRelation and from that relation.firstRowXpaths)
       // so we can learn from those attributes which xpaths are relevant right now, and thus which ones the user would have produced in the current demo
+      
+      // if the relation is a text relation, we actually don't want to do the below, because it doesn't represent nodes, only texts
+      if (relation instanceof WebAutomationLanguage.TextRelation){
+        return null;
+      }
+
       for (var i = 0; i < relation.firstRowXPaths.length; i++){
         var firstRowXpath = relation.firstRowXPaths[i];
         if (firstRowXpath === statement.currentNode){
@@ -932,8 +938,29 @@ var WebAutomationLanguage = (function() {
 
     this.cleanTrace = cleanTrace(trace);
 
+    this.cUrl = function(){
+      if (this.currentUrl instanceof WebAutomationLanguage.VariableUse){
+        return this.currentUrl.currentText();
+      }
+      else {
+        // else it's a string
+        return this.currentUrl;
+      }
+    }
+
+    this.cUrlString = function(){
+      if (this.currentUrl instanceof WebAutomationLanguage.VariableUse){
+        return this.currentUrl.toString();
+      }
+      else {
+        // else it's a string
+        return '"'+this.currentUrl+'"';
+      }
+    }
+
     this.toStringLines = function(){
-      return [this.outputPageVar.toString()+" = load('"+this.url+"')"];
+      var cUrl = this.cUrlString();
+      return [this.outputPageVar.toString()+" = load("+cUrl+")"];
     };
 
     this.pbvs = function(){
@@ -944,16 +971,40 @@ var WebAutomationLanguage = (function() {
       return pbvs;
     };
 
-    this.parameterizeForRelation = function(){
-      return []; // loads don't get changed based on relations
+    this.parameterizeForRelation = function(relation){
+      // ok!  loads can now get changed based on relations!
+      // what we want to do is load a different url if we have a relation that includes the url
+      var columns = relation.columns;
+      for (var i = 0; i < columns.length; i++){
+        var text = columns[i].firstRowText;
+        if (text === null || text === undefined){
+          // can't parameterize for a cell that has null text
+          continue;
+        }
+        if (text === this.url){
+          // ok, we want to parameterize
+          this.relation = relation;
+          this.currentUrl = new WebAutomationLanguage.VariableUse(relation.columns[i], relation, null, false);
+          return relation.columns[i];
+        }
+      }
     };
-    this.unParameterizeForRelation = function(){
-      return; // loads don't get changed based on relations
+    this.unParameterizeForRelation = function(relation){
+      if (this.relation === relation){
+        this.relation = null;
+        this.currentUrl = this.url;
+      }
+      return;
     };
 
     this.args = function(){
       var args = [];
-      args.push({type:"url", value: this.currentUrl});
+      if (this.currentUrl instanceof WebAutomationLanguage.VariableUse){
+        args.push({type:"url", value: this.currentUrl.currentText()});
+      }
+      else{
+        args.push({type:"url", value: this.currentUrl}); // if it's not a var use, it's just a string
+      }
       return args;
     };
 
@@ -1464,7 +1515,13 @@ var WebAutomationLanguage = (function() {
     this.toStringLines = function(){
       var relation = this.relation;
       var varNames = _.map(relationColumnsUsed, function(columnObject){return columnObject.name;});
-      var prefix = "for "+varNames.join(", ")+" in "+this.pageVar.toString()+"."+this.relation.name+":";
+      var prefix = "";
+      if (this.relation instanceof WebAutomationLanguage.TextRelation){
+        var prefix = "for "+varNames.join(", ")+" in "+this.relation.name+":"; 
+      }
+      else{
+        var prefix = "for "+varNames.join(", ")+" in "+this.pageVar.toString()+"."+this.relation.name+":"; 
+      }
       var statementStrings = _.reduce(this.bodyStatements, function(acc, statement){return acc.concat(statement.toStringLines());}, []);
       statementStrings = _.map(statementStrings, function(line){return ("&nbsp&nbsp&nbsp&nbsp "+line);});
       return [prefix].concat(statementStrings);
@@ -1479,13 +1536,16 @@ var WebAutomationLanguage = (function() {
   }
 
   function usedByTextStatement(statement, parameterizeableStrings){
-    if (!(statement instanceof WebAutomationLanguage.TypeStatement)){
+    if (!(statement instanceof WebAutomationLanguage.TypeStatement || statement instanceof WebAutomationLanguage.LoadStatement)){
       return false;
     }
     for (var i = 0; i < parameterizeableStrings.length; i++){
       if (!parameterizeableStrings[i]){ continue;}
       var lowerString = parameterizeableStrings[i].toLowerCase();
-      if (statement.typedStringLower.indexOf(lowerString) > -1){
+      if (statement.typedStringLower && statement.typedStringLower.indexOf(lowerString) > -1){ // for typestatement
+        return true;
+      }
+      if (statement.url && statement.url.toLowerCase() === lowerString) { // for loadstatement
         return true;
       }
     }
@@ -1687,10 +1747,10 @@ var WebAutomationLanguage = (function() {
     };
 
     this.usedByStatement = function(statement){
-      if (!((statement instanceof WebAutomationLanguage.ScrapeStatement) || (statement instanceof WebAutomationLanguage.ClickStatement) || (statement instanceof WebAutomationLanguage.TypeStatement))){
+      if (!((statement instanceof WebAutomationLanguage.ScrapeStatement) || (statement instanceof WebAutomationLanguage.ClickStatement) || (statement instanceof WebAutomationLanguage.TypeStatement) || (statement instanceof WebAutomationLanguage.LoadStatement))){
         return false;
       }
-      if (this.pageVarName === statement.pageVar.name && this.firstRowXPaths.indexOf(statement.node) > -1){
+      if (statement.pageVar && this.pageVarName === statement.pageVar.name && this.firstRowXPaths.indexOf(statement.node) > -1){
         return true;
       }
       if (usedByTextStatement(statement, this.firstRowTexts)){
@@ -2755,7 +2815,7 @@ var WebAutomationLanguage = (function() {
           // we're making that assumption again about just one outputpagevar.  also that everything is happening in one tab.  must come back and revisit this
           var currPage = statement.outputPageVars[0];
           var backPage = statement.pageVar;
-          if (currPage.originalTabId() === backPage.originalTabId()){
+          if (backPage && currPage.originalTabId() === backPage.originalTabId()){
             // only need to add back button if they're actually in the same tab (may be in diff tabs if CTRL+click, or popup, whatever)
             backStatements.push(new WebAutomationLanguage.BackStatement(currPage, backPage));
           }

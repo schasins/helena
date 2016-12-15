@@ -1131,8 +1131,11 @@ var WebAutomationLanguage = (function() {
           }
         }
         console.log("shortened cleantrace", this.cleanTrace);
+        return [relationColumnUsed];
       }
-      return [relationColumnUsed];
+      else {
+        return [];
+      }
     };
     this.unParameterizeForRelation = function(relation){
       unParameterizeNodeWithRelation(this, relation);
@@ -1324,6 +1327,7 @@ var WebAutomationLanguage = (function() {
     this.trace = []; // no extra work to do in r+r layer for this
     this.cleanTrace = [];
     this.scrapeStatements = scrapeStatements;
+    this.relations = [];
 
     this.toStringLines = function(){
       var nodeRepLs = _.map(this.scrapeStatements, function(statement){return nodeRepresentation(statement, statement.scrapeLink);});
@@ -1334,10 +1338,15 @@ var WebAutomationLanguage = (function() {
       return [];
     };
     this.parameterizeForRelation = function(relation){
+      if (relation instanceof WebAutomationLanguage.TextRelation){
+        // for now, we assume that we always want to include in our scraped data all cells of the text relation
+        this.relations.push(relation);
+        return relation.columns;
+      }
       return [];
     };
     this.unParameterizeForRelation = function(relation){
-      return;
+      this.relations = _.without(this.relations, relation);
     };
     this.args = function(){
       return [];
@@ -1345,6 +1354,13 @@ var WebAutomationLanguage = (function() {
     this.postReplayProcessing = function(trace, temporaryStatementIdentifier){
       // we've 'executed' an output statement.  better send a new row to our output
       var cells = [];
+      // get all the cells that we'll get from the text relations
+      for (var i = 0; i < this.relations.length; i++){
+        var relation = this.relations[i];
+        var newCells = relation.getCurrentCellsText();
+        cells = cells.concat(newCells);
+      }
+      // get all the cells that we'll get from the scrape statements
       _.each(this.scrapeStatements, function(scrapeStatment){
         cells.push(scrapeStatment.currentNodeCurrentValue);
       });
@@ -1599,6 +1615,15 @@ var WebAutomationLanguage = (function() {
         currentRowsCounter += 1;
         callback(true);
       }
+    }
+
+    this.getCurrentCellsText = function(pageVar){
+      var cells = [];
+      for (var i = 0; i < this.columns.length; i++){
+        var cellText = this.getCurrentText(pageVar, this.columns[i]);
+        cells.push(cellText);
+      }
+      return cells;
     }
 
     this.getCurrentText = function(pageVar, columnObject){
@@ -1870,6 +1895,15 @@ var WebAutomationLanguage = (function() {
         prinfo.currentRowsCounter += 1;
         callback(true);
       }
+    }
+
+    this.getCurrentCellsText = function(pageVar){
+      var cells = [];
+      for (var i = 0; i < this.columns.length; i++){
+        var cellText = this.getCurrentText(pageVar, this.columns[i]);
+        cells.push(cellText);
+      }
+      return cells;
     }
 
     this.getCurrentXPath = function(pageVar, columnObject){

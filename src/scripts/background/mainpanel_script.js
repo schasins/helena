@@ -938,6 +938,10 @@ var WebAutomationLanguage = (function() {
 
     this.cleanTrace = cleanTrace(trace);
 
+    this.clearRunningState = function(){
+      return;
+    }
+
     this.cUrl = function(){
       if (this.currentUrl instanceof WebAutomationLanguage.VariableUse){
         return this.currentUrl.currentText();
@@ -1032,6 +1036,9 @@ var WebAutomationLanguage = (function() {
     // proposeCtrlAdditions(this);
     this.cleanTrace = cleanTrace(this.trace);
 
+    this.clearRunningState = function(){
+      return;
+    }
 
     this.toStringLines = function(){
       var nodeRep = nodeRepresentation(this);
@@ -1094,6 +1101,10 @@ var WebAutomationLanguage = (function() {
           break;
         }
       }
+    }
+
+    this.clearRunningState = function(){
+      return;
     }
 
     this.toStringLines = function(){
@@ -1221,6 +1232,10 @@ var WebAutomationLanguage = (function() {
       this.keyCodes = _.map(this.keyEvents, function(ev){ return ev.data.keyCode; });
     }
 
+    this.clearRunningState = function(){
+      return;
+    }
+
     this.toStringLines = function(){
       if (!onlyKeyups && !onlyKeydowns){
         // normal processing, for when there's actually a typed string
@@ -1329,6 +1344,10 @@ var WebAutomationLanguage = (function() {
     this.scrapeStatements = scrapeStatements;
     this.relations = [];
 
+    this.clearRunningState = function(){
+      return;
+    }
+
     this.toStringLines = function(){
       var nodeRepLs = _.map(this.scrapeStatements, function(statement){return nodeRepresentation(statement, statement.scrapeLink);});
       return ["addOutputRow(["+nodeRepLs.join(",")+"])"];
@@ -1340,7 +1359,7 @@ var WebAutomationLanguage = (function() {
     this.parameterizeForRelation = function(relation){
       if (relation instanceof WebAutomationLanguage.TextRelation){
         // for now, we assume that we always want to include in our scraped data all cells of the text relation
-        this.relations.push(relation);
+        this.relations = _.union(this.relations, [relation]); // add relation if it's not already in there
         return relation.columns;
       }
       return [];
@@ -1380,6 +1399,10 @@ var WebAutomationLanguage = (function() {
 
     var backStatement = this;
 
+    this.clearRunningState = function(){
+      return;
+    }
+
     this.toStringLines = function(){
       // back statements are now invisible cleanup, not normal statements, so don't use the line below for now
       // return [this.pageVarBack.toString() + " = " + this.pageVarCurr.toString() + ".back()" ];
@@ -1417,6 +1440,10 @@ var WebAutomationLanguage = (function() {
     this.pageVarCurr = pageVarCurr;
     var that = this;
 
+    this.clearRunningState = function(){
+      return;
+    }
+
     this.toStringLines = function(){
       // close statements are now invisible cleanup, not normal statements, so don't use the line below for now
       // return [this.pageVarCurr.toString() + ".close()" ];
@@ -1448,6 +1475,11 @@ var WebAutomationLanguage = (function() {
   };
 
   pub.ContinueStatement = function(){
+
+    this.clearRunningState = function(){
+      return;
+    }
+
     this.toStringLines = function(){
       return ["continue"];
     };
@@ -1467,6 +1499,10 @@ var WebAutomationLanguage = (function() {
 
   pub.IfStatement = function(bodyStatements){
     this.bodyStatements = bodyStatements;
+
+    this.clearRunningState = function(){
+      return;
+    }
 
     this.toStringLines = function(){
       return ["if"]; // todo: when we have the real if statements, do the right thing
@@ -1527,6 +1563,13 @@ var WebAutomationLanguage = (function() {
     this.relationColumnsUsed = relationColumnsUsed;
     this.bodyStatements = bodyStatements;
     this.pageVar = pageVar;
+    this.maxRows = null; // note: for now, can only be sat at js console.  todo: eventually should have ui interaction for this.
+    this.rowsSoFar = 0;
+
+    this.clearRunningState = function(){
+      this.rowsSoFar = 0;
+      return;
+    }
 
     this.toStringLines = function(){
       var relation = this.relation;
@@ -2299,18 +2342,32 @@ var WebAutomationLanguage = (function() {
           return;
         }
         console.log("rbb: loop.");
+
         var loopStatement = loopyStatements[0];
+        var relation = loopStatement.relation;
+
+        // have we hit the maximum number of iterations we want to do?
+        if (loopStatement.maxRows !== null && loopStatement.rowsSoFar >= loopStatement.maxRows){
+          // hey, we're done!
+          console.log("hit the row limit");
+          loopStatement.rowsSoFar = 0;
+          // once we're done with the loop, have to replay the remainder of the script
+          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback);
+          return;
+        }
+
         loopStatement.relation.getNextRow(loopStatement.pageVar, function(moreRows){
           if (!moreRows){
-            console.log("no more rows");
             // hey, we're done!
-
+            console.log("no more rows");
+            loopStatement.rowsSoFar = 0;
             // once we're done with the loop, have to replay the remainder of the script
             program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback);
             return;
           }
           console.log("we have a row!  let's run");
           // otherwise, should actually run the body
+          loopStatement.rowsSoFar += 1;
           // block scope.  let's add a new frame
           program.environment = program.environment.envExtend(); // add a new frame on there
           // and let's give us access to all the loop variables
@@ -2483,6 +2540,7 @@ var WebAutomationLanguage = (function() {
     this.clearRunningState = function(){
       _.each(this.relations, function(relation){relation.clearRunningState();});
       _.each(this.pageVars, function(pageVar){pageVar.clearRunningState();});
+      _.each(this.loopyStatements, function(statement){statement.clearRunningState();});
     };
 
     this.download = function(){

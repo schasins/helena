@@ -16,7 +16,8 @@
     "storage",
     "unlimitedStorage",
     "webRequestBlocking",
-    "system.display" 
+    "system.display", 
+    "webNavigation"
   ],
   "background": {
     "page": "pages/background.html"
@@ -24,6 +25,8 @@
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
+      "match_about_blank": true,
+      "all_frames": true,
       "js": [		"scripts/lib/utilities.js", 
 			"scripts/lib/jquery.js", 
       "scripts/content/setup.js",

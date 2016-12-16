@@ -601,6 +601,11 @@ var RelationFinder = (function() { var pub = {};
       // ok, no table, we have to do the standard, possibly slow approach
       selectorData = synthesizeSelectorForSubsetThatProducesLargestRelation(nodes, maxNodesCoveredByServerRelations + 1);
     }
+    if (selectorData === null){
+      // well, huh.  we just don't know what to do here.
+      selectorData = {};
+      selectorData.relation = [];
+    }
     var relationData = _.map(selectorData.relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
     selectorData.relation = relationData;
 
@@ -650,7 +655,7 @@ var RelationFinder = (function() { var pub = {};
       newMsg.next_type = currBestSelector.next_type;
       newMsg.next_button_selector = currBestSelector.next_button_selector;
     }
-    console.log(currBestSelector);
+    console.log("currBestSelector", currBestSelector);
     newMsg.exclude_first = currBestSelector.exclude_first;
     newMsg.num_rows_in_demonstration = currBestSelector.relation.length;
     newMsg.selector = currBestSelector.selector;
@@ -664,12 +669,13 @@ var RelationFinder = (function() { var pub = {};
         // ok, looks like we don't actually have any data yet.  might be because data hasn't fully loaded on page yet
         // the mainpanel will keep asking for likelyrelations, so let's wait a while, see if the next time works; try 10 times
         // todo: not sure this is where we want to deal with this?
-        return;
+        return null;
       }
     }
 
-    utilities.sendMessage("content", "mainpanel", "likelyRelation", newMsg);
+    //utilities.sendMessage("content", "mainpanel", "likelyRelation", newMsg);
     processedLikelyRelationRequest = true;
+    return newMsg; // return rather than sendmessage because it's a builtin response handler one
   }
 
   pub.getRelationItems = function(msg, sendMsg){
@@ -1100,13 +1106,17 @@ var RelationFinder = (function() { var pub = {};
     }
   }
 
-  relationFinderIdCounter = 0;
   pub.getFreshRelationItems = function(msg){
+    var respMsg = getFreshRelationItemsHelper(msg);
+    utilities.sendMessage("content", "mainpanel", "freshRelationItems", respMsg);
+  }
+
+  relationFinderIdCounter = 0;
+  pub.getFreshRelationItemsHelper = function(msg){
     var strMsg = selectorId(msg);
     if (noMoreItemsAvailable[strMsg]){
       // that's it, we're done.  last use of the next interaction revealed there's nothing left
-      utilities.sendMessage("content", "mainpanel", "freshRelationItems", {type: RelationItemsOutputs.NOMOREITEMS, relation: null});
-      return;
+      return {type: RelationItemsOutputs.NOMOREITEMS, relation: null};
     }
     // below is commented out in case there are cases where after first load, it may take a while for the data to all get there (get empty list first, that kind of deal)  Does that happen or is this a wasted opportunity to cache?
     /*
@@ -1119,6 +1129,7 @@ var RelationFinder = (function() { var pub = {};
     // ok, don't have a cached version, either because never collected before, or bc done a next interaction since then.  better grab the data afresh
 
     var relationNodes = pub.interpretRelationSelector(msg);
+    console.log("relationNodes", relationNodes);
 
     // ok, let's go through these nodes and give them ids if they've never been scraped for a node before
     // then we want to figure out whether we're in a next interaction or a more interaction, so we now how to deal with info about whether we've scraped already
@@ -1168,8 +1179,7 @@ var RelationFinder = (function() { var pub = {};
         // this is a next interaction, so we should never have overlap.  wait until everything is new
         if (relationNodes.length !== newRows.length){
           // looks like some of our rows weren't new, so next button hasn't happened yet
-          utilities.sendMessage("content", "mainpanel", "freshRelationItems", {type: RelationItemsOutputs.NONEWITEMSYET, relation: null});
-          return;
+          return {type: RelationItemsOutputs.NONEWITEMSYET, relation: null};
         }
         // otherwise we can just carry on, since the relationNodes has the right set
       }
@@ -1186,8 +1196,7 @@ var RelationFinder = (function() { var pub = {};
     if (crd && crd.length === relationData.length && _.isEqual(crd, relationData)){
       // this check should now be unnecessary.  todo: clean it up!
       // data still looks the same as it looked before.  no new items yet.
-      utilities.sendMessage("content", "mainpanel", "freshRelationItems", {type: RelationItemsOutputs.NONEWITEMSYET, relation: null});
-      return;
+      return {type: RelationItemsOutputs.NONEWITEMSYET, relation: null};
     }
     // whee, we have some new stuff.  we can update the state
     nextInteractionSinceLastGetFreshRelationItems = false;
@@ -1200,7 +1209,7 @@ var RelationFinder = (function() { var pub = {};
     }
     currentRelationData[strMsg] = relationData;
     currentRelationSeenNodes[strMsg] = _.without(currentRelationSeenNodes[strMsg].concat(_.flatten(relationNodesIds)), null);
-    utilities.sendMessage("content", "mainpanel", "freshRelationItems", {type: RelationItemsOutputs.NEWITEMS, relation: newItems});
+    return {type: RelationItemsOutputs.NEWITEMS, relation: newItems};
   };
 
 

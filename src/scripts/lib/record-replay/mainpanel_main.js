@@ -790,7 +790,7 @@ var Replay = (function ReplayClosure() {
       /* we have already seen this tab, find equivalent port for tab
        * for now we will just choose the last port added from this tab */
       } else if (tab in tabMapping) {
-        var replayPort = this.findPortInTab(tabMapping[tab], frame);
+        var replayPort = this.findPortInTab(tabMapping[tab], frame); // todo: woah, just grabbing the last port from the tab doesn't seem ok
         console.log("gpm: tab in tabMapping", tabMapping);
 
         if (replayPort) {

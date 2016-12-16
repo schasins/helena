@@ -1848,6 +1848,156 @@ var WebAutomationLanguage = (function() {
       callback(false); 
     };
 
+    this.gotMoreRows = function(prinfo, callback, relation){
+      prinfo.needNewRows = false; // so that we don't fall back into this same case even though we now have the items we want
+      prinfo.currentRows = relation;
+      prinfo.currentRowsCounter = 0;
+      callback(true);
+    }
+
+    function highestPercentOfHasXpathPerRow(relation, limitToSearch){
+      if (relation.length < limitToSearch) {limitToSearch = relation.length;}
+      var maxWithXpathsPercent = 0;
+      for (var i = 0; i < limitToSearch; i++){
+        var numWithXpaths = _.reduce(relation[i], function(acc, cell){if (cell.xpath) {return acc + 1;} else {return acc}}, 0);
+        var percentWithXpaths = numWithXpaths / relation[i].length;
+        if (percentWithXpaths > maxWithXpathsPercent){
+          maxWithXpathsPercent = percentWithXpaths;
+        }
+      }
+      return maxWithXpathsPercent;
+    }
+
+    // the funciton that we'll call when we actually have to go back to a page for freshRelationItems
+    function getRowsFromPageVar(pageVar, callback, prinfo){
+      
+      if (!pageVar.currentTabId()){ console.log("Hey!  How'd you end up trying to find a relation on a page for which you don't have a current tab id??  That doesn't make sense.", pageVar); }
+  
+      var relationItemsRetrieved = {};
+      var missesSoFar = {};
+
+      var done = false;
+      // once we've gotten data from any frame, this is the function we'll call to process all the results
+      var handleNewRelationItemsFromFrame = function(data, frameId){
+        if (done){
+          return;
+        }
+        console.log("data", data);
+        if (data.type === RelationItemsOutputs.NOMOREITEMS || (data.type === RelationItemsOutputs.NONEWITEMSYET && missesSoFar > 40)){
+          // NOMOREITEMS -> definitively out of items.  this relation is done
+          // NONEWITEMSYET && missesSoFar > 60 -> ok, time to give up at this point...
+          relationItemsRetrieved[frameId] = data; // to stop us from continuing to ask for freshitems
+          // ????? done = true;
+          // ????? relation.noMoreRows(prinfo, callback);
+        }
+        else if (data.type === RelationItemsOutputs.NONEWITEMSYET || (data.type === RelationItemsOutputs.NEWITEMS && data.relation.length === 0)){
+          // todo: currently if we get data but it's only 0 rows, it goes here.  is that just an unnecessary delay?  should we just believe that that's the final answer?
+          missesSoFar[frameId] += 1;
+        }
+        else if (data.type === RelationItemsOutputs.NEWITEMS){
+          // yay, we have real data!
+
+          // ok, the content script is supposed to prevent us from getting the same thing that it already sent before
+          // but to be on the safe side, let's put in some extra protections so we don't try to advance too early
+          if (prinfo.currentRows && _.isEqual(prinfo.currentRows, data.relation)){
+            console.log("This really shouldn't happen.  We got the same relation back from the content script that we'd already gotten.");
+            console.log(prinfo.currentRows);
+            missesSoFar[frameId] += 1;
+            return;
+          }
+          else{
+            console.log("The relations are different.");
+            console.log(prinfo.currentRows, data.relation);
+          }
+
+          relationItemsRetrieved[frameId] = data; // to stop us from continuing to ask for freshitems
+
+          // let's see if this one has xpaths for all of a row in the first few
+          var aRowWithAllXpaths = highestPercentOfHasXpathPerRow(data.relation, 20) === 1;
+          // and then see if the difference between the num rows and the target num rows is less than 20% of the target num rows 
+          var targetNumRows = relation.demonstrationTimeRelation.length;
+          var diffPercent = Math.abs(data.relation.length - targetNumRows) / targetNumRows;
+          
+          // only want to do the below if we've decided this is the actual data...
+          // if this is the only frame, then it's definitely the data
+          if (Object.keys(relationItemsRetrieved).length == 1 || (aRowWithAllXpaths && diffPercent < .2 )){
+            done = true;
+            relation.gotMoreRows(prinfo, callback, data.relation);
+            return;
+          }
+        }
+        else{
+          console.log("woaaaaaah freak out, there's freshRelationItems that have an unknown type.");
+        }
+        console.log("relationItemsRetrieved", relationItemsRetrieved);
+
+        var allDefined = _.reduce(Object.keys(relationItemsRetrieved), function(acc, key){return acc && relationItemsRetrieved[key];}, true);
+        if (allDefined){
+          // ok, we have 'real' (NEWITEMS or decided we're done) data for all of them, we won't be getting anything new, better just pick the best one
+          done = true;
+          var dataObjs = _.map(Object.keys(relationItemsRetrieved), function(key){return relationItemsRetrieved[key];});
+          var dataObjsFiltered = _.filter(dataObjs, function(data){return data.type === RelationItemsOutputs.NEWITEMS;});
+          // ok, let's see whether any is close in length to our original one. otherwise have to give up
+          // how should we decide whether to accept something close or to believe it's just done???
+
+          for (var i = 0; i < dataObjsFiltered.length; i++){
+            var data = dataObjsFiltered[i];
+            // let's see if this one has xpaths for all of a row in the first few
+            var percentColumns = highestPercentOfHasXpathPerRow(data.relation, 20);
+            // and then see if the difference between the num rows and the target num rows is less than 20% of the target num rows 
+            var targetNumRows = relation.demonstrationTimeRelation.length;
+            var diffPercent = Math.abs(data.relation.length - targetNumRows) / targetNumRows;
+            if (percentColumns > .5 && diffPercent < .3){
+              done = true;
+              relation.gotMoreRows(prinfo, callback, data.relation);
+              return;
+            }
+          }
+
+          // drat, even with our more flexible requirements, still didn't find one that works.  guess we're done?
+          done = true;
+          relation.noMoreRows(prinfo, callback);
+          return;
+        }
+      };
+
+      // let's go ask all the frames to give us relation items for the relation
+      var tabId = pageVar.currentTabId();
+      chrome.webNavigation.getAllFrames({tabId: tabId}, function(details) {
+          relationItemsRetrieved = {};
+          missesSoFar = {};
+          details.forEach(function(frame){
+            // keep track of which frames need to respond before we'll be read to advance
+            relationItemsRetrieved[frame.frameId] = false;
+            missesSoFar[frame.frameId] = 0;
+          });
+          details.forEach(function(frame) {
+              // for each frame in the target tab, we want to see if the frame retrieves good relation items
+              // we'll pick the one we like best
+              // todo: is there a better way?  after all, we do know the frame in which the user interacted with the first page at original record-time.  if we have next stuff happening, we might even know the exact frameId on this exact page
+              
+              // here's the function for sending the message once
+              var msg = relation.messageRelationRepresentation();
+              msg.msgType = "getFreshRelationItems";
+              var sendGetRelationItems = function(){
+                chrome.tabs.sendMessage( // note: this is not using our utilities, and that's bad/inconsistent.  but the frame_id that we already handle there isn't chrome's frame id, it's our own internal one
+                    tabId,
+                    msg,
+                    {frameId: frame.frameId},
+                    // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?  maybe accept once we have at least one good response from one of the frames?
+                    function(response) { if (response !== null) {handleNewRelationItemsFromFrame(response, frame.frameId);} } // call pickLikelyRelation (defined above) to pick from the frames' answers
+                );
+              };
+
+              // here's the function for sending the message until we get the answer
+              repeatUntil(sendGetRelationItems, function(){return relationItemsRetrieved[frame.frameId];}, 1000);
+
+          });
+      });
+
+    }
+
+
     this.getNextRow = function(pageVar, callback){ // has to be called on a page, since a relation selector can be applied to many pages.  higher-level tool must control where to apply
       // todo: this is a very simplified version that assumes there's only one page of results.  add the rest soon.
 
@@ -1863,55 +2013,7 @@ var WebAutomationLanguage = (function() {
       console.log("getnextrow", this, prinfo.currentRowsCounter);
       if (prinfo.currentRows === null || prinfo.needNewRows){
         // cool!  no data right now, so we have to go to the page and ask for some
-
-        // ok, here's what we'll do once we actually get some new items sent over
-        var relationItemsRetrieved = false;
-        var missesSoFar = 0;
-        utilities.listenForMessageWithKey("content", "mainpanel", "freshRelationItems", "freshRelationItemsListener", function(data){ // with key so that we can remove the listener whenever we decide it's time to stop listening
-          if (data.type === RelationItemsOutputs.NOMOREITEMS || (data.type === RelationItemsOutputs.NONEWITEMSYET && missesSoFar > 60)){
-            // NOMOREITEMS -> definitively out of items.  this relation is done
-            // NONEWITEMSYET && missesSoFar > 60 -> ok, time to give up at this point...
-            relationItemsRetrieved = true; // to stop us from continuing to ask for freshitems
-            utilities.stopListeningForMessageWithKey("content", "mainpanel", "freshRelationItems", "freshRelationItemsListener");
-            relation.noMoreRows(prinfo, callback);
-          }
-          else if (data.type === RelationItemsOutputs.NONEWITEMSYET || (data.type === RelationItemsOutputs.NEWITEMS && data.relation.length === 0)){
-            // todo: currently if we get data but it's only 0 rows, it goes here.  is that just an unnecessary delay?  should we just believe that that's the final answer?
-            missesSoFar += 1;
-          }
-          else if (data.type === RelationItemsOutputs.NEWITEMS){
-            // yay, we have real data!
-
-            // ok, the content script is supposed to prevent us from getting the same thing that it already sent before
-            // but to be on the safe side, let's put in some extra protections so we don't try to advance too early
-            if (prinfo.currentRows && _.isEqual(prinfo.currentRows, data.relation)){
-              console.log("This really shouldn't happen.  We got the same relation back from the content script that we'd already gotten.");
-              console.log(prinfo.currentRows);
-              missesSoFar += 1;
-              return;
-            }
-            else{
-              console.log("The relations are different.");
-              console.log(prinfo.currentRows, data.relation);
-            }
-
-            relationItemsRetrieved = true; // to stop us from continuing to ask for freshitems
-            prinfo.needNewRows = false; // so that we don't fall back into this same case even though we now have the items we want
-            utilities.stopListeningForMessageWithKey("content", "mainpanel", "freshRelationItems", "freshRelationItemsListener");
-            prinfo.currentRows = data.relation;
-            prinfo.currentRowsCounter = 0;
-            callback(true);
-          }
-          else{
-            console.log("woaaaaaah freak out, there's freshRelationItems that have an unknown type.");
-          }
-        });
-
-        // and here's us asking for fresh relation items to be sent over
-        if (!pageVar.currentTabId()){ console.log("Hey!  How'd you end up trying to find a relation on a page for which you don't have a current tab id??  That doesn't make sense.", pageVar); }
-        var sendGetRelationItems = function(){
-          utilities.sendMessage("mainpanel", "content", "getFreshRelationItems", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);};
-        repeatUntil(sendGetRelationItems, function(){return relationItemsRetrieved;}, 1000);
+        getRowsFromPageVar(pageVar, callback, prinfo);
       }
       else if (prinfo.currentRowsCounter + 1 >= prinfo.currentRows.length){
         // ok, we had some data but we've run out.  time to try running the next button interaction and see if we can retrieve some more
@@ -1921,7 +2023,7 @@ var WebAutomationLanguage = (function() {
         var runningNextInteraction = false;
         utilities.listenForMessageOnce("content", "mainpanel", "runningNextInteraction", function(data){
           runningNextInteraction = true;
-          // cool, and now let's start retrieving fresh items by calling this function again
+          // cool, and now let's start the process of retrieving fresh items by calling this function again
           prinfo.needNewRows = true;
           relation.getNextRow(pageVar, callback);
         });
@@ -2676,6 +2778,7 @@ var WebAutomationLanguage = (function() {
     var pagesToNodes = {};
     var pagesToUrls = {};
     var pagesProcessed = {};
+    var pagesToFrameUrls = {};
     this.relevantRelations = function(){
       // ok, at this point we know the urls we've used and the xpaths we've used on them
       // we should ask the server for relations that might help us out
@@ -2683,14 +2786,22 @@ var WebAutomationLanguage = (function() {
       // we'll compare those against the best we can create on the page right now, pick the winner
 
       // get the xpaths used on the urls
+      // todo: right now we're doing this on a page by page basis, splitting into assuming it's one first row per page (tab)...
+      // but it should really probably be per-frame, not per tab
       for (var i = 0; i < this.statements.length; i++){
         var s = this.statements[i];
         if ( (s instanceof WebAutomationLanguage.ScrapeStatement) || (s instanceof WebAutomationLanguage.ClickStatement) ){
           var xpath = s.node; // todo: in future, should get the whole node info, not just the xpath, but this is sufficient for now
           var pageVarName = s.pageVar.name; // pagevar is better than url for helping us figure out what was on a given logical page
           var url = s.pageVar.recordTimeUrl;
+          var frameUrl = s.trace[0].frame.URL;
+
           if (!(pageVarName in pagesToNodes)){ pagesToNodes[pageVarName] = []; }
           if (pagesToNodes[pageVarName].indexOf(xpath) === -1){ pagesToNodes[pageVarName].push(xpath); }
+
+          if (!(pageVarName in pagesToFrameUrls)){ pagesToFrameUrls[pageVarName] = []; }
+          pagesToFrameUrls[pageVarName].push(frameUrl);
+
           pagesToUrls[pageVarName] = url;
         }
       }
@@ -2818,16 +2929,10 @@ var WebAutomationLanguage = (function() {
               console.log("Panic!  We found a page in our outputPageVars that wasn't in our request to the server for relations that might be relevant on that page.");
             }
 
-            // let's get some info from the pages, and when we get that info back we can come back and deal with more script segments
-            pagesProcessed[targetPageVar.name] = false;
-            var getLikelyRelationFunc = function(){utilities.sendMessage("mainpanel", "content", "likelyRelation", {xpaths: pagesToNodes[targetPageVar.name], pageVarName: targetPageVar.name, serverSuggestedRelations: suggestedRelations}, null, null, [lastCompletedEventTabId]);};
-            var getLikelyRelationFuncUntilAnswer = function(){
-              if (pagesProcessed[targetPageVar.name]){ return; } 
-              getLikelyRelationFunc(); 
-              setTimeout(getLikelyRelationFuncUntilAnswer, 5000);}
+            var framesHandled = {};
 
-            // what should we do once we get the response back, having tested the various relations on the actual pages?
-            utilities.listenForMessageOnce("content", "mainpanel", "likelyRelation", function(data){
+            // we'll do a bunch of stuff to pick a relation, then we'll call this function
+            var handleSelectedRelation = function(data){
               // handle the actual data the page sent us
               program.processLikelyRelation(data);
               // update the control panel display
@@ -2835,8 +2940,76 @@ var WebAutomationLanguage = (function() {
               // now let's go through this process all over again for the next page, if there is one
               console.log("going to processServerRelations with nextIndex: ", nextIndex);
               program.processServerRelations(resp, nextIndex, tabsToCloseAfter, tabMapping);
+            };
+
+            // this function will select the correct relation from amongst a bunch of frames' suggested relatoins
+            var processedTheLikeliestRelation = false;
+            var pickLikelyRelation = function(){
+              if (processedTheLikeliestRelation){
+                return; // already did this.  don't repeat
+              }
+              for (var key in framesHandled){
+                if (framesHandled[key] === false){
+                  return; // nope, not ready yet.  wait till all the frames have given answers
+                }
+              }
+              console.log("framesHandled", framesHandled); // todo: this is just debugging
+              processedTheLikeliestRelation = true;
+
+              var dataObjs = Object.keys(framesHandled).map(function(key){ return framesHandled[key]; });
+              // todo: should probably do a fancy similarity thing here, but for now we'll be casual
+              // we'll sort by number of cells, then return the first one that shares a url with our spec nodes, or the first one if none share that url
+              var sortedDataObjs = _.sortBy(dataObjs, function(data){ if (!data.first_page_relation || !data.first_page_relation[0]){return -1;} else {return data.first_page_relation.length * data.first_page_relation[0].length; }});
+              var frameUrls = pagesToFrameUrls[targetPageVar.name];
+              console.log("frameUrls", frameUrls, pagesToFrameUrls, targetPageVar.name);
+              var mostFrequentFrameUrl = _.chain(frameUrls).countBy().pairs().max(_.last).head().value(); // a silly one-liner for getting the most freq
+              _.each(sortedDataObjs, function(data){
+                if (data.url === mostFrequentFrameUrl){
+                  // ok, this is the one
+                  // now that we've picked a particular relation, from a particular frame, actually process it
+                  handleSelectedRelation(data);
+                }
+              });
+              // drat, none of them had the exact same url.  ok, let's just pick the first
+              handleSelectedRelation(sortedDataObjs[0]);
+            };
+
+            // let's get some info from the pages, and when we get that info back we can come back and deal with more script segments
+            chrome.webNavigation.getAllFrames({tabId: lastCompletedEventTabId}, function(details) {
+                framesHandled = {};
+                details.forEach(function(frame){
+                  // keep track of which frames need to respond before we'll be read to advance
+                  framesHandled[frame.frameId] = false;
+                });
+                details.forEach(function(frame) {
+                    // for each frame in the target tab, we want to see if the frame suggests a good relation.  once they've all made their suggestions
+                    // we'll pick the one we like best
+                    // todo: is there a better way?  after all, we do know the frame in which the user interacted with the first page at original record-time
+                    
+                    // here's the function for sending the message once
+                    var getLikelyRelationFunc = function(){
+                      chrome.tabs.sendMessage( // note: this is not using our utilities, and that's bad/inconsistent.  but the frame_id that we already handle there isn't chrome's frame id, it's our own internal one
+                          lastCompletedEventTabId,
+                          {msgType: "likelyRelation", xpaths: pagesToNodes[targetPageVar.name], pageVarName: targetPageVar.name, serverSuggestedRelations: suggestedRelations},
+                          {frameId: frame.frameId},
+                          // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?
+                          function(response) { if (response !== null) {framesHandled[frame.frameId] = response; pickLikelyRelation();} } // call pickLikelyRelation (defined above) to pick from the frames' answers
+                      );
+                    };
+
+                    // here's the function for sending the message until we get the answer
+                    var getLikelyRelationFuncUntilAnswer = function(){
+                      if (framesHandled[frame.frameId]){ return; } // cool, already got the answer, stop asking
+                      getLikelyRelationFunc(); // send that message
+                      setTimeout(getLikelyRelationFuncUntilAnswer, 5000); // come back and send again if necessary
+                    };
+
+                    // actually call it
+                    getLikelyRelationFuncUntilAnswer();
+
+                });
             });
-            setTimeout(getLikelyRelationFuncUntilAnswer, 1000); // give it a while to attach the listener
+
           });
           return; // all later indexes will be handled by the recursion instead of the rest of the loop
         }

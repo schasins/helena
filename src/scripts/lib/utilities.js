@@ -53,6 +53,17 @@ var utilities = (function() { var pub = {};
     }
   };
 
+  // note that this frameSpecificMessage assume we'll have a response handler, so fn should provide a return value, rather than sending its own messages
+  pub.listenForFrameSpecificMessage = function(from, to, subject, fn){
+    console.log("Listening for frame-specific messages: "+ from+" : "+to+" : "+subject);
+    chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
+      if (msg.subject === subject){
+        console.log("Receiving frame-specific message: ", msg);
+        sendResponse(fn(msg.content));
+      }
+    });
+  }
+
   var oneOffListenerCounter = 0;
 
   pub.listenForMessageOnce = function(from, to, subject, fn){
@@ -83,7 +94,7 @@ var utilities = (function() { var pub = {};
     }
   }
 
-  pub.sendMessage = function(from, to, subject, content, frame_ids_include, frame_ids_exclude, tab_ids_include, tab_ids_exclude){
+  pub.sendMessage = function(from, to, subject, content, frame_ids_include, frame_ids_exclude, tab_ids_include, tab_ids_exclude){ // note: frame_ids are our own internal frame ids, not chrome frame ids
     if ((from ==="background" || from ==="mainpanel") && to === "content"){
       var msg = {from: from, subject: subject, content: content, frame_ids_include: frame_ids_include, frame_ids_exclude: frame_ids_exclude};
       console.log("Sending message: ", msg);
@@ -113,6 +124,12 @@ var utilities = (function() { var pub = {};
       chrome.runtime.sendMessage(msg);
     }
   };
+
+  pub.sendFrameSpecificMessage = function(from, to, subject, content, chromeTabId, chromeFrameId, responseHandler){ // note: not the same as our interna frame ids
+    var msg = {from: from, subject: subject, content: content};
+    console.log("Sending frame-specific message: ", msg);
+    chrome.tabs.sendMessage(chromeTabId, msg, {frameId: chromeFrameId}, responseHandler);
+  }
 
 return pub; }());
 

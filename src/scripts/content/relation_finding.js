@@ -1114,6 +1114,7 @@ var RelationFinder = (function() { var pub = {};
   relationFinderIdCounter = 0;
   pub.getFreshRelationItemsHelper = function(msg){
     var strMsg = selectorId(msg);
+    console.log("noMoreItemsAvailable", noMoreItemsAvailable[strMsg], noMoreItemsAvailable);
     if (noMoreItemsAvailable[strMsg]){
       // that's it, we're done.  last use of the next interaction revealed there's nothing left
       return {type: RelationItemsOutputs.NOMOREITEMS, relation: null};

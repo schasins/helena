@@ -1848,9 +1848,9 @@ var WebAutomationLanguage = (function() {
       callback(false); 
     };
 
-    this.gotMoreRows = function(prinfo, callback, relation){
+    this.gotMoreRows = function(prinfo, callback, rel){
       prinfo.needNewRows = false; // so that we don't fall back into this same case even though we now have the items we want
-      prinfo.currentRows = relation;
+      prinfo.currentRows = rel;
       prinfo.currentRowsCounter = 0;
       callback(true);
     }
@@ -1883,7 +1883,7 @@ var WebAutomationLanguage = (function() {
           return;
         }
         console.log("data", data);
-        if (data.type === RelationItemsOutputs.NOMOREITEMS || (data.type === RelationItemsOutputs.NONEWITEMSYET && missesSoFar > 40)){
+        if (data.type === RelationItemsOutputs.NOMOREITEMS || (data.type === RelationItemsOutputs.NONEWITEMSYET && missesSoFar[frameId] > 40)){
           // NOMOREITEMS -> definitively out of items.  this relation is done
           // NONEWITEMSYET && missesSoFar > 60 -> ok, time to give up at this point...
           relationItemsRetrieved[frameId] = data; // to stop us from continuing to ask for freshitems
@@ -1972,26 +1972,22 @@ var WebAutomationLanguage = (function() {
             missesSoFar[frame.frameId] = 0;
           });
           details.forEach(function(frame) {
-              // for each frame in the target tab, we want to see if the frame retrieves good relation items
-              // we'll pick the one we like best
-              // todo: is there a better way?  after all, we do know the frame in which the user interacted with the first page at original record-time.  if we have next stuff happening, we might even know the exact frameId on this exact page
-              
-              // here's the function for sending the message once
-              var msg = relation.messageRelationRepresentation();
-              msg.msgType = "getFreshRelationItems";
-              var sendGetRelationItems = function(){
-                chrome.tabs.sendMessage( // note: this is not using our utilities, and that's bad/inconsistent.  but the frame_id that we already handle there isn't chrome's frame id, it's our own internal one
-                    tabId,
-                    msg,
-                    {frameId: frame.frameId},
-                    // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?  maybe accept once we have at least one good response from one of the frames?
-                    function(response) { if (response !== null) {handleNewRelationItemsFromFrame(response, frame.frameId);} } // call pickLikelyRelation (defined above) to pick from the frames' answers
-                );
-              };
-
-              // here's the function for sending the message until we get the answer
-              repeatUntil(sendGetRelationItems, function(){return relationItemsRetrieved[frame.frameId];}, 1000);
-
+            // for each frame in the target tab, we want to see if the frame retrieves good relation items
+            // we'll pick the one we like best
+            // todo: is there a better way?  after all, we do know the frame in which the user interacted with the first page at original record-time.  if we have next stuff happening, we might even know the exact frameId on this exact page
+            
+            // here's the function for sending the message once
+            var msg = relation.messageRelationRepresentation();
+            msg.msgType = "getFreshRelationItems";
+            var sendGetRelationItems = function(){
+              utilities.sendFrameSpecificMessage("mainpanel", "content", "getFreshRelationItems", 
+                                                  relation.messageRelationRepresentation(), 
+                                                  tabId, frame.frameId, 
+                                                  // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?  maybe accept once we have at least one good response from one of the frames?
+                                                  function(response) { if (response !== null) {handleNewRelationItemsFromFrame(response, frame.frameId);}}); // when get response, call handleNewRelationItemsFromFrame (defined above) to pick from the frames' answers
+            };
+            // here's the function for sending the message until we get the answer
+            repeatUntil(sendGetRelationItems, function(){return relationItemsRetrieved[frame.frameId];}, 1000);
           });
       });
 
@@ -2988,13 +2984,11 @@ var WebAutomationLanguage = (function() {
                     
                     // here's the function for sending the message once
                     var getLikelyRelationFunc = function(){
-                      chrome.tabs.sendMessage( // note: this is not using our utilities, and that's bad/inconsistent.  but the frame_id that we already handle there isn't chrome's frame id, it's our own internal one
-                          lastCompletedEventTabId,
-                          {msgType: "likelyRelation", xpaths: pagesToNodes[targetPageVar.name], pageVarName: targetPageVar.name, serverSuggestedRelations: suggestedRelations},
-                          {frameId: frame.frameId},
-                          // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?
-                          function(response) { if (response !== null) {framesHandled[frame.frameId] = response; pickLikelyRelation();} } // call pickLikelyRelation (defined above) to pick from the frames' answers
-                      );
+                      utilities.sendFrameSpecificMessage("mainpanel", "content", "likelyRelation", 
+                                                          {xpaths: pagesToNodes[targetPageVar.name], pageVarName: targetPageVar.name, serverSuggestedRelations: suggestedRelations}, 
+                                                          lastCompletedEventTabId, frame.frameId, 
+                                                          // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?  maybe accept once we have at least one good response from one of the frames?
+                                                          function(response) { if (response !== null) {framesHandled[frame.frameId] = response; pickLikelyRelation();}}); // when get response, call pickLikelyRelation (defined above) to pick from the frames' answers
                     };
 
                     // here's the function for sending the message until we get the answer

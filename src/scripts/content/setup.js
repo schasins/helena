@@ -9,8 +9,8 @@
 var tabID = "setme";
 var windowId = "setme";
 var currentRecordingWindow = null;
+
 utilities.listenForMessage("background", "content", "tabID", function(msg){tabID = msg.tab_id; windowId = msg.window_id; console.log("tab id: ", msg);});
-//utilities.listenForMessage("mainpanel", "content", "likelyRelation", function(msg){RelationFinder.likelyRelation(msg);});
 utilities.listenForMessage("mainpanel", "content", "getRelationItems", function(msg){RelationFinder.getRelationItems(msg);});
 utilities.listenForMessage("mainpanel", "content", "getFreshRelationItems", function(msg){RelationFinder.getFreshRelationItems(msg);});
 utilities.listenForMessage("mainpanel", "content", "editRelation", function(msg){RelationFinder.editRelation(msg);});
@@ -22,15 +22,8 @@ utilities.listenForMessage("mainpanel", "content", "pageStats", function(){ util
 utilities.listenForMessage("mainpanel", "content", "runNextInteraction", function(msg){RelationFinder.runNextInteraction(msg);});
 utilities.listenForMessage("mainpanel", "content", "currentColumnIndex", function(msg){RelationFinder.setEditRelationIndex(msg.index);});
 
-
-chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
-    if (msg.msgType === "likelyRelation"){
-    	sendResponse(RelationFinder.likelyRelation(msg));
-    }
-    else if (msg.msgType === "getFreshRelationItems"){
-    	sendResponse(RelationFinder.getFreshRelationItemsHelper(msg));
-    }
-});
+utilities.listenForFrameSpecificMessage("mainpanel", "content", "likelyRelation", function(msg){return RelationFinder.likelyRelation(msg);});
+utilities.listenForFrameSpecificMessage("mainpanel", "content", "getFreshRelationItems", function(msg){return RelationFinder.getFreshRelationItemsHelper(msg);});
 
 utilities.sendMessage("content", "background", "requestTabID", {});
 utilities.sendMessage("content", "mainpanel", "requestCurrentRecordingWindow", {});

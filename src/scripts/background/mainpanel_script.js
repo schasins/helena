@@ -1210,7 +1210,7 @@ var WebAutomationLanguage = (function() {
           var xpath = firstNodeUse.target.xpath;
           this.xpaths.push(xpath);
           console.log("this.xpaths", this.xpaths);
-          if (this.xpaths.length === 3){ // todo: 3 is just for debugging!
+          if (this.xpaths.length === 5){ // todo: 3 is just for debugging!
             // ok, we have enough data now that we might be able to decide to do something smarter
             var uniqueXpaths = _.uniq(this.xpaths);
             if (uniqueXpaths.length === 1){
@@ -1394,7 +1394,7 @@ var WebAutomationLanguage = (function() {
 
     this.toStringLines = function(){
       var nodeRepLs = _.map(this.scrapeStatements, function(statement){return nodeRepresentation(statement, statement.scrapeLink);});
-      return ["addOutputRow(["+nodeRepLs.join(",")+"])"];
+      return ["addOutputRow(["+nodeRepLs.join(",")+",time])"];
     };
 
     this.pbvs = function(){
@@ -1427,6 +1427,7 @@ var WebAutomationLanguage = (function() {
       _.each(this.scrapeStatements, function(scrapeStatment){
         cells.push(scrapeStatment.currentNodeCurrentValue);
       });
+      cells.push(new Date().getTime()); // might be useful to know the current time.  although not sure if this is how we want to handle it.  todo: better way?
       RecorderUI.addNewRowToOutput(cells);
       ReplayScript.prog.currentDataset.addRow(cells); // todo: is replayscript.prog really the best way to access the prog object so that we can get the current dataset object, save data to server?
       ReplayScript.prog.mostRecentRow = cells;

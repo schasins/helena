@@ -127,7 +127,7 @@ var utilities = (function() { var pub = {};
 
   pub.sendFrameSpecificMessage = function(from, to, subject, content, chromeTabId, chromeFrameId, responseHandler){ // note: not the same as our interna frame ids
     var msg = {from: from, subject: subject, content: content};
-    console.log("Sending frame-specific message: ", msg);
+    //console.log("Sending frame-specific message: ", msg);
     chrome.tabs.sendMessage(chromeTabId, msg, {frameId: chromeFrameId}, responseHandler);
   }
 

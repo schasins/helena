@@ -1104,6 +1104,8 @@ var WebAutomationLanguage = (function() {
     }
 
     this.clearRunningState = function(){
+      this.xpaths = [];
+      this.preferredXpath = null;
       return;
     }
 
@@ -1123,6 +1125,13 @@ var WebAutomationLanguage = (function() {
         pbvs.push({type:"tab", value: originalTab(this)});
       }
       if (this.node !== this.currentNode){
+        pbvs.push({type:"node", value: this.node});
+      }
+      if (this.preferredXpath){
+        // using the usual pbv process happens to be a convenient way to enforce a preferred xpath, since it sets it to prefer a given xpath
+        // and replaces all uses in the trace of a given xpath with a preferred xpath
+        // but may prefer to extract this non-relation based pbv process from the normal relation pbv.  we'll see
+        // side note: the node pbv above will only appear if it's a use of a relation cell, and this one will only appear if it's not
         pbvs.push({type:"node", value: this.node});
       }
       return pbvs;
@@ -1160,9 +1169,13 @@ var WebAutomationLanguage = (function() {
       var args = [];
       args.push({type:"node", value: currentNodeXpath(this)});
       args.push({type:"tab", value: currentTab(this)});
+      if (this.preferredXpath){
+        args.push({type:"node", value: this.preferredXpath});
+      }
       return args;
     };
 
+    this.xpaths = [];
     this.postReplayProcessing = function(trace, temporaryStatementIdentifier){
       if (this.currentNode instanceof WebAutomationLanguage.VariableUse){
         // this scrape statement is parameterized, so we can just grab the current value from the node...
@@ -1176,15 +1189,46 @@ var WebAutomationLanguage = (function() {
       else{
         // it's not just a relation item, so relation extraction hasn't extracted it, so we have to actually look at the trace
         // find the scrape that corresponds to this scrape statement based on temporarystatementidentifier
-        for (var i = 0; i < trace.length; i++){
-          if (EventM.getTemporaryStatementIdentifier(trace[i]) === temporaryStatementIdentifier && trace[i].additional && trace[i].additional.scrape && trace[i].additional.scrape.text){
+        var ourStatementTraceSegment = _.filter(trace, function(ev){return EventM.getTemporaryStatementIdentifier(ev) === temporaryStatementIdentifier;});
+        for (var i = 0; i < ourStatementTraceSegment.length; i++){
+          if (ourStatementTraceSegment[i].additional && ourStatementTraceSegment[i].additional.scrape && ourStatementTraceSegment[i].additional.scrape.text){
             if (this.scrapeLink){
-              this.currentNodeCurrentValue = trace[i].additional.scrape.link;
+              this.currentNodeCurrentValue = ourStatementTraceSegment[i].additional.scrape.link;
             }
             else{
-              this.currentNodeCurrentValue = trace[i].additional.scrape.text;
+              this.currentNodeCurrentValue = ourStatementTraceSegment[i].additional.scrape.text;
             }
-            return;
+            break;
+          }
+        }
+
+        // it's not a relation item, so let's start keeping track of the xpaths of the nodes we actually find, so we can figure out if we want to stop running full similarity
+        // note, we could factor this out and let this apply to other statement types --- clicks, typing
+        // but empirically, have mostly had this issue slowing down scraping, not clicks and the like, since there are usually few of those
+        if (!this.preferredXpath){ // if we haven't yet picked a preferredXpath...
+          var firstNodeUse = ourStatementTraceSegment[0]; // assumption: the first event is always going to be the interaction with the scraped item.  if break this, must change!
+          var xpath = firstNodeUse.target.xpath;
+          this.xpaths.push(xpath);
+          console.log("this.xpaths", this.xpaths);
+          if (this.xpaths.length === 3){ // todo: 3 is just for debugging!
+            // ok, we have enough data now that we might be able to decide to do something smarter
+            var uniqueXpaths = _.uniq(this.xpaths);
+            if (uniqueXpaths.length === 1){
+              // we've used the exact same one this whole time...  let's try using that as our preferred xpath
+              this.preferredXpath = uniqueXpaths[0];
+              console.log("chose preferredXpath", this.preferredXpath);
+            }
+          }
+        }
+        else {
+          // we've already decided we have a preferred xpath.  we should check and make sure we're still using it.  if we had to revert to using similarity
+          // we should stop trying to use the current preferred xpath, start tracking again.  maybe the page has been redesigned and we can discover a new preferred xpath
+          // so we'll enter that phase again
+          var firstNodeUse = ourStatementTraceSegment[0]; // assumption: the first event is always going to be the interaction with the scraped item.  if break this, must change!
+          var xpath = firstNodeUse.target.xpath;
+          if (xpath !== this.preferredXpath){
+            this.preferredXpath = null;
+            this.xpaths = [];
           }
         }
       }

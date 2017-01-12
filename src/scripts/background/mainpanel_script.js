@@ -2126,9 +2126,8 @@ var WebAutomationLanguage = (function() {
 
     this.saveToServer = function(){
       // sample: $($.post('http://localhost:3000/saverelation', { relation: {name: "test", url: "www.test2.com/test-test2", selector: "test2", selector_version: 1, num_rows_in_demonstration: 10}, columns: [{name: "col1", xpath: "a[1]/div[1]", suffix: "div[1]"}] } ));
-      // todo: this should really be stable stringified (the selector), since we'll be using it to test equality of different relations
       var rel = this.messageRelationRepresentation();
-      ServerTranslationUtilities.JSONifyRelation(rel);
+      ServerTranslationUtilities.JSONifyRelation(rel); // note that JSONifyRelation does stable stringification
       $.post('http://kaofang.cs.berkeley.edu:8080/saverelation', {relation: rel});
       // nested, so if we don't unJSONify after JSONifying, the suffixes (in the column objects) remain stringified, which is annoying, so have to do below
       // todo: probably do a better solution to this
@@ -2995,12 +2994,14 @@ var WebAutomationLanguage = (function() {
                 }
               }
               console.log("framesHandled", framesHandled); // todo: this is just debugging
-              processedTheLikeliestRelation = true;
 
-              var dataObjs = Object.keys(framesHandled).map(function(key){ return framesHandled[key]; });
+              var dataObjs = _.map(Object.keys(framesHandled), function(key){ return framesHandled[key]; });
+              console.log("dataObjs", dataObjs);
               // todo: should probably do a fancy similarity thing here, but for now we'll be casual
               // we'll sort by number of cells, then return the first one that shares a url with our spec nodes, or the first one if none share that url
-              var sortedDataObjs = _.sortBy(dataObjs, function(data){ if (!data.first_page_relation || !data.first_page_relation[0]){return -1;} else {return data.first_page_relation.length * data.first_page_relation[0].length; }});
+              dataObjs = _.filter(dataObjs, function(obj){return obj !== null && obj !== undefined;});
+              var sortedDataObjs = _.sortBy(dataObjs, function(data){ if (!data || !data.first_page_relation || !data.first_page_relation[0]){return -1;} else {return data.first_page_relation.length * data.first_page_relation[0].length; }});
+              console.log("sortedDataObjs", sortedDataObjs);
               var frameUrls = pagesToFrameUrls[targetPageVar.name];
               console.log("frameUrls", frameUrls, pagesToFrameUrls, targetPageVar.name);
               var mostFrequentFrameUrl = _.chain(frameUrls).countBy().pairs().max(_.last).head().value(); // a silly one-liner for getting the most freq
@@ -3008,10 +3009,17 @@ var WebAutomationLanguage = (function() {
                 if (data.url === mostFrequentFrameUrl){
                   // ok, this is the one
                   // now that we've picked a particular relation, from a particular frame, actually process it
+                  processedTheLikeliestRelation = true;
                   handleSelectedRelation(data);
+                  return;
                 }
               });
               // drat, none of them had the exact same url.  ok, let's just pick the first
+              if (sortedDataObjs.length < 1){
+                console.log("Aaaaaaaaaaah there aren't any frames that offer good relations!  Why???");
+                return;
+              }
+              processedTheLikeliestRelation = true;
               handleSelectedRelation(sortedDataObjs[0]);
             };
 
@@ -3020,6 +3028,7 @@ var WebAutomationLanguage = (function() {
                 framesHandled = {};
                 details.forEach(function(frame){
                   // keep track of which frames need to respond before we'll be read to advance
+                  console.log("frameId", frame.frameId);
                   framesHandled[frame.frameId] = false;
                 });
                 details.forEach(function(frame) {

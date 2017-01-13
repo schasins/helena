@@ -82,6 +82,7 @@ var RecorderUI = (function() {
     var div = $("#new_script_content");
     DOMCreationUtilities.replaceContent(div, $("#script_preview")); // let's put in the script_preview node
     activateButton(div, "#run", RecorderUI.run);
+    activateButton(div, "#save", RecorderUI.save);
     activateButton(div, "#replay", RecorderUI.replayOriginal);
     activateButton(div, '#relation_upload', RecorderUI.uploadRelation);
     RecorderUI.updateDisplayedScript();
@@ -107,6 +108,17 @@ var RecorderUI = (function() {
 
     // actually start the script running
     ReplayScript.prog.run();
+  };
+
+  // for saving a program to the server
+  pub.save = function(){
+    var prog = ReplayScript.prog;
+    var savedRelationIds = prog.savedRelationIds();
+    var unsavedRelationObjs = prog.unsavedRelationObjs();
+    var unsavedRelationObjsSerialized = _.map(unsavedRelationObjs, ServerTranslationUtilities.JSONifyRelation);
+    var serializedProg = ServerTranslationUtilities.JSONifyProgram(prog);
+    var msg = {serialized_program: serializedProg, saved_relation_ids: savedRelationIds, unsaved_relation_objs: unsavedRelationObjsSerialized};
+    $.post('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg);
   };
 
   pub.replayOriginal = function(){
@@ -2126,12 +2138,8 @@ var WebAutomationLanguage = (function() {
 
     this.saveToServer = function(){
       // sample: $($.post('http://localhost:3000/saverelation', { relation: {name: "test", url: "www.test2.com/test-test2", selector: "test2", selector_version: 1, num_rows_in_demonstration: 10}, columns: [{name: "col1", xpath: "a[1]/div[1]", suffix: "div[1]"}] } ));
-      var rel = this.messageRelationRepresentation();
-      ServerTranslationUtilities.JSONifyRelation(rel); // note that JSONifyRelation does stable stringification
+      var rel = ServerTranslationUtilities.JSONifyRelation(this); // note that JSONifyRelation does stable stringification
       $.post('http://kaofang.cs.berkeley.edu:8080/saverelation', {relation: rel});
-      // nested, so if we don't unJSONify after JSONifying, the suffixes (in the column objects) remain stringified, which is annoying, so have to do below
-      // todo: probably do a better solution to this
-      ServerTranslationUtilities.unJSONifyRelation(rel);
     }
 
     var tabReached = false;
@@ -2961,7 +2969,7 @@ var WebAutomationLanguage = (function() {
                 suggestedRelations = [resps[i].relations.same_domain_best_relation, resps[i].relations.same_url_best_relation];
                 for (var j = 0; j < suggestedRelations.length; j++){
                   if (suggestedRelations[j] === null){ continue; }
-                  ServerTranslationUtilities.unJSONifyRelation(suggestedRelations[j]); // is this the best place to deal with going between our object attributes and the server strings?
+                    suggestedRelations[j] = ServerTranslationUtilities.unJSONifyRelation(suggestedRelations[j]); // is this the best place to deal with going between our object attributes and the server strings?
                 }
               }
             }

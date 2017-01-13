@@ -364,7 +364,7 @@ var RelationPreview = (function() { var pub = {};
     // then let's make a set of highlight nodes for each relation, so we can toggle them between hidden and displayed based on user's hover behavior.
     for (var i = 0; i < knownRelations.length; i++){
       var selectorObj = knownRelations[i];
-      ServerTranslationUtilities.unJSONifyRelation(selectorObj);
+      selectorObj = ServerTranslationUtilities.unJSONifyRelation(selectorObj);
       var relationOutput = RelationFinder.interpretRelationSelector(selectorObj);
       var nodeList = _.flatten(relationOutput);
       var highlightNodes = RelationFinder.highlightRelation(relationOutput, false, false);

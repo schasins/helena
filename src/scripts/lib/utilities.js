@@ -164,15 +164,24 @@ return pub; }());
 
 var ServerTranslationUtilities = (function() { var pub = {};
 
-  pub.JSONifyRelation = function(relation){
+  // for when we want to send a relation object to the server
+  pub.JSONifyRelation = function(origRelation){
+    // ok, first let's get the nice dictionary-looking version that we use for passing relations around, instead of our internal object representation that we use in the mainpanel/program
+    var relationDict = origRelation.messageRelationRepresentation();
+    // let's start by deep copying so that we can JSONify the selector, next_button_selector, and column suffixes without messing up the real object
+    relation = JSON.parse(JSON.stringify(relationDict)); // deepcopy
     relation.selector = StableStringify.stringify(relation.selector);
     relation.next_button_selector = StableStringify.stringify(relation.next_button_selector);
     for (var k = 0; k < relation.columns.length; k++){
       relation.columns[k].suffix = StableStringify.stringify(relation.columns[k].suffix); // is this the best place to deal with going between our object attributes and the server strings?
     }
+    return relation;
   };
 
-  pub.unJSONifyRelation = function(relation){
+  // for when we get a relation back from the server
+  pub.unJSONifyRelation = function(relationDict){
+    // let's leave the original dictionary with it's JSONified attributes alone by deepcopying first
+    relation = JSON.parse(JSON.stringify(relationDict)); // deepcopy
     relation.selector = JSON.parse(relation.selector);
     if (relation.next_button_selector){
       relation.next_button_selector = JSON.parse(relation.next_button_selector);
@@ -183,7 +192,18 @@ var ServerTranslationUtilities = (function() { var pub = {};
     for (var k = 0; k < relation.columns.length; k++){
       relation.columns[k].suffix = JSON.parse(relation.columns[k].suffix); // is this the best place to deal with going between our object attributes and the server strings?
     }
+    return relation;
   };
+
+  pub.JSONifyProgram = function(origProgram){
+    // let's start by deep copying so that we can delete stuff and mess around without messing up the real object
+    program = JSON.parse(JSON.stringify(origProgram)); // deepcopy
+    // relations aren't part of a JSONified program, because this is just the string part that will be going into a single db column
+    // we want interesting info like what relations it uses to be stored in a structured way so we can reason about it, do interesting stuff with it
+    // so blank out relations
+    delete program.relations;
+    return StableStringify.stringify(program);
+  }
 
 return pub; }());
 

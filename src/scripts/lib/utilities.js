@@ -387,6 +387,14 @@ var MiscUtilities = (function() { var pub = {};
     }
   };
 
+  pub.repeatUntil = function(repeatFunction, untilFunction, interval){
+    if (untilFunction()){
+      return;
+    }
+    repeatFunction();
+    setTimeout(function(){pub.repeatUntil(repeatFunction, untilFunction, interval);}, interval);
+  };
+
 return pub; }());
 
 

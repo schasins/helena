@@ -108,6 +108,7 @@ var RecorderUI = (function() {
 
   pub.run = function(){
     // update the panel to show pause, resume buttons
+    console.log("UI run");
     var div = $("#new_script_content");
     DOMCreationUtilities.replaceContent(div, $("#script_running"));
 
@@ -126,6 +127,7 @@ var RecorderUI = (function() {
     // let's do this in a fresh window
     makeNewRecordReplayTab(function(){
       // actually start the script running
+      console.log("about to run the program");
       ReplayScript.prog.run();
     });
 
@@ -2398,8 +2400,10 @@ var WebAutomationLanguage = (function() {
     this.setCurrentTabId = function(tabId, continuation){
       console.log("setCurrentTabId", tabId);
       this.tabId = tabId;
+      this.currentTabIdPageStatsRetrieved = false;
       if (tabId !== undefined){
         utilities.listenForMessageOnce("content", "mainpanel", "pageStats", function(data){
+          that.currentTabIdPageStatsRetrieved = true;
           if (that.pageOutlier(data)){
             console.log("This was an outlier page!");
             var dialogText = "Woah, this page looks very different from what we expected.  We thought we'd get a page that looked like this:";
@@ -2415,7 +2419,10 @@ var WebAutomationLanguage = (function() {
             that.nonOutlierProcessing(data, continuation);
           }
         });
-        utilities.sendMessage("mainpanel", "content", "pageStats", {}, null, null, [tabId], null);
+        MiscUtilities.repeatUntil(
+          function(){utilities.sendMessage("mainpanel", "content", "pageStats", {}, null, null, [tabId], null);}, 
+          function(){return that.currentTabIdPageStatsRetrieved;}, 
+          1000);
       }
       else{
         continuation();

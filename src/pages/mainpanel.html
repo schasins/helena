@@ -11,6 +11,7 @@
 	<script type="text/javascript" src="../scripts/lib/JSOG.js"></script>
 	<script type="text/javascript" src="../scripts/lib/FileSaver.js"></script>
 	<script type="text/javascript" src="../scripts/lib/Blob.js"></script>
+	<script type="text/javascript" src="../scripts/lib/jquery-dateFormat.min.js"></script>
 	<script type="text/javascript" src="../scripts/lib/record-replay/common_common.js"></script>
 	<script type="text/javascript" src="../scripts/lib/record-replay/common_params.js"></script>
 	<script type="text/javascript" src="../scripts/lib/record-replay/common_logging.js"></script>
@@ -87,7 +88,7 @@
 				<button id="run">Run Script</button> 
 				<button id="replay">Replay Original Recorded Script</button> (for testing)
 				<div>
-					<input type="text" value="program_name">
+					<input type="text" id="program_name" value="program_name">
 					<button id="save">Save Script</button>
 				</div>
 			</div>
@@ -147,6 +148,7 @@
 		</div>
 
 		<div id="tabs-2">
+			<div id="saved_script_list"></div>
 		</div>
 
 	</div>

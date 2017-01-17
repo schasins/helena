@@ -26,9 +26,16 @@ var RecorderUI = (function() {
   var pub = {};
 
   pub.setUpRecordingUI = function(){
+    // we'll start on the first tab, our default, which gives user change to start a new recording
     var div = $("#new_script_content");
     DOMCreationUtilities.replaceContent(div, $("#about_to_record"));
     div.find("#start_recording").click(RecorderUI.startRecording);
+    // if we switch to the second tab, we'll need to load in all the saved scripts
+    $( "#tabs" ).on( "tabsbeforeactivate", function( event, ui ) {
+      if (ui.newPanel.attr('id') === "tabs-2"){
+        pub.loadSavedScripts();
+      }
+    });
   };
 
   var recordingWindowId = null;
@@ -116,7 +123,7 @@ var RecorderUI = (function() {
     var relationObjsSerialized = _.map(prog.relations, ServerTranslationUtilities.JSONifyRelation);
     var serializedProg = ServerTranslationUtilities.JSONifyProgram(prog);
     var div = $("#new_script_content");
-    var name = div.find("#save").value;
+    var name = div.find("#program_name").get(0).value;
     var msg = {id: prog.id, serialized_program: serializedProg, relation_objects: relationObjsSerialized, name: name};
     $.post('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg, function(response){
       var progId = response.program.id;
@@ -401,6 +408,19 @@ var RecorderUI = (function() {
       closeOnEscape: false // user shouldn't be able to close except by using one of our handlers
     });
   };
+
+  pub.loadSavedScripts = function(){
+    console.log("going to load saved scripts.");
+    var savedScriptsDiv = $("#saved_script_list");
+    $.get('http://kaofang.cs.berkeley.edu:8080/programs/', {}, function(response){
+      console.log(response);
+      var arrayOfArrays = _.map(response, function(prog){
+        var date = $.format.date(prog.date * 1000, "dd/MM/yyyy HH:mm")
+        return [prog.name, date];});
+      var html = DOMCreationUtilities.arrayOfArraysToTable(arrayOfArrays);
+      savedScriptsDiv.html(html);
+    });
+  }
 
   return pub;
 }());

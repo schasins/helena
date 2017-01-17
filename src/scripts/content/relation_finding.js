@@ -184,6 +184,11 @@ var RelationFinder = (function() { var pub = {};
     }
 
     // ok, now we know which table to use
+
+    if (table === null){
+      return []; // todo: why is this arising?
+    }
+
     var rows = table.find("tr");
     rows = rows.slice(excludeFirst, rows.length);
 

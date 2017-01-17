@@ -162,17 +162,99 @@ var DOMCreationUtilities = (function() { var pub = {};
 
 return pub; }());
 
+/*
+A very important set of utilities for reviving objects that have been stringified
+(as for sending to the server) but have returned to us, and need to be used as
+proper objects again.
+We always store all the fields; it's the methods we lose.  So we basically, when it 
+comes time to revive it, want to union the attributes of the now unstringified dict
+and the prototype, grabbing the methods back from the prototype.
+*/
+var Revival = (function(){ var pub = {};
+
+  var revivalLabels = {};
+
+  pub.introduceRevivalLabel = function(label, prototype){
+    revivalLabels[label] = prototype;
+  };
+
+  pub.addRevivalLabel = function(object){
+    for (var prop in revivalLabels){
+      if (object instanceof revivalLabels[prop]){
+        object.___revivalLabel___ = prop;
+        return;
+      }
+    }
+    console.log("No known revival label for the type of object:", object);
+  };
+
+  var seen = [];
+  var fullSeen = [];
+  pub.revive = function(objectAttributes, topLevel){
+    if (topLevel === undefined){
+      seen = []; // we're going to be handling circular objects, so have to keep track of what we've already handled
+      fullSeen = [];
+    }
+
+    // ok, now let's figure out what kind of case we're dealing with
+    if (typeof objectAttributes !== "object" || objectAttributes === null){ // why is null even an object?
+      return objectAttributes; // nothing to do here
+    }
+    else if (seen.indexOf(objectAttributes) > -1){
+      // already seen it
+      var i = seen.indexOf(objectAttributes);
+      return fullSeen[i]; // get the corresponding revived object
+    }
+    else{
+      // ok, it's an object and we haven't processed it before
+      var fullObj = objectAttributes;
+      if (objectAttributes.___revivalLabel___){
+        // ok, we actually want to revive this very object
+        var prototype = revivalLabels[objectAttributes.___revivalLabel___];
+        fullObj = new prototype();
+        _.extend(fullObj, objectAttributes);
+        // now the fullObj is restored to having methods and such
+      }
+      seen.push(objectAttributes);
+      fullSeen.push(fullObj);
+      // ok, whether we revived this obj or not, we definitely have to descend
+      for (var prop in objectAttributes){
+        var val = objectAttributes[prop];
+        var fullVal = pub.revive(val, false);
+        fullObj[prop] = fullVal; // must replace the old fields-only val with the proper object val
+      }
+    }
+    return fullObj;
+  };
+
+return pub; }());
+
 var ServerTranslationUtilities = (function() { var pub = {};
 
-  pub.JSONifyRelation = function(relation){
+  // for when we want to send a relation object to the server
+  pub.JSONifyRelation = function(origRelation){
+    // ok, first let's get the nice dictionary-looking version that we use for passing relations around, instead of our internal object representation that we use in the mainpanel/program
+    var relationDict = origRelation.messageRelationRepresentation();
+    // let's start by deep copying so that we can JSONify the selector, next_button_selector, and column suffixes without messing up the real object
+    relation = JSON.parse(JSON.stringify(relationDict)); // deepcopy
+    // now that it's deep copied, we can safely strip out jsog stuff that we don't want in there, since it will
+    // interfere with our canonicalization process
+    MiscUtilities.removeAttributeRecursive(relation, "__jsogObjectId");
     relation.selector = StableStringify.stringify(relation.selector);
     relation.next_button_selector = StableStringify.stringify(relation.next_button_selector);
     for (var k = 0; k < relation.columns.length; k++){
       relation.columns[k].suffix = StableStringify.stringify(relation.columns[k].suffix); // is this the best place to deal with going between our object attributes and the server strings?
     }
+    console.log("relation after jsonification", relation);
+    return relation;
   };
 
-  pub.unJSONifyRelation = function(relation){
+  // for when we get a relation back from the server
+  pub.unJSONifyRelation = function(relationDict){
+    console.log("relationDict", relationDict);
+    console.log("stringified relationDict", JSON.stringify(relationDict));
+    // let's leave the original dictionary with it's JSONified attributes alone by deepcopying first
+    relation = JSON.parse(JSON.stringify(relationDict)); // deepcopy
     relation.selector = JSON.parse(relation.selector);
     if (relation.next_button_selector){
       relation.next_button_selector = JSON.parse(relation.next_button_selector);
@@ -183,6 +265,36 @@ var ServerTranslationUtilities = (function() { var pub = {};
     for (var k = 0; k < relation.columns.length; k++){
       relation.columns[k].suffix = JSON.parse(relation.columns[k].suffix); // is this the best place to deal with going between our object attributes and the server strings?
     }
+    return relation;
+  };
+
+  pub.JSONifyProgram = function(origProgram){
+    // let's start by deep copying so that we can delete stuff and mess around without messing up the real object
+    programAttributes = JSOG.parse(JSOG.stringify(origProgram)); // deepcopy
+    var program = Revival.revive(programAttributes); // copy all those fields back into a proper Program object
+    // relations aren't part of a JSONified program, because this is just the string part that will be going into a single db column
+    // we want interesting info like what relations it uses to be stored in a structured way so we can reason about it, do interesting stuff with it
+    // so blank out relations
+
+    // for now, even though we are separately saving proper representations of the relations involved
+    // let's also save these relation associated with the current prog, so user doesn't get any surprises
+    // can later allow them to update from server if it's failing...
+    /*
+    program.traverse(function(statement){
+      if (statement instanceof WebAutomationLanguage.LoopStatement){
+        console.log(program.relations.indexOf(statement.relation));
+        statement.relation = program.relations.indexOf(statement.relation); // note this means we must have the relations in same order from server that we have them here
+      }
+    });
+    delete program.relations;
+    */
+    return JSOG.stringify(program);
+  };
+
+  pub.unJSONifyProgram = function(stringifiedProg){
+    programAttributes = JSOG.parse(stringifiedProg);
+    var program = Revival.revive(programAttributes); // copy all those fields back into a proper Program object
+    return program;
   };
 
 return pub; }());
@@ -256,6 +368,32 @@ var MiscUtilities = (function() { var pub = {};
     }
     return level;
   }
+
+  // note that this does not handle cyclic objects!
+  pub.removeAttributeRecursive = function(obj, attribute){
+    if (typeof obj !== "object" || obj === null){ 
+      return; // nothing to do here
+    }
+    else{
+      // ok, it's an object
+      if (attribute in obj){
+        // ok, we actually want to remove
+        delete obj[attribute];
+      }
+      // time to descend
+      for (var prop in obj){
+        pub.removeAttributeRecursive(obj[prop], attribute);
+      }
+    }
+  };
+
+  pub.repeatUntil = function(repeatFunction, untilFunction, interval){
+    if (untilFunction()){
+      return;
+    }
+    repeatFunction();
+    setTimeout(function(){pub.repeatUntil(repeatFunction, untilFunction, interval);}, interval);
+  };
 
 return pub; }());
 

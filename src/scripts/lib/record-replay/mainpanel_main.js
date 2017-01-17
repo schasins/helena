@@ -516,6 +516,9 @@ var Replay = (function ReplayClosure() {
           for (var k in tabMapping)
             tm[k] = tabMapping[k];
         }
+        if (config.targetWindowId) {
+          this.targetWindowId = config.targetWindowId;
+        }
       }
 
       this.cont = cont;
@@ -1092,7 +1095,13 @@ var Replay = (function ReplayClosure() {
         if (!e.reset){e.reset = {};}
         e.reset.alreadyForced = true;  // enforce that we don't do the forceReplay a second time, but instead wait to see the completed event?
         var that = this;
-        chrome.tabs.create({url: e.data.url, active: true}, function(){
+        var options = {url: e.data.url, active: true};
+        if (this.targetWindowId){
+          options.windowId = this.targetWindowId;
+        }
+        console.log("options", options);
+        console.log("event", e);
+        chrome.tabs.create(options, function(){
           // not sufficient to treat tab creation as getting an ack.  must wait for it to appear in the replay-time trace
           // that.index ++; // advance to next event
           that.setNextTimeout(0); 

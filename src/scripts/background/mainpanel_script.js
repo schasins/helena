@@ -39,11 +39,11 @@ var RecorderUI = (function() {
   };
 
   var recordingWindowId = null;
-  pub.startRecording = function(){
-    var div = $("#new_script_content");
-    DOMCreationUtilities.replaceContent(div, $("#recording"));
-    div.find("#stop_recording").click(RecorderUI.stopRecording);
+  pub.getCurrentRecordingWindow = function(){
+    return recordingWindowId;
+  }
 
+  var makeNewRecordReplayTab = function(cont){
     chrome.windows.getCurrent(function (currWindowInfo){
       var right = currWindowInfo.left + currWindowInfo.width;
       chrome.system.display.getInfo(function(displayInfoLs){
@@ -56,14 +56,24 @@ var RecorderUI = (function() {
             var top = currWindowInfo.top - 40; // - 40 because it doesn't seem to count the menu bar and I'm not looking for a more accurate solution at the moment
             var left = right; // let's have it adjacent to the control panel
             chrome.windows.create({url: "pages/newRecordingWindow.html", focused: true, left: left, top: top, width: (bounds.right - right), height: (bounds.top + bounds.height - top)}, function(win){
-              SimpleRecord.startRecording();
               recordingWindowId = win.id;
               pub.sendCurrentRecordingWindow();
               console.log("Only recording in window: ", recordingWindowId);
+              cont();
             });
           }
         }
       });
+    });
+  };
+
+  pub.startRecording = function(){
+    var div = $("#new_script_content");
+    DOMCreationUtilities.replaceContent(div, $("#recording"));
+    div.find("#stop_recording").click(RecorderUI.stopRecording);
+
+    makeNewRecordReplayTab(function(){
+      SimpleRecord.startRecording();
     });
   };
 
@@ -113,8 +123,12 @@ var RecorderUI = (function() {
     }
     activateButton(div, "#cancelRun", reset);
 
-    // actually start the script running
-    ReplayScript.prog.run();
+    // let's do this in a fresh window
+    makeNewRecordReplayTab(function(){
+      // actually start the script running
+      ReplayScript.prog.run();
+    });
+
   };
 
   // for saving a program to the server
@@ -2409,7 +2423,7 @@ var WebAutomationLanguage = (function() {
             that.nonOutlierProcessing(data, continuation);
           }
         });
-        utilities.sendMessage("mainpanel", "content", "pageStats", {}, null, null, null, [tabId]);
+        utilities.sendMessage("mainpanel", "content", "pageStats", {}, null, null, [tabId], null);
       }
       else{
         continuation();
@@ -2773,6 +2787,7 @@ var WebAutomationLanguage = (function() {
 
         console.log("runnableTrace", runnableTrace, config);
 
+        config.targetWindowId = RecorderUI.getCurrentRecordingWindow();
         SimpleRecord.replay(runnableTrace, config, function(replayObject){
           // use what we've observed in the replay to update page variables
           console.log("replayObject", replayObject);

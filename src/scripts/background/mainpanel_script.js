@@ -113,12 +113,15 @@ var RecorderUI = (function() {
   // for saving a program to the server
   pub.save = function(){
     var prog = ReplayScript.prog;
-    var savedRelationIds = prog.savedRelationIds();
-    var unsavedRelationObjs = prog.unsavedRelationObjs();
-    var unsavedRelationObjsSerialized = _.map(unsavedRelationObjs, ServerTranslationUtilities.JSONifyRelation);
+    var relationObjsSerialized = _.map(prog.relations, ServerTranslationUtilities.JSONifyRelation);
     var serializedProg = ServerTranslationUtilities.JSONifyProgram(prog);
-    var msg = {serialized_program: serializedProg, saved_relation_ids: savedRelationIds, unsaved_relation_objs: unsavedRelationObjsSerialized};
-    $.post('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg);
+    var div = $("#new_script_content");
+    var name = div.find("#save").value;
+    var msg = {id: prog.id, serialized_program: serializedProg, relation_objects: relationObjsSerialized, name: name};
+    $.post('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg, function(response){
+      var progId = response.program.id;
+      prog.id = progId;
+    });
   };
 
   pub.replayOriginal = function(){
@@ -935,20 +938,24 @@ var WebAutomationLanguage = (function() {
   // the actual statements
 
   pub.LoadStatement = function(trace){
-    this.trace = trace;
+    Revival.addRevivalLabel(this);
+    if (trace){ // we will sometimes initialize with undefined, as when reviving a saved program
+      this.trace = trace;
 
-    // find the record-time constants that we'll turn into parameters
-    var ev = firstVisibleEvent(trace);
-    this.url = ev.data.url;
-    this.outputPageVar = EventM.getLoadOutputPageVar(ev);
-    this.outputPageVars = [this.outputPageVar]; // this will make it easier to work with for other parts of the code
-    // for now, assume the ones we saw at record time are the ones we'll want at replay
-    this.currentUrl = this.url;
+      // find the record-time constants that we'll turn into parameters
+      var ev = firstVisibleEvent(trace);
+      this.url = ev.data.url;
+      this.outputPageVar = EventM.getLoadOutputPageVar(ev);
+      this.outputPageVars = [this.outputPageVar]; // this will make it easier to work with for other parts of the code
+      // for now, assume the ones we saw at record time are the ones we'll want at replay
+      this.currentUrl = this.url;
 
-    // usually 'completed' events actually don't affect replayer -- won't load a new page in a new tab just because we have one.  want to tell replayer to actually do a load
-    ev.forceReplay = true;
+      // usually 'completed' events actually don't affect replayer -- won't load a new page in a new tab just because we have one.  want to tell replayer to actually do a load
+      ev.forceReplay = true;
 
-    this.cleanTrace = cleanTrace(trace);
+      this.cleanTrace = cleanTrace(trace);    
+    }
+
 
     this.clearRunningState = function(){
       return;
@@ -1029,24 +1036,27 @@ var WebAutomationLanguage = (function() {
     };
   };
   pub.ClickStatement = function(trace){
-    this.trace = trace;
+    Revival.addRevivalLabel(this);
+    if (trace){ // we will sometimes initialize with undefined, as when reviving a saved program
+      this.trace = trace;
 
-    // find the record-time constants that we'll turn into parameters
-    var ev = firstVisibleEvent(trace);
-    this.pageVar = EventM.getDOMInputPageVar(ev);
-    this.pageUrl = ev.frame.topURL;
-    this.node = ev.target.xpath;
-    var domEvents = _.filter(trace, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
-    var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
-    this.outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
-    // for now, assume the ones we saw at record time are the ones we'll want at replay
-    this.currentNode = this.node;
-    this.origNode = this.node;
+      // find the record-time constants that we'll turn into parameters
+      var ev = firstVisibleEvent(trace);
+      this.pageVar = EventM.getDOMInputPageVar(ev);
+      this.pageUrl = ev.frame.topURL;
+      this.node = ev.target.xpath;
+      var domEvents = _.filter(trace, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
+      var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
+      this.outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
+      // for now, assume the ones we saw at record time are the ones we'll want at replay
+      this.currentNode = this.node;
+      this.origNode = this.node;
 
-    // we may do clicks that should open pages in new tabs but didn't open new tabs during recording
-    // todo: may be worth going back to the ctrl approach, but there are links that refuse to open that way, so for now let's try back buttons
-    // proposeCtrlAdditions(this);
-    this.cleanTrace = cleanTrace(this.trace);
+      // we may do clicks that should open pages in new tabs but didn't open new tabs during recording
+      // todo: may be worth going back to the ctrl approach, but there are links that refuse to open that way, so for now let's try back buttons
+      // proposeCtrlAdditions(this);
+      this.cleanTrace = cleanTrace(this.trace);
+    }
 
     this.clearRunningState = function(){
       return;
@@ -1055,6 +1065,10 @@ var WebAutomationLanguage = (function() {
     this.toStringLines = function(){
       var nodeRep = nodeRepresentation(this);
       return [outputPagesRepresentation(this)+"click("+this.pageVar.toString()+", "+nodeRep+")"];
+    };
+
+    this.traverse = function(fn){
+      fn(this);
     };
 
     this.pbvs = function(){
@@ -1092,25 +1106,28 @@ var WebAutomationLanguage = (function() {
     };
   };
   pub.ScrapeStatement = function(trace){
-    this.trace = trace;
-    this.cleanTrace = cleanTrace(this.trace);
+    Revival.addRevivalLabel(this);
+    if (trace){ // we will sometimes initialize with undefined, as when reviving a saved program
+      this.trace = trace;
+      this.cleanTrace = cleanTrace(this.trace);
 
-    // find the record-time constants that we'll turn into parameters
-    var ev = firstVisibleEvent(trace);
-    this.pageVar = EventM.getDOMInputPageVar(ev);
-    this.node = ev.target.xpath;
-    this.pageUrl = ev.frame.topURL;
-    // for now, assume the ones we saw at record time are the ones we'll want at replay
-    this.currentNode = this.node;
-    this.origNode = this.node;
+      // find the record-time constants that we'll turn into parameters
+      var ev = firstVisibleEvent(trace);
+      this.pageVar = EventM.getDOMInputPageVar(ev);
+      this.node = ev.target.xpath;
+      this.pageUrl = ev.frame.topURL;
+      // for now, assume the ones we saw at record time are the ones we'll want at replay
+      this.currentNode = this.node;
+      this.origNode = this.node;
 
-    // are we scraping a link or just the text?
-    this.scrapeLink = false;
-    for (var i = 0; i <  trace.length; i++){
-      if (trace[i].additional && trace[i].additional.scrape){
-        if (trace[i].additional.scrape.linkScraping){
-          this.scrapeLink = true;
-          break;
+      // are we scraping a link or just the text?
+      this.scrapeLink = false;
+      for (var i = 0; i <  trace.length; i++){
+        if (trace[i].additional && trace[i].additional.scrape){
+          if (trace[i].additional.scrape.linkScraping){
+            this.scrapeLink = true;
+            break;
+          }
         }
       }
     }
@@ -1128,6 +1145,10 @@ var WebAutomationLanguage = (function() {
       //  sString = "scrapeLink(";
       //}
       return [sString+this.pageVar.toString()+", "+nodeRep+")"];
+    };
+
+    this.traverse = function(fn){
+      fn(this);
     };
 
     this.pbvs = function(){
@@ -1247,45 +1268,48 @@ var WebAutomationLanguage = (function() {
     };
   };
   pub.TypeStatement = function(trace){
-    this.trace = trace;
-    this.cleanTrace = cleanTrace(trace);
+    Revival.addRevivalLabel(this);
+    if (trace){ // we will sometimes initialize with undefined, as when reviving a saved program
+      this.trace = trace;
+      this.cleanTrace = cleanTrace(trace);
 
-    // find the record-time constants that we'll turn into parameters
-    var ev = firstVisibleEvent(trace);
-    this.pageVar = EventM.getDOMInputPageVar(ev);
-    this.node = ev.target.xpath;
-    this.pageUrl = ev.frame.topURL;
-    var acceptableEventTypes = statementToEventMapping.keyboard;
-    var textEntryEvents = _.filter(trace, function(ev){var sType = WebAutomationLanguage.statementType(ev); return (sType === StatementTypes.KEYBOARD || sType === StatementTypes.KEYUP);});
-    if (textEntryEvents.length > 0){
-      var lastTextEntryEvent = textEntryEvents[textEntryEvents.length - 1];
-      this.typedString = lastTextEntryEvent.target.snapshot.value;
-      if (!this.typedString){
-        this.typedString = "";
+      // find the record-time constants that we'll turn into parameters
+      var ev = firstVisibleEvent(trace);
+      this.pageVar = EventM.getDOMInputPageVar(ev);
+      this.node = ev.target.xpath;
+      this.pageUrl = ev.frame.topURL;
+      var acceptableEventTypes = statementToEventMapping.keyboard;
+      var textEntryEvents = _.filter(trace, function(ev){var sType = WebAutomationLanguage.statementType(ev); return (sType === StatementTypes.KEYBOARD || sType === StatementTypes.KEYUP);});
+      if (textEntryEvents.length > 0){
+        var lastTextEntryEvent = textEntryEvents[textEntryEvents.length - 1];
+        this.typedString = lastTextEntryEvent.target.snapshot.value;
+        if (!this.typedString){
+          this.typedString = "";
+        }
+        this.typedStringLower = this.typedString.toLowerCase(); 
       }
-      this.typedStringLower = this.typedString.toLowerCase(); 
-    }
 
-    var domEvents = _.filter(trace, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
-    var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
-    this.outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
-    // for now, assume the ones we saw at record time are the ones we'll want at replay
-    this.currentNode = this.node;
-    this.origNode = this.node;
-    this.currentTypedString = this.typedString;
+      var domEvents = _.filter(trace, function(ev){return ev.type === "dom";}); // any event in the segment may have triggered a load
+      var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
+      this.outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
+      // for now, assume the ones we saw at record time are the ones we'll want at replay
+      this.currentNode = this.node;
+      this.origNode = this.node;
+      this.currentTypedString = this.typedString;
 
-    // we want to do slightly different things for cases where the typestatement only has keydowns or only has keyups (as when ctrl, shift, alt used)
-    var onlyKeydowns = _.reduce(textEntryEvents, function(acc, e){return acc && e.data.type === "keydown"}, true);
-    if (onlyKeydowns){
-      this.onlyKeydowns = true;
-    }
-    var onlyKeyups = _.reduce(textEntryEvents, function(acc, e){return acc && e.data.type === "keyup"}, true);
-    if (onlyKeyups){
-      this.onlyKeyups = true;
-    }
-    if (onlyKeydowns || onlyKeyups){
-      this.keyEvents = textEntryEvents;
-      this.keyCodes = _.map(this.keyEvents, function(ev){ return ev.data.keyCode; });
+      // we want to do slightly different things for cases where the typestatement only has keydowns or only has keyups (as when ctrl, shift, alt used)
+      var onlyKeydowns = _.reduce(textEntryEvents, function(acc, e){return acc && e.data.type === "keydown"}, true);
+      if (onlyKeydowns){
+        this.onlyKeydowns = true;
+      }
+      var onlyKeyups = _.reduce(textEntryEvents, function(acc, e){return acc && e.data.type === "keyup"}, true);
+      if (onlyKeyups){
+        this.onlyKeyups = true;
+      }
+      if (onlyKeydowns || onlyKeyups){
+        this.keyEvents = textEntryEvents;
+        this.keyCodes = _.map(this.keyEvents, function(ev){ return ev.data.keyCode; });
+      }
     }
 
     this.clearRunningState = function(){
@@ -1319,6 +1343,10 @@ var WebAutomationLanguage = (function() {
         }
         return [act + " " + charsString + " on " + this.pageVar.toString()];
       }
+    };
+
+    this.traverse = function(fn){
+      fn(this);
     };
 
     this.pbvs = function(){
@@ -1395,10 +1423,14 @@ var WebAutomationLanguage = (function() {
   };
 
   pub.OutputRowStatement = function(scrapeStatements){
-    this.trace = []; // no extra work to do in r+r layer for this
-    this.cleanTrace = [];
-    this.scrapeStatements = scrapeStatements;
-    this.relations = [];
+    Revival.addRevivalLabel(this);
+
+    if (scrapeStatements){ // we will sometimes initialize with undefined, as when reviving a saved program
+      this.trace = []; // no extra work to do in r+r layer for this
+      this.cleanTrace = [];
+      this.scrapeStatements = scrapeStatements;
+      this.relations = [];
+    }
 
     this.clearRunningState = function(){
       return;
@@ -1409,9 +1441,14 @@ var WebAutomationLanguage = (function() {
       return ["addOutputRow(["+nodeRepLs.join(",")+",time])"];
     };
 
+    this.traverse = function(fn){
+      fn(this);
+    };
+
     this.pbvs = function(){
       return [];
     };
+
     this.parameterizeForRelation = function(relation){
       if (relation instanceof WebAutomationLanguage.TextRelation){
         // for now, we assume that we always want to include in our scraped data all cells of the text relation
@@ -1451,10 +1488,12 @@ var WebAutomationLanguage = (function() {
   */
 
   pub.BackStatement = function(pageVarCurr, pageVarBack){
-    this.pageVarCurr = pageVarCurr;
-    this.pageVarBack = pageVarBack;
-
+    Revival.addRevivalLabel(this);
     var backStatement = this;
+    if (pageVarCurr){ // we will sometimes initialize with undefined, as when reviving a saved program
+      this.pageVarCurr = pageVarCurr;
+      this.pageVarBack = pageVarBack;
+    }
 
     this.clearRunningState = function(){
       return;
@@ -1464,6 +1503,10 @@ var WebAutomationLanguage = (function() {
       // back statements are now invisible cleanup, not normal statements, so don't use the line below for now
       // return [this.pageVarBack.toString() + " = " + this.pageVarCurr.toString() + ".back()" ];
       return [];
+    };
+
+    this.traverse = function(fn){
+      fn(this);
     };
 
     this.run = function(programObj, rbbcontinuation){
@@ -1494,7 +1537,10 @@ var WebAutomationLanguage = (function() {
   };
 
   pub.ClosePageStatement = function(pageVarCurr){
-    this.pageVarCurr = pageVarCurr;
+    Revival.addRevivalLabel(this);
+    if (pageVarCurr){ // we will sometimes initialize with undefined, as when reviving a saved program
+      this.pageVarCurr = pageVarCurr;
+    }
     var that = this;
 
     this.clearRunningState = function(){
@@ -1505,6 +1551,10 @@ var WebAutomationLanguage = (function() {
       // close statements are now invisible cleanup, not normal statements, so don't use the line below for now
       // return [this.pageVarCurr.toString() + ".close()" ];
       return [];
+    };
+
+    this.traverse = function(fn){
+      fn(this);
     };
 
     this.run = function(programObj, rbbcontinuation){
@@ -1532,6 +1582,7 @@ var WebAutomationLanguage = (function() {
   };
 
   pub.ContinueStatement = function(){
+    Revival.addRevivalLabel(this);
 
     this.clearRunningState = function(){
       return;
@@ -1539,6 +1590,10 @@ var WebAutomationLanguage = (function() {
 
     this.toStringLines = function(){
       return ["continue"];
+    };
+
+    this.traverse = function(fn){
+      fn(this);
     };
 
     this.run = function(programObj, rbbcontinuation){
@@ -1555,7 +1610,11 @@ var WebAutomationLanguage = (function() {
   };
 
   pub.IfStatement = function(bodyStatements){
-    this.bodyStatements = bodyStatements;
+    Revival.addRevivalLabel(this);
+
+    if (bodyStatements){ // we will sometimes initialize with undefined, as when reviving a saved program
+      this.bodyStatements = bodyStatements;
+    }
 
     this.clearRunningState = function(){
       return;
@@ -1564,6 +1623,14 @@ var WebAutomationLanguage = (function() {
     this.toStringLines = function(){
       return ["if"]; // todo: when we have the real if statements, do the right thing
     };
+
+    this.traverse = function(fn){
+      fn(this);
+      for (var i = 0; i < this.bodyStatements.length; i++){
+        this.bodyStatements[i].traverse(fn);
+      }
+    };
+
     this.run = function(programObj, rbbcontinuation){
       // todo: the condition is hard-coded for now, but obviously we should ultimately have real conds
       if (programObj.environment.envLookup("cases.case_id").indexOf("CVG") !== 0){ // todo: want to check if first scrape statement scrapes something with "CFG" in it
@@ -1616,12 +1683,16 @@ var WebAutomationLanguage = (function() {
   */
 
   pub.LoopStatement = function(relation, relationColumnsUsed, bodyStatements, pageVar){
-    this.relation = relation;
-    this.relationColumnsUsed = relationColumnsUsed;
-    this.bodyStatements = bodyStatements;
-    this.pageVar = pageVar;
-    this.maxRows = null; // note: for now, can only be sat at js console.  todo: eventually should have ui interaction for this.
-    this.rowsSoFar = 0;
+    Revival.addRevivalLabel(this);
+
+    if (bodyStatements){ // we will sometimes initialize with undefined, as when reviving a saved program
+      this.relation = relation;
+      this.relationColumnsUsed = relationColumnsUsed;
+      this.bodyStatements = bodyStatements;
+      this.pageVar = pageVar;
+      this.maxRows = null; // note: for now, can only be sat at js console.  todo: eventually should have ui interaction for this.
+      this.rowsSoFar = 0;
+    }
 
     this.clearRunningState = function(){
       this.rowsSoFar = 0;
@@ -1641,6 +1712,13 @@ var WebAutomationLanguage = (function() {
       var statementStrings = _.reduce(this.bodyStatements, function(acc, statement){return acc.concat(statement.toStringLines());}, []);
       statementStrings = _.map(statementStrings, function(line){return ("&nbsp&nbsp&nbsp&nbsp "+line);});
       return [prefix].concat(statementStrings);
+    };
+
+    this.traverse = function(fn){
+      fn(this);
+      for (var i = 0; i < this.bodyStatements.length; i++){
+        this.bodyStatements[i].traverse(fn);
+      }
     };
 
     this.parameterizeForRelation = function(relation){
@@ -1670,8 +1748,11 @@ var WebAutomationLanguage = (function() {
 
   // used for relations that only have text in cells, as when user uploads the relation
   pub.TextRelation = function(csvFileContents){
-    this.relation = $.csv.toArrays(csvFileContents);
-    this.firstRowTexts = this.relation[0];
+    Revival.addRevivalLabel(this);
+    if (csvFileContents){ // we will sometimes initialize with undefined, as when reviving a saved program
+      this.relation = $.csv.toArrays(csvFileContents);
+      this.firstRowTexts = this.relation[0];
+    }
 
     this.demonstrationTimeRelationText = function(){
       return this.relation;
@@ -1753,23 +1834,27 @@ var WebAutomationLanguage = (function() {
 
   var relationCounter = 0;
   pub.Relation = function(relationId, name, selector, selectorVersion, excludeFirst, columns, demonstrationTimeRelation, numRowsInDemo, pageVarName, url, nextType, nextButtonSelector){
-    this.id = relationId;
-    this.selector = selector;
-    this.selectorVersion = selectorVersion;
-    this.excludeFirst = excludeFirst;
-    this.columns = columns;
-    this.demonstrationTimeRelation = demonstrationTimeRelation;
-    this.numRowsInDemo = numRowsInDemo;
-    this.pageVarName = pageVarName;
-    this.url = url;
-    this.nextType = nextType;
-    this.nextButtonSelector = nextButtonSelector;
-    if (name === undefined || name === null){
-      relationCounter += 1;
-      this.name = "relation_"+relationCounter;
-    }
-    else{
-      this.name = name;
+    Revival.addRevivalLabel(this);
+    var doInitialization = selector;
+    if (doInitialization){ // we will sometimes initialize with undefined, as when reviving a saved program
+      this.id = relationId;
+      this.selector = selector;
+      this.selectorVersion = selectorVersion;
+      this.excludeFirst = excludeFirst;
+      this.columns = columns;
+      this.demonstrationTimeRelation = demonstrationTimeRelation;
+      this.numRowsInDemo = numRowsInDemo;
+      this.pageVarName = pageVarName;
+      this.url = url;
+      this.nextType = nextType;
+      this.nextButtonSelector = nextButtonSelector;
+      if (name === undefined || name === null){
+        relationCounter += 1;
+        this.name = "relation_"+relationCounter;
+      }
+      else{
+        this.name = name;
+      }
     }
 
     var relation = this;
@@ -1818,15 +1903,19 @@ var WebAutomationLanguage = (function() {
       colObject.index = index;
     };
 
-    console.log(this);
-    this.processColumns();
+    if (doInitialization){
+      console.log(this);
+      this.processColumns();
+    }
 
     function initialize(){
       relation.firstRowXPaths = _.pluck(relation.demonstrationTimeRelation[0], "xpath");
       relation.firstRowTexts = _.pluck(relation.demonstrationTimeRelation[0], "text");
     }
     
-    initialize();
+    if (doInitialization){
+      initialize();
+    }
 
     this.setNewAttributes = function(selector, selectorVersion, excludeFirst, columns, demonstrationTimeRelation, numRowsInDemo, nextType, nextButtonSelector){
       this.selector = selector;
@@ -2174,11 +2263,15 @@ var WebAutomationLanguage = (function() {
 
   // todo: for now all variable uses are uses of relation cells, but eventually will probably want to have scraped from outside of relations too
   pub.VariableUse = function(columnObject, relation, pageVar, link){
+    Revival.addRevivalLabel(this);
     if (link === undefined){ link = false; }
-    this.columnObject = columnObject;
-    this.relation = relation;
-    this.pageVar = pageVar;
-    this.link = link; // is this variable use actually using the link of the node rather than just the node or the text
+
+    if (columnObject){ // will sometimes call with undefined, as for revival
+      this.columnObject = columnObject;
+      this.relation = relation;
+      this.pageVar = pageVar;
+      this.link = link; // is this variable use actually using the link of the node rather than just the node or the text
+    }
 
     this.toString = function(){
       if (this.link){
@@ -2228,10 +2321,14 @@ var WebAutomationLanguage = (function() {
   }
 
   pub.PageVariable = function(name, recordTimeUrl){
-    this.name = name;
-    this.recordTimeUrl = recordTimeUrl;
-    this.pageRelations = {};
-    this.pageStats = freshPageStats();
+    Revival.addRevivalLabel(this);
+
+    if (name){ // will sometimes call with undefined, as for revival
+      this.name = name;
+      this.recordTimeUrl = recordTimeUrl;
+      this.pageRelations = {};
+      this.pageStats = freshPageStats();
+    }
 
     var that = this;
 
@@ -2314,7 +2411,11 @@ var WebAutomationLanguage = (function() {
   };
 
   pub.Concatenate = function(components){
-    this.components = components;
+    Revival.addRevivalLabel(this);
+
+    if (components){ // will sometimes call with undefined, as for revival
+      this.components = components;
+    }
 
     this.currentText = function(){
       var output = "";
@@ -2349,10 +2450,13 @@ var WebAutomationLanguage = (function() {
   // the whole program
 
   pub.Program = function(statements){
-    this.statements = statements;
-    this.relations = [];
-    this.pageVars = _.uniq(_.map(_.filter(statements, function(s){return s.pageVar;}), function(statement){return statement.pageVar;}));                                                                                                                                                                                 
-    this.loopyStatements = [];
+    Revival.addRevivalLabel(this);
+    if (statements){ // for revival, statements will be undefined
+      this.statements = statements;
+      this.relations = [];
+      this.pageVars = _.uniq(_.map(_.filter(statements, function(s){return s.pageVar;}), function(statement){return statement.pageVar;}));                                                                                                                                                                                 
+      this.loopyStatements = [];  
+    }
 
     var program = this;
 
@@ -2368,6 +2472,12 @@ var WebAutomationLanguage = (function() {
       var scriptString = "";
       _.each(statementLs, function(statement){scriptString += statement.toStringLines().join("<br>") + "<br>";});
       return scriptString;
+    };
+
+    this.traverse = function(fn){
+      for (var i = 0; i < this.loopyStatements.length; i++){
+        this.loopyStatements[i].traverse(fn);
+      }
     };
 
     // just for replaying the straight-line recording, primarily for debugging
@@ -3257,6 +3367,13 @@ var WebAutomationLanguage = (function() {
       return outputStatements;
     }
 
+  }
+
+  for (var prop in pub){
+    if (typeof pub[prop] === "function"){
+      console.log("making revival label for ", prop);
+      Revival.introduceRevivalLabel(prop, pub[prop]);
+    }
   }
 
   return pub;

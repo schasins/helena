@@ -1380,7 +1380,7 @@ var WebAutomationLanguage = (function() {
     }
 
     this.toStringLines = function(){
-      if (!onlyKeyups && !onlyKeydowns){
+      if (!this.onlyKeyups && !this.onlyKeydowns){
         // normal processing, for when there's actually a typed string
         var stringRep = "";
         if (this.currentTypedString instanceof WebAutomationLanguage.Concatenate){
@@ -1392,7 +1392,7 @@ var WebAutomationLanguage = (function() {
         return [outputPagesRepresentation(this)+"type("+this.pageVar.toString()+", "+stringRep+")"];
       }
       else{
-        var charsDict = {16: "SHIFT", 17: "CTRL", 18: "ALT"};
+        var charsDict = {16: "SHIFT", 17: "CTRL", 18: "ALT", 91: "CMD"}; // note that 91 is the command key in Mac; on Windows, I think it's the Windows key; probably ok to use cmd for both
         var chars = [];
         _.each(this.keyEvents, function(ev){
           if (ev.data.keyCode in charsDict){
@@ -1401,7 +1401,7 @@ var WebAutomationLanguage = (function() {
         });
         var charsString = chars.join(", ");
         var act = "press"
-        if (onlyKeyups){
+        if (this.onlyKeyups){
           act = "let up"
         }
         return [act + " " + charsString + " on " + this.pageVar.toString()];

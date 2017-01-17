@@ -120,10 +120,11 @@ var RecorderUI = (function() {
   // for saving a program to the server
   pub.save = function(){
     var prog = ReplayScript.prog;
-    var relationObjsSerialized = _.map(prog.relations, ServerTranslationUtilities.JSONifyRelation);
-    var serializedProg = ServerTranslationUtilities.JSONifyProgram(prog);
     var div = $("#new_script_content");
     var name = div.find("#program_name").get(0).value;
+    prog.name = name;
+    var relationObjsSerialized = _.map(prog.relations, ServerTranslationUtilities.JSONifyRelation);
+    var serializedProg = ServerTranslationUtilities.JSONifyProgram(prog);
     var msg = {id: prog.id, serialized_program: serializedProg, relation_objects: relationObjsSerialized, name: name};
     $.post('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg, function(response){
       var progId = response.program.id;
@@ -342,6 +343,9 @@ var RecorderUI = (function() {
     var scriptString = program.toString();
     var scriptPreviewDiv = $("#new_script_content").find("#program_representation");
     DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
+    if (program.name){
+      $("#new_script_content").find("#program_name").get(0).value = program.name;
+    }
   };
 
   pub.addNewRowToOutput = function(listOfCellTexts){
@@ -418,7 +422,32 @@ var RecorderUI = (function() {
         var date = $.format.date(prog.date * 1000, "dd/MM/yyyy HH:mm")
         return [prog.name, date];});
       var html = DOMCreationUtilities.arrayOfArraysToTable(arrayOfArrays);
+      var trs = html.find("tr");
+      for (var i = 0; i < trs.length; i++){
+        (function(){
+          var cI = i;
+          console.log("adding handler", trs[i], response[i].id)
+          $(trs[i]).click(function(){
+            console.log(cI);
+            var id = response[cI].id;
+            pub.loadSavedProgram(id);
+          });
+          $(trs[i]).addClass("hoverable");
+        })();
+      }
       savedScriptsDiv.html(html);
+    });
+  };
+
+  pub.loadSavedProgram = function(progId){
+    console.log("loading program: ", progId);
+    $.get('http://kaofang.cs.berkeley.edu:8080/programs/'+progId, {}, function(response){
+      var revivedProgram = ServerTranslationUtilities.unJSONifyProgram(response.program.serialized_program);
+      revivedProgram.id = response.program.id; // if id was only assigned when it was saved, serialized_prog might not have that info yet
+      revivedProgram.name = response.program.name;
+      ReplayScript.prog = revivedProgram;
+      pub.showProgramPreview(false); // false because we're not currently processing the program (as in, finding relations, something like that)
+      $("#tabs").tabs("option", "active", 0); // make that first tab (the program running tab) active again
     });
   }
 

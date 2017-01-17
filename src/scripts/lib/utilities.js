@@ -291,14 +291,9 @@ var ServerTranslationUtilities = (function() { var pub = {};
     return JSOG.stringify(program);
   };
 
-  pub.unJSONifyProgram = function(stringifiedProg, relationObjs){
-    program = new WebAutomationLanguage.Program(JSOG.parse(stringifiedProg));
-    program.relations = relationObjs;
-    program.traverse(function(statement){
-      if (statement instanceof WebAutomationLanguage.LoopStatement){
-        statement.relation = program.relations[statement.relation];  
-      }
-    });
+  pub.unJSONifyProgram = function(stringifiedProg){
+    programAttributes = JSOG.parse(stringifiedProg);
+    var program = Revival.revive(programAttributes); // copy all those fields back into a proper Program object
     return program;
   };
 

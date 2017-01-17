@@ -148,3 +148,7 @@ h4 {
 .no-close .ui-dialog-titlebar-close {
   display: none;
 }
+
+.hoverable:hover{
+	background-color: DBDBDB;
+}

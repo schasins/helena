@@ -95,6 +95,7 @@ var RecorderUI = (function() {
   };
 
   pub.showProgramPreview = function(inProgress){
+    console.log("showProgramPreview");
     if (inProgress === undefined){ inProgress = false; }
     var div = $("#new_script_content");
     DOMCreationUtilities.replaceContent(div, $("#script_preview")); // let's put in the script_preview node
@@ -196,6 +197,7 @@ var RecorderUI = (function() {
   };
 
   pub.updateDisplayedRelations = function(currentlyUpdating){
+    console.log("updateDisplayedRelation");
     if (currentlyUpdating === undefined){ currentlyUpdating = false; }
 
     var relationObjects = ReplayScript.prog.relations;
@@ -215,6 +217,7 @@ var RecorderUI = (function() {
       return;
     }
     for (var i = 0; i < relationObjects.length; i++){
+      console.log("updateDisplayedRelations table");
       var $relDiv = $("<div class=relation_preview></div>");
       $div.append($relDiv);
       (function(){ // closure to save the relation object
@@ -257,6 +260,7 @@ var RecorderUI = (function() {
         removeRelationButton.button();
         removeRelationButton.click(function(){ReplayScript.prog.removeRelation(relation);});
         $relDiv.append(removeRelationButton);
+        console.log("Done with updateDisplayedRelations table");
       })();
     }
   };
@@ -355,6 +359,7 @@ var RecorderUI = (function() {
   };
 
   pub.updateDisplayedScript = function(){
+    console.log("updateDisplayedScript");
     var program = ReplayScript.prog;
     var scriptString = program.toString();
     var scriptPreviewDiv = $("#new_script_content").find("#program_representation");
@@ -2166,6 +2171,7 @@ var WebAutomationLanguage = (function() {
 
       // let's go ask all the frames to give us relation items for the relation
       var tabId = pageVar.currentTabId();
+      console.log("pageVar.currentTabId()", pageVar.currentTabId());
       chrome.webNavigation.getAllFrames({tabId: tabId}, function(details) {
           relationItemsRetrieved = {};
           missesSoFar = {};
@@ -2187,7 +2193,7 @@ var WebAutomationLanguage = (function() {
                                                   relation.messageRelationRepresentation(), 
                                                   tabId, frame.frameId, 
                                                   // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?  maybe accept once we have at least one good response from one of the frames?
-                                                  function(response) { if (response !== null) {handleNewRelationItemsFromFrame(response, frame.frameId);}}); // when get response, call handleNewRelationItemsFromFrame (defined above) to pick from the frames' answers
+                                                  function(response) { console.log("Receiving response: ", response); if (response !== null) {handleNewRelationItemsFromFrame(response, frame.frameId);}}); // when get response, call handleNewRelationItemsFromFrame (defined above) to pick from the frames' answers
             };
             // here's the function for sending the message until we get the answer
             MiscUtilities.repeatUntil(sendGetRelationItems, function(){return relationItemsRetrieved[frame.frameId];}, 1000);

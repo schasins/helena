@@ -1,6 +1,11 @@
 var utilities = (function() { var pub = {};
 
-  var listenerCounter = 0;
+  var sendTypes = {
+    NORMAL: 0,
+    FRAMESPECIFIC: 1
+  };
+
+  var listenerCounter = 1;
   var runtimeListeners = {};
   var extensionListeners = {};
 
@@ -11,7 +16,9 @@ var utilities = (function() { var pub = {};
   });
 
   chrome.extension.onMessage.addListener(function(msg, sender) {
+    // console.log("keys", Object.keys(extensionListeners));
     for (var key in extensionListeners){
+      // console.log("key", key);
       extensionListeners[key](msg, sender);
     }
   });
@@ -22,7 +29,7 @@ var utilities = (function() { var pub = {};
     listenerCounter += 1;
     if (to === "background" || to === "mainpanel"){
       runtimeListeners[key] = function(msg, sender) {
-        if (msg.from && (msg.from === from) && msg.subject && (msg.subject === subject)) {
+        if (msg.from && (msg.from === from) && msg.subject && (msg.subject === subject) && (msg.send_type === sendTypes.NORMAL)) {
           msg.content.tab_id = sender.tab.id;
           console.log("Receiving message: ", msg);
           console.log("from tab id: ", sender.tab.id);
@@ -33,7 +40,9 @@ var utilities = (function() { var pub = {};
       };
     }
     else if (to === "content"){
+      // console.log("content listener", key, subject);
       extensionListeners[key] = function(msg, sender) {
+        // console.log(msg, sender);
         var frame_id = SimpleRecord.getFrameId();
         if (msg.frame_ids_include && msg.frame_ids_include.indexOf(frame_id) < -1){
           console.log("Msg for frames with ids "+msg.frame_ids_include+", but this frame has id "+frame_id+".");
@@ -43,13 +52,14 @@ var utilities = (function() { var pub = {};
           console.log("Msg for frames without ids "+msg.frame_ids_exclude+", but this frame has id "+frame_id+".");
           return false;
         }
-        else if (msg.from && (msg.from === from) && msg.subject && (msg.subject === subject)) {
+        else if (msg.from && (msg.from === from) && msg.subject && (msg.subject === subject) && (msg.send_type === sendTypes.NORMAL)) {
           console.log("Receiving message: ", msg);
           fn(msg.content);
           return true;
         }
-        else {
-          console.log("Msg not a match for current listeners.");
+        else{
+          // console.log("Received message, but not a match for current listener.");
+          // console.log(msg.from, from, (msg.from === from), msg.subject, subject, (msg.subject === subject), (msg.send_type === sendTypes.NORMAL));
           return false;
         }
       };
@@ -60,18 +70,18 @@ var utilities = (function() { var pub = {};
   pub.listenForFrameSpecificMessage = function(from, to, subject, fn){
     console.log("Listening for frame-specific messages: "+ from+" : "+to+" : "+subject);
     chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
-      if (msg.subject === subject){
+      if (msg.subject === subject && msg.send_type === sendTypes.FRAMESPECIFIC){
         console.log("Receiving frame-specific message: ", msg);
         sendResponse(fn(msg.content));
       }
     });
   }
 
-  var oneOffListenerCounter = 0;
+  var oneOffListenerCounter = 1;
 
   pub.listenForMessageOnce = function(from, to, subject, fn){
     console.log("Listening once for message: "+ from+" : "+to+" : "+subject);
-    var key = oneOffListenerCounter;
+    var key = "oneoff_"+oneOffListenerCounter;
     var newfunc = null;
     oneOffListenerCounter += 1;
     if (to === "background" || to === "mainpanel"){
@@ -89,6 +99,7 @@ var utilities = (function() { var pub = {};
   }
 
   pub.stopListeningForMessageWithKey = function(from, to, subect, key){
+    // console.log("deleting key", key);
     if (to === "background" || to === "mainpanel"){
       delete runtimeListeners[key];
     }
@@ -100,6 +111,7 @@ var utilities = (function() { var pub = {};
   pub.sendMessage = function(from, to, subject, content, frame_ids_include, frame_ids_exclude, tab_ids_include, tab_ids_exclude){ // note: frame_ids are our own internal frame ids, not chrome frame ids
     if ((from ==="background" || from ==="mainpanel") && to === "content"){
       var msg = {from: from, subject: subject, content: content, frame_ids_include: frame_ids_include, frame_ids_exclude: frame_ids_exclude};
+      msg.send_type = sendTypes.NORMAL;
       console.log("Sending message: ", msg);
       console.log(tab_ids_include, tab_ids_exclude);
       if (tab_ids_include){
@@ -123,6 +135,7 @@ var utilities = (function() { var pub = {};
     }
     else if (from === "content") {
       var msg = {from: "content", subject: subject, content: content};
+      msg.send_type = sendTypes.NORMAL;
       console.log("Sending message: ", msg);
       chrome.runtime.sendMessage(msg);
     }
@@ -130,7 +143,8 @@ var utilities = (function() { var pub = {};
 
   pub.sendFrameSpecificMessage = function(from, to, subject, content, chromeTabId, chromeFrameId, responseHandler){ // note: not the same as our interna frame ids
     var msg = {from: from, subject: subject, content: content};
-    //console.log("Sending frame-specific message: ", msg);
+    msg.send_type = sendTypes.FRAMESPECIFIC;
+    console.log("Sending frame-specific message: ", msg);
     chrome.tabs.sendMessage(chromeTabId, msg, {frameId: chromeFrameId}, responseHandler);
   }
 

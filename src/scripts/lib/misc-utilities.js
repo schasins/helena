@@ -250,26 +250,30 @@ var ServerTranslationUtilities = (function() { var pub = {};
 
   // for when we want to send a relation object to the server
   pub.JSONifyRelation = function(origRelation){
-    // ok, first let's get the nice dictionary-looking version that we use for passing relations around, instead of our internal object representation that we use in the mainpanel/program
-    var relationDict = origRelation.messageRelationRepresentation();
-    // let's start by deep copying so that we can JSONify the selector, next_button_selector, and column suffixes without messing up the real object
-    relation = JSON.parse(JSON.stringify(relationDict)); // deepcopy
-    // now that it's deep copied, we can safely strip out jsog stuff that we don't want in there, since it will
-    // interfere with our canonicalization process
-    MiscUtilities.removeAttributeRecursive(relation, "__jsogObjectId");
-    relation.selector = StableStringify.stringify(relation.selector);
-    relation.next_button_selector = StableStringify.stringify(relation.next_button_selector);
-    for (var k = 0; k < relation.columns.length; k++){
-      relation.columns[k].suffix = StableStringify.stringify(relation.columns[k].suffix); // is this the best place to deal with going between our object attributes and the server strings?
+    if (origRelation instanceof WebAutomationLanguage.Relation){
+      // ok, first let's get the nice dictionary-looking version that we use for passing relations around, instead of our internal object representation that we use in the mainpanel/program
+      var relationDict = origRelation.messageRelationRepresentation();
+      // let's start by deep copying so that we can JSONify the selector, next_button_selector, and column suffixes without messing up the real object
+      relation = JSON.parse(JSON.stringify(relationDict)); // deepcopy
+      // now that it's deep copied, we can safely strip out jsog stuff that we don't want in there, since it will
+      // interfere with our canonicalization process
+      MiscUtilities.removeAttributeRecursive(relation, "__jsogObjectId");
+      relation.selector = StableStringify.stringify(relation.selector);
+      relation.next_button_selector = StableStringify.stringify(relation.next_button_selector);
+      for (var k = 0; k < relation.columns.length; k++){
+        relation.columns[k].suffix = StableStringify.stringify(relation.columns[k].suffix); // is this the best place to deal with going between our object attributes and the server strings?
+      }
+      console.log("relation after jsonification", relation);
+      return relation;
     }
-    console.log("relation after jsonification", relation);
-    return relation;
+    else if (origRelation instanceof WebAutomationLanguage.TextRelation){
+      var stringifiedTextRelation = JSON.stringify(origRelation.relation);
+      return stringifiedTextRelation;
+    }
   };
 
   // for when we get a relation back from the server
   pub.unJSONifyRelation = function(relationDict){
-    console.log("relationDict", relationDict);
-    console.log("stringified relationDict", JSON.stringify(relationDict));
     // let's leave the original dictionary with it's JSONified attributes alone by deepcopying first
     relation = JSON.parse(JSON.stringify(relationDict)); // deepcopy
     relation.selector = JSON.parse(relation.selector);

@@ -140,7 +140,9 @@ var RecorderUI = (function() {
     var div = $("#new_script_content");
     var name = div.find("#program_name").get(0).value;
     prog.name = name;
-    var relationObjsSerialized = _.map(prog.relations, ServerTranslationUtilities.JSONifyRelation);
+    var relationObjsSerialized = _.map(
+      _.filter(prog.relations, function(rel){return rel instanceof WebAutomationLanguage.Relation;}), // todo: in future, don't filter.  actually save textrelations too
+      ServerTranslationUtilities.JSONifyRelation);
     var serializedProg = ServerTranslationUtilities.JSONifyProgram(prog);
     var msg = {id: prog.id, serialized_program: serializedProg, relation_objects: relationObjsSerialized, name: name};
     $.post('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg, function(response){
@@ -1819,7 +1821,8 @@ var WebAutomationLanguage = (function() {
   // used for relations that only have text in cells, as when user uploads the relation
   pub.TextRelation = function(csvFileContents){
     Revival.addRevivalLabel(this);
-    if (csvFileContents){ // we will sometimes initialize with undefined, as when reviving a saved program
+    var doInitialization = csvFileContents;
+    if (doInitialization){ // we will sometimes initialize with undefined, as when reviving a saved program
       this.relation = $.csv.toArrays(csvFileContents);
       this.firstRowTexts = this.relation[0];
     }
@@ -1834,7 +1837,9 @@ var WebAutomationLanguage = (function() {
         this.columns.push({index: i, name: "column_"+i, firstRowXpath: null, xpath: null, firstRowText: this.firstRowTexts[i]}); // todo: don't actually want to put filler here
       }
     };
-    this.processColumns();
+    if (doInitialization){
+      this.processColumns();
+    }
 
     this.getColumnObjectFromXpath = function(xpath){
       for (var i = 0; i < this.columns.length; i++){
@@ -1856,10 +1861,9 @@ var WebAutomationLanguage = (function() {
     };
 
     var currentRowsCounter = -1;
-    var length = this.relation.length;
 
     this.getNextRow = function(pageVar, callback){ // has to be called on a page, to match the signature for the non-text relations, but we'll ignore the pagevar
-      if (currentRowsCounter + 1 >= length){
+      if (currentRowsCounter + 1 >= this.relation.length){
         callback(false); // no more rows -- let the callback know we're done
       }
       else{

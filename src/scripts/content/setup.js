@@ -6,11 +6,11 @@
  * Listeners and general set up
  **********************************************************************/
 
-var tabID = "setme";
+var tabId = "setme";
 var windowId = "setme";
 var currentRecordingWindow = null;
 
-utilities.listenForMessage("background", "content", "tabID", function(msg){tabID = msg.tab_id; windowId = msg.window_id; console.log("tab id: ", msg);});
+utilities.listenForMessage("background", "content", "tabID", function(msg){tabId = msg.tab_id; windowId = msg.window_id; console.log("tab id: ", msg);});
 utilities.listenForMessage("mainpanel", "content", "getRelationItems", function(msg){RelationFinder.getRelationItems(msg);});
 utilities.listenForMessage("mainpanel", "content", "getFreshRelationItems", function(msg){RelationFinder.getFreshRelationItems(msg);});
 utilities.listenForMessage("mainpanel", "content", "editRelation", function(msg){RelationFinder.editRelation(msg);});
@@ -28,7 +28,7 @@ utilities.listenForFrameSpecificMessage("mainpanel", "content", "getFreshRelatio
 // keep requesting this tab's tab id until we get it
 MiscUtilities.repeatUntil(
 		function(){utilities.sendMessage("content", "background", "requestTabID", {});},
-		function(){return (tabID !== "setme" && windowId !== "setme");},
+		function(){return (tabId !== "setme" && windowId !== "setme");},
 		1000);
 // keep trying to figure out which window is currently being recorded until we find out
 MiscUtilities.repeatUntil(

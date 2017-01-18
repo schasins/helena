@@ -1112,7 +1112,7 @@ var RelationFinder = (function() { var pub = {};
   }
 
   pub.getFreshRelationItems = function(msg){
-    var respMsg = getFreshRelationItemsHelper(msg);
+    var respMsg = pub.getFreshRelationItemsHelper(msg);
     utilities.sendMessage("content", "mainpanel", "freshRelationItems", respMsg);
   }
 

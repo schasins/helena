@@ -1,4 +1,19 @@
-var utilities = (function() { var pub = {};
+
+var WALconsole = (function _WALconsole() { var pub = {};
+
+  pub.debugging = false;
+
+  pub.log = function _log(){
+    if (pub.debugging){
+      var info = "["+pub.log.caller.name+"]";
+      var newArgs = [info].concat(Array.prototype.slice.call(arguments));
+      Function.apply.call(console.log, console, newArgs);
+    }
+  };
+
+return pub; }());
+
+var utilities = (function _utilities() { var pub = {};
 
   var sendTypes = {
     NORMAL: 0,
@@ -9,30 +24,30 @@ var utilities = (function() { var pub = {};
   var runtimeListeners = {};
   var extensionListeners = {};
 
-  chrome.runtime.onMessage.addListener(function(msg, sender) {
+  chrome.runtime.onMessage.addListener(function _listenerRuntime(msg, sender) {
     for (var key in runtimeListeners){
       runtimeListeners[key](msg, sender);
     }
   });
 
-  chrome.extension.onMessage.addListener(function(msg, sender) {
-    // console.log("keys", Object.keys(extensionListeners));
+  chrome.extension.onMessage.addListener(function _listenerExtension(msg, sender) {
+    // WALconsole.log("keys", Object.keys(extensionListeners));
     for (var key in extensionListeners){
-      // console.log("key", key);
+      // WALconsole.log("key", key);
       extensionListeners[key](msg, sender);
     }
   });
 
-  pub.listenForMessage = function(from, to, subject, fn, key){
+  pub.listenForMessage = function _listenForMessage(from, to, subject, fn, key){
     if (key === undefined){ key = listenerCounter; }
-    console.log("Listening for messages: "+ from+" : "+to+" : "+subject);
+    WALconsole.log("Listening for messages: "+ from+" : "+to+" : "+subject);
     listenerCounter += 1;
     if (to === "background" || to === "mainpanel"){
-      runtimeListeners[key] = function(msg, sender) {
+      runtimeListeners[key] = function _oneListenerRuntime(msg, sender) {
         if (msg.from && (msg.from === from) && msg.subject && (msg.subject === subject) && (msg.send_type === sendTypes.NORMAL)) {
           msg.content.tab_id = sender.tab.id;
-          console.log("Receiving message: ", msg);
-          console.log("from tab id: ", sender.tab.id);
+          WALconsole.log("Receiving message: ", msg);
+          WALconsole.log("from tab id: ", sender.tab.id);
           fn(msg.content);
           return true;
         }
@@ -40,26 +55,26 @@ var utilities = (function() { var pub = {};
       };
     }
     else if (to === "content"){
-      // console.log("content listener", key, subject);
-      extensionListeners[key] = function(msg, sender) {
-        // console.log(msg, sender);
+      // WALconsole.log("content listener", key, subject);
+      extensionListeners[key] = function _oneListenerExtension(msg, sender) {
+        // WALconsole.log(msg, sender);
         var frame_id = SimpleRecord.getFrameId();
         if (msg.frame_ids_include && msg.frame_ids_include.indexOf(frame_id) < -1){
-          console.log("Msg for frames with ids "+msg.frame_ids_include+", but this frame has id "+frame_id+".");
+          WALconsole.log("Msg for frames with ids "+msg.frame_ids_include+", but this frame has id "+frame_id+".");
           return false;
         }
         else if (msg.frame_ids_exclude && msg.frame_ids_exclude.indexOf(frame_id) > -1){
-          console.log("Msg for frames without ids "+msg.frame_ids_exclude+", but this frame has id "+frame_id+".");
+          WALconsole.log("Msg for frames without ids "+msg.frame_ids_exclude+", but this frame has id "+frame_id+".");
           return false;
         }
         else if (msg.from && (msg.from === from) && msg.subject && (msg.subject === subject) && (msg.send_type === sendTypes.NORMAL)) {
-          console.log("Receiving message: ", msg);
+          WALconsole.log("Receiving message: ", msg);
           fn(msg.content);
           return true;
         }
         else{
-          // console.log("Received message, but not a match for current listener.");
-          // console.log(msg.from, from, (msg.from === from), msg.subject, subject, (msg.subject === subject), (msg.send_type === sendTypes.NORMAL));
+          // WALconsole.log("Received message, but not a match for current listener.");
+          // WALconsole.log(msg.from, from, (msg.from === from), msg.subject, subject, (msg.subject === subject), (msg.send_type === sendTypes.NORMAL));
           return false;
         }
       };
@@ -67,11 +82,11 @@ var utilities = (function() { var pub = {};
   };
 
   // note that this frameSpecificMessage assume we'll have a response handler, so fn should provide a return value, rather than sending its own messages
-  pub.listenForFrameSpecificMessage = function(from, to, subject, fn){
-    console.log("Listening for frame-specific messages: "+ from+" : "+to+" : "+subject);
-    chrome.runtime.onMessage.addListener(function(msg, sender, sendResponse) {
+  pub.listenForFrameSpecificMessage = function _listenForFrameSpecificMessage(from, to, subject, fn){
+    WALconsole.log("Listening for frame-specific messages: "+ from+" : "+to+" : "+subject);
+    chrome.runtime.onMessage.addListener(function _frameSpecificListener(msg, sender, sendResponse) {
       if (msg.subject === subject && msg.send_type === sendTypes.FRAMESPECIFIC){
-        console.log("Receiving frame-specific message: ", msg);
+        WALconsole.log("Receiving frame-specific message: ", msg);
         sendResponse(fn(msg.content));
       }
     });
@@ -79,8 +94,8 @@ var utilities = (function() { var pub = {};
 
   var oneOffListenerCounter = 1;
 
-  pub.listenForMessageOnce = function(from, to, subject, fn){
-    console.log("Listening once for message: "+ from+" : "+to+" : "+subject);
+  pub.listenForMessageOnce = function _listenForMessageOnce(from, to, subject, fn){
+    WALconsole.log("Listening once for message: "+ from+" : "+to+" : "+subject);
     var key = "oneoff_"+oneOffListenerCounter;
     var newfunc = null;
     oneOffListenerCounter += 1;
@@ -93,13 +108,13 @@ var utilities = (function() { var pub = {};
     pub.listenForMessage(from, to, subject, newfunc, key);
   }
 
-  pub.listenForMessageWithKey = function(from, to, subject, key, fn){
-    console.log("Listening for message with key: "+ from+" : "+to+" : "+subject);
+  pub.listenForMessageWithKey = function _listenForMessageWithKey(from, to, subject, key, fn){
+    WALconsole.log("Listening for message with key: "+ from+" : "+to+" : "+subject);
     pub.listenForMessage(from, to, subject, fn, key);
   }
 
-  pub.stopListeningForMessageWithKey = function(from, to, subect, key){
-    // console.log("deleting key", key);
+  pub.stopListeningForMessageWithKey = function _stopListeningForMessageWithKey(from, to, subect, key){
+    // WALconsole.log("deleting key", key);
     if (to === "background" || to === "mainpanel"){
       delete runtimeListeners[key];
     }
@@ -108,20 +123,20 @@ var utilities = (function() { var pub = {};
     }
   }
 
-  pub.sendMessage = function(from, to, subject, content, frame_ids_include, frame_ids_exclude, tab_ids_include, tab_ids_exclude){ // note: frame_ids are our own internal frame ids, not chrome frame ids
+  pub.sendMessage = function _sendMessage(from, to, subject, content, frame_ids_include, frame_ids_exclude, tab_ids_include, tab_ids_exclude){ // note: frame_ids are our own internal frame ids, not chrome frame ids
     if ((from ==="background" || from ==="mainpanel") && to === "content"){
       var msg = {from: from, subject: subject, content: content, frame_ids_include: frame_ids_include, frame_ids_exclude: frame_ids_exclude};
       msg.send_type = sendTypes.NORMAL;
-      console.log("Sending message: ", msg);
-      console.log(tab_ids_include, tab_ids_exclude);
+      WALconsole.log("Sending message: ", msg);
+      WALconsole.log(tab_ids_include, tab_ids_exclude);
       if (tab_ids_include){
         for (var i =0; i<tab_ids_include.length; i++){
           chrome.tabs.sendMessage(tab_ids_include[i], msg); 
         } 
-        console.log("(Sent to ", tab_ids_include.length, " tabs: ", tab_ids_include, " )");
+        WALconsole.log("(Sent to ", tab_ids_include.length, " tabs: ", tab_ids_include, " )");
       }
       else{
-          chrome.tabs.query({windowType: "normal"}, function(tabs){
+          chrome.tabs.query({windowType: "normal"}, function _sendMessageTabs(tabs){
             tabs_messaged = 0;
             for (var i =0; i<tabs.length; i++){
               if (!(tab_ids_exclude && tab_ids_exclude.indexOf(tabs[i].id) > -1)){
@@ -129,35 +144,35 @@ var utilities = (function() { var pub = {};
                 tabs_messaged ++;
               }
             }
-            console.log("(Sent to "+tabs_messaged+" tabs.)");
+            WALconsole.log("(Sent to "+tabs_messaged+" tabs.)");
         });
       }
     }
     else if (from === "content") {
       var msg = {from: "content", subject: subject, content: content};
       msg.send_type = sendTypes.NORMAL;
-      console.log("Sending message: ", msg);
+      WALconsole.log("Sending message: ", msg);
       chrome.runtime.sendMessage(msg);
     }
   };
 
-  pub.sendFrameSpecificMessage = function(from, to, subject, content, chromeTabId, chromeFrameId, responseHandler){ // note: not the same as our interna frame ids
+  pub.sendFrameSpecificMessage = function _sendFrameSpecificMessage(from, to, subject, content, chromeTabId, chromeFrameId, responseHandler){ // note: not the same as our interna frame ids
     var msg = {from: from, subject: subject, content: content};
     msg.send_type = sendTypes.FRAMESPECIFIC;
-    console.log("Sending frame-specific message: ", msg);
+    WALconsole.log("Sending frame-specific message: ", msg);
     chrome.tabs.sendMessage(chromeTabId, msg, {frameId: chromeFrameId}, responseHandler);
   }
 
 return pub; }());
 
-var DOMCreationUtilities = (function() { var pub = {};
+var DOMCreationUtilities = (function _DOMCreationUtilities() { var pub = {};
 
-  pub.replaceContent = function(div1, div2){
+  pub.replaceContent = function _replaceContent(div1, div2){
     var div2clone = div2.clone();
     div1.html(div2clone.html());
   };
 
-  pub.arrayOfTextsToTableRow = function(array){
+  pub.arrayOfTextsToTableRow = function _arrayOfTextsToTableRow(array){
       var $tr = $("<tr></tr>");
       for (var j= 0; j< array.length; j++){
         var $td = $("<td></td>");
@@ -167,7 +182,7 @@ var DOMCreationUtilities = (function() { var pub = {};
       return $tr;
     }
 
-  pub.arrayOfArraysToTable = function(arrayOfArrays){
+  pub.arrayOfArraysToTable = function _arrayOfArraysToTable(arrayOfArrays){
       var $table = $("<table></table>");
       for (var i = 0; i< arrayOfArrays.length; i++){
         var array = arrayOfArrays[i];
@@ -187,27 +202,27 @@ We always store all the fields; it's the methods we lose.  So we basically, when
 comes time to revive it, want to union the attributes of the now unstringified dict
 and the prototype, grabbing the methods back from the prototype.
 */
-var Revival = (function(){ var pub = {};
+var Revival = (function _Revival(){ var pub = {};
 
   var revivalLabels = {};
 
-  pub.introduceRevivalLabel = function(label, prototype){
+  pub.introduceRevivalLabel = function _introduceRevivalLabel(label, prototype){
     revivalLabels[label] = prototype;
   };
 
-  pub.addRevivalLabel = function(object){
+  pub.addRevivalLabel = function _addRevivalLabel(object){
     for (var prop in revivalLabels){
       if (object instanceof revivalLabels[prop]){
         object.___revivalLabel___ = prop;
         return;
       }
     }
-    console.log("No known revival label for the type of object:", object);
+    WALconsole.log("No known revival label for the type of object:", object);
   };
 
   var seen = [];
   var fullSeen = [];
-  pub.revive = function(objectAttributes, topLevel){
+  pub.revive = function _revive(objectAttributes, topLevel){
     if (topLevel === undefined){
       seen = []; // we're going to be handling circular objects, so have to keep track of what we've already handled
       fullSeen = [];
@@ -246,10 +261,10 @@ var Revival = (function(){ var pub = {};
 
 return pub; }());
 
-var ServerTranslationUtilities = (function() { var pub = {};
+var ServerTranslationUtilities = (function _ServerTranslationUtilities() { var pub = {};
 
   // for when we want to send a relation object to the server
-  pub.JSONifyRelation = function(origRelation){
+  pub.JSONifyRelation = function _JSONifyRelation(origRelation){
     if (origRelation instanceof WebAutomationLanguage.Relation){
       // ok, first let's get the nice dictionary-looking version that we use for passing relations around, instead of our internal object representation that we use in the mainpanel/program
       var relationDict = origRelation.messageRelationRepresentation();
@@ -263,7 +278,7 @@ var ServerTranslationUtilities = (function() { var pub = {};
       for (var k = 0; k < relation.columns.length; k++){
         relation.columns[k].suffix = StableStringify.stringify(relation.columns[k].suffix); // is this the best place to deal with going between our object attributes and the server strings?
       }
-      console.log("relation after jsonification", relation);
+      WALconsole.log("relation after jsonification", relation);
       return relation;
     }
     else if (origRelation instanceof WebAutomationLanguage.TextRelation){
@@ -273,7 +288,7 @@ var ServerTranslationUtilities = (function() { var pub = {};
   };
 
   // for when we get a relation back from the server
-  pub.unJSONifyRelation = function(relationDict){
+  pub.unJSONifyRelation = function _unJSONifyRelation(relationDict){
     // let's leave the original dictionary with it's JSONified attributes alone by deepcopying first
     relation = JSON.parse(JSON.stringify(relationDict)); // deepcopy
     relation.selector = JSON.parse(relation.selector);
@@ -289,7 +304,7 @@ var ServerTranslationUtilities = (function() { var pub = {};
     return relation;
   };
 
-  pub.JSONifyProgram = function(origProgram){
+  pub.JSONifyProgram = function _JSONifyProgram(origProgram){
     // let's start by deep copying so that we can delete stuff and mess around without messing up the real object
     programAttributes = JSOG.parse(JSOG.stringify(origProgram)); // deepcopy
     var program = Revival.revive(programAttributes); // copy all those fields back into a proper Program object
@@ -303,7 +318,7 @@ var ServerTranslationUtilities = (function() { var pub = {};
     /*
     program.traverse(function(statement){
       if (statement instanceof WebAutomationLanguage.LoopStatement){
-        console.log(program.relations.indexOf(statement.relation));
+        WALconsole.log(program.relations.indexOf(statement.relation));
         statement.relation = program.relations.indexOf(statement.relation); // note this means we must have the relations in same order from server that we have them here
       }
     });
@@ -312,7 +327,7 @@ var ServerTranslationUtilities = (function() { var pub = {};
     return JSOG.stringify(program);
   };
 
-  pub.unJSONifyProgram = function(stringifiedProg){
+  pub.unJSONifyProgram = function _unJSONifyProgram(stringifiedProg){
     programAttributes = JSOG.parse(stringifiedProg);
     var program = Revival.revive(programAttributes); // copy all those fields back into a proper Program object
     return program;
@@ -320,7 +335,7 @@ var ServerTranslationUtilities = (function() { var pub = {};
 
 return pub; }());
 
-var MiscUtilities = (function() { var pub = {};
+var MiscUtilities = (function _MiscUtilities() { var pub = {};
 
   pub.scrapeConditionString = "ALT + click";
   pub.scrapeConditionLinkString = "ALT + SHIFT + click";
@@ -333,12 +348,12 @@ var MiscUtilities = (function() { var pub = {};
   }
 
   // this is silly, but it does seem the easiest way to deal with this
-  pub.useCorrectScrapingConditionStrings = function(selectorstring, normalScrapeStringToReplace, linkScrapeStringToReplace){
+  pub.useCorrectScrapingConditionStrings = function _useCorrectScrapingConditionStrings(selectorstring, normalScrapeStringToReplace, linkScrapeStringToReplace){
     $(selectorstring).html($(selectorstring).html().replace(new RegExp(normalScrapeStringToReplace,"g"), pub.scrapeConditionString));
     $(selectorstring).html($(selectorstring).html().replace(new RegExp(linkScrapeStringToReplace,"g"), pub.scrapeConditionLinkString));
   }
 
-  pub.levenshteinDistance = function(a, b) {
+  pub.levenshteinDistance = function _levenshteinDistance(a, b) {
     if(a.length === 0) return b.length; 
     if(b.length === 0) return a.length; 
 
@@ -372,11 +387,11 @@ var MiscUtilities = (function() { var pub = {};
     return matrix[b.length][a.length];
   };
 
-  pub.targetFromEvent = function(event){
+  pub.targetFromEvent = function _targetFromEvent(event){
     return event.target; // this used to be fancier.  unclear if this will always be necessary
   }
 
-  pub.depthOf = function(object) {
+  pub.depthOf = function _depthOf(object) {
     var level = 1;
     var key;
     for(key in object) {
@@ -391,7 +406,7 @@ var MiscUtilities = (function() { var pub = {};
   }
 
   // note that this does not handle cyclic objects!
-  pub.removeAttributeRecursive = function(obj, attribute){
+  pub.removeAttributeRecursive = function _removeAttributeRecursive(obj, attribute){
     if (typeof obj !== "object" || obj === null){ 
       return; // nothing to do here
     }
@@ -408,7 +423,7 @@ var MiscUtilities = (function() { var pub = {};
     }
   };
 
-  pub.repeatUntil = function(repeatFunction, untilFunction, interval){
+  pub.repeatUntil = function _repeatUntil(repeatFunction, untilFunction, interval){
     if (untilFunction()){
       return;
     }
@@ -419,13 +434,13 @@ var MiscUtilities = (function() { var pub = {};
 return pub; }());
 
 
-var Highlight = (function() { var pub = {};
+var Highlight = (function _Highlight() { var pub = {};
 
   var highlightCount = 0;
   var highlights = [];
-  pub.highlightNode = function(target, color, display, pointerEvents) {
+  pub.highlightNode = function _highlightNode(target, color, display, pointerEvents) {
     if (!target){
-      console.log("Woah woah woah, why were you trying to highlight a null or undefined thing?");
+      WALconsole.log("Woah woah woah, why were you trying to highlight a null or undefined thing?");
       return $('<div/>');
     }
     if (display === undefined){ display = true;}
@@ -461,12 +476,12 @@ var Highlight = (function() { var pub = {};
     return newDiv;
   }
 
-  pub.clearHighlight = function(highlightNode){
+  pub.clearHighlight = function _clearHighlight(highlightNode){
     highlights = _.without(highlights, highlightNode);
     highlightNode.remove();
   }
 
-  pub.clearAllHighlights = function(){
+  pub.clearAllHighlights = function _clearAllHighlights(){
     _.each(highlights, function(highlight){highlight.remove()});
     highlights = [];
   }
@@ -486,9 +501,9 @@ var RelationItemsOutputs = {
   NEWITEMS: 3
 };
 
-var TraceManipulationUtilities = (function() { var pub = {};
+var TraceManipulationUtilities = (function _TraceManipulationUtilities() { var pub = {};
 
-  pub.lastTopLevelCompletedEvent = function(trace){
+  pub.lastTopLevelCompletedEvent = function _lastTopLevelCompletedEvent(trace){
     for (var i = trace.length - 1; i >= 0; i--){
       var ev = trace[i];
       if (ev.type === "completed" && ev.data.type === "main_frame"){
@@ -498,12 +513,12 @@ var TraceManipulationUtilities = (function() { var pub = {};
     return null; // bad!
   }
 
-  pub.lastTopLevelCompletedEventTabId = function(trace){
+  pub.lastTopLevelCompletedEventTabId = function _lastTopLevelCompletedEventTabId(trace){
     var ev = pub.lastTopLevelCompletedEvent(trace);
     return ev.data.tabId;
   }
 
-  pub.tabsInTrace = function(trace){
+  pub.tabsInTrace = function _tabsInTrace(trace){
     var tabs = [];
     for (var i = 0; i < trace.length; i++){
       var ev = trace[i];
@@ -571,7 +586,7 @@ var SortedArray = (function () {
             return this;
         },
         get: function(i) {
-          console.log("index:", i);
+          WALconsole.log("index:", i);
           return this.array[i];
         },
         length: function() {
@@ -598,3 +613,6 @@ var SortedArray = (function () {
         return a < b ? -1 : 1;
     }
 }());
+
+
+

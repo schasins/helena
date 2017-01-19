@@ -3,9 +3,9 @@
  * (my easier to manipulate representation of xpaths)
  **********************************************************************/
 
-var XPathList = (function() { var pub = {};
+var XPathList = (function _XPathList() { var pub = {};
 
- pub.xPathToXPathList = function(xpath){
+ pub.xPathToXPathList = function _xPathToXPathList(xpath){
   var xpathList = [];
   for (var i = 0; i<xpath.length; i++){
     var char = xpath[i];
@@ -26,7 +26,7 @@ var XPathList = (function() { var pub = {};
   return xpathList;
 }
 
-pub.xPathMatch = function(xPathWithWildcards, xPath){
+pub.xPathMatch = function _xPathMatch(xPathWithWildcards, xPath){
   if (xPathWithWildcards.length !== xPath.length){
     return false;
   }
@@ -43,7 +43,7 @@ pub.xPathMatch = function(xPathWithWildcards, xPath){
   return true;
 }
 
-pub.xPathMerge = function(xPathWithWildcards, xPath){
+pub.xPathMerge = function _xPathMerge(xPathWithWildcards, xPath){
   if (xPathWithWildcards.length !== xPath.length){
     return false;
   }
@@ -60,7 +60,7 @@ pub.xPathMerge = function(xPathWithWildcards, xPath){
   return true;
 }
 
-pub.xPathReduction = function(xpath_list){
+pub.xPathReduction = function _xPathReduction(xpath_list){
   if (xpath_list.length < 2){
     return xpath_list;
   }
@@ -86,7 +86,7 @@ pub.xPathReduction = function(xpath_list){
   return xPathsWithWildcards;
 }
 
-pub.xPathToString = function(xpath_list){
+pub.xPathToString = function _xPathToString(xpath_list){
   var str = "";
   for (var i = 0; i < xpath_list.length; i++){
     var node = xpath_list[i];

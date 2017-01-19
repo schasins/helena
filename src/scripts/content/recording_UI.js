@@ -6,9 +6,9 @@
  * User event handlers
  **********************************************************************/
 
-var RecordingHandlers = (function() { var pub = {};
+var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
 
-  pub.mouseoverHandler = function(event){
+  pub.mouseoverHandler = function _mouseoverHandler(event){
     if (currentlyRecording()){
       Tooltip.scrapingTooltip(MiscUtilities.targetFromEvent(event));
       RelationPreview.relationHighlight(MiscUtilities.targetFromEvent(event));
@@ -20,7 +20,7 @@ var RecordingHandlers = (function() { var pub = {};
     }
   }
 
-  pub.mouseoutHandler = function(event){
+  pub.mouseoutHandler = function _mouseoutHandler(event){
     if (currentlyRecording()){
       Tooltip.removeScrapingTooltip();
       RelationPreview.relationUnhighlight();
@@ -36,13 +36,13 @@ var RecordingHandlers = (function() { var pub = {};
   ctrlDown = false;
   altDown = false;
 
-  pub.updateScraping = function(event){
+  pub.updateScraping = function _updateScraping(event){
     pub.updateScrapingTrackingVars(event);
     pub.checkScrapingOn();
     pub.checkScrapingOff();
   };
 
-  pub.updateScrapingTrackingVars = function(event){
+  pub.updateScrapingTrackingVars = function _updateScrapingTrackingVars(event){
     if (event.ctrlKey){
       ctrlDown = true;
     }
@@ -58,13 +58,13 @@ var RecordingHandlers = (function() { var pub = {};
     }
   };
 
-  pub.checkScrapingOn = function(){
+  pub.checkScrapingOn = function _checkScrapingOn(){
     if (!currentlyScraping() && (altDown)){
       Scraping.startProcessingScrape();
     }
   };
 
-  pub.checkScrapingOff = function(){
+  pub.checkScrapingOff = function _checkScrapingOff(){
     if (currentlyScraping() && currentlyRecording() && !(altDown)){
       Scraping.stopProcessingScrape();
     }
@@ -92,10 +92,10 @@ function currentlyScraping(){
  * Tooltips, for giving user feedback about current node
  **********************************************************************/
 
-var Tooltip = (function() { var pub = {};
+var Tooltip = (function _Tooltip() { var pub = {};
   var tooltipColorDefault = "#DBDBDB";
   var tooltipBorderColorDefault = "#B0B0B0";
-  pub.scrapingTooltip = function(node, tooltipColor, tooltipBorderColor){
+  pub.scrapingTooltip = function _scrapingTooltip(node, tooltipColor, tooltipBorderColor){
     if(tooltipColor === undefined) { tooltipColor = tooltipColorDefault;}
     if(tooltipBorderColor === undefined) { tooltipBorderColor = tooltipBorderColorDefault;}
     var $node = $(node);
@@ -118,7 +118,7 @@ var Tooltip = (function() { var pub = {};
     $(document.body).append(newDiv);
   }
 
-  pub.removeScrapingTooltip = function(){
+  pub.removeScrapingTooltip = function _removeScrapingTooltip(){
     $('#vpbd-hightlight').remove();
   }
 return pub;}());
@@ -127,7 +127,7 @@ return pub;}());
  * Handle scraping interaction
  **********************************************************************/
 
-var Scraping = (function() { var pub = {};
+var Scraping = (function _Scraping() { var pub = {};
 
   // note that this line must run after the r+r content script runs (to produce the additional_recording_handlers object)
   additional_recording_handlers.scrape = function(node, eventMessage){
@@ -177,24 +177,24 @@ var Scraping = (function() { var pub = {};
 
   // functions for letting the record and replay layer know whether to run the additional handler above
   var currentHighlightNode = null
-  pub.startProcessingScrape = function(){
+  pub.startProcessingScrape = function _startProcessingScrape(){
     additional_recording_handlers_on.scrape = true;
     additional_recording_filters_on.scrape = true;
     currentHighlightNode = Highlight.highlightNode(mostRecentMousemoveTarget, "#E04343", true, false); // want highlight shown now, want clicks to fall through
   }
 
-  pub.stopProcessingScrape = function(){
+  pub.stopProcessingScrape = function _stopProcessingScrape(){
     additional_recording_handlers_on.scrape = false;
     additional_recording_filters_on.scrape = false;
     Highlight.clearHighlight(currentHighlightNode);
   }
 
-  pub.scrapingMousein = function(event){
+  pub.scrapingMousein = function _scrapingMousein(event){
     Highlight.clearHighlight(currentHighlightNode);
     currentHighlightNode = Highlight.highlightNode(MiscUtilities.targetFromEvent(event), "#E04343", true, false);
   };
 
-  pub.scrapingMouseout = function(event){
+  pub.scrapingMouseout = function _scrapingMouseout(event){
     Highlight.clearHighlight(currentHighlightNode);
   };
 
@@ -207,7 +207,7 @@ var Scraping = (function() { var pub = {};
     }
   }
 
-  pub.scrapingCriteria = function(event){
+  pub.scrapingCriteria = function _scrapingCriteria(event){
     return event.shiftKey && event.altKey; // convention is we need shift+alt+click to scrape
   }
 return pub;}());
@@ -216,7 +216,7 @@ return pub;}());
  * For visualization purposes, it is useful for us if we can get 'snapshots' of the nodes with which we interact
  **********************************************************************/
 
-var Visualization = (function() { var pub = {};
+var Visualization = (function _Visualization() { var pub = {};
   $(function(){
     additional_recording_handlers.visualization = function(node, eventMessage){
       if (!currentlyRecording()){
@@ -247,7 +247,7 @@ var Visualization = (function() { var pub = {};
       }
       // ok, looks like this is actually the first time seeing this, better actually canvasize it
       node.waitingForRender = true;
-      // console.log("going to render: ", node);
+      // WALconsole.log("going to render: ", node);
       html2canvas(node, {
         onrendered: function(canvas) { 
           canvas = identifyTransparentEdges(canvas);
@@ -329,9 +329,9 @@ var Visualization = (function() { var pub = {};
     tempCanvas.height = (bottom - top);
     tContext.drawImage(canvas, left, top, tempCanvas.width, tempCanvas.height, 0, 0, tempCanvas.width, tempCanvas.height);
 
-    // console.log(canvas.width, canvas.height);
-    // console.log(left, right, top, bottom);
-    // console.log(tempCanvas.width, tempCanvas.height);
+    // WALconsole.log(canvas.width, canvas.height);
+    // WALconsole.log(left, right, top, bottom);
+    // WALconsole.log(tempCanvas.width, tempCanvas.height);
 
     return tempCanvas;
   }
@@ -342,15 +342,15 @@ return pub;}());
  * We may want to give users previews of the relations we can find on their pages.  When hover, highlight.
  **********************************************************************/
 
-var RelationPreview = (function() { var pub = {};
+var RelationPreview = (function _RelationPreview() { var pub = {};
   var knownRelations = [];
   function setup(){
-    console.log("running setup");
+    WALconsole.log("running setup");
     // have to use postForMe right now to make the extension do the acutal post request, because modern Chrome won't let us
     // requrest http content from https pages and we don't currently have ssl certificate for kaofang
     utilities.sendMessage("content", "background", "postForMe", {url: 'http://kaofang.cs.berkeley.edu:8080/allpagerelations', params: { url: window.location.href }});
     utilities.listenForMessageOnce("background", "content", "postForMe", function(resp){
-      console.log(resp);
+      WALconsole.log(resp);
       knownRelations = resp.relations;
       preprocessKnownRelations();
     });
@@ -372,7 +372,7 @@ var RelationPreview = (function() { var pub = {};
     }  
   }
 
-  pub.relationHighlight = function(node){
+  pub.relationHighlight = function _relationHighlight(node){
     // for now we'll just pick whichever node includes the current node and has the largest number of nodes on the current page
     var winningRelation = null;
     var winningRelationSize = 0;
@@ -396,7 +396,7 @@ var RelationPreview = (function() { var pub = {};
 
   };
 
-  pub.relationUnhighlight = function(){
+  pub.relationUnhighlight = function _relationUnhighlight(){
     for (var i = 0; i < knownRelationsInfo.length; i++){
       var relationInfo = knownRelationsInfo[i];
       if (relationInfo.highlighted){

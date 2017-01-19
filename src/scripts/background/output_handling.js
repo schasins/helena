@@ -1,7 +1,7 @@
-var OutputHandler = (function() {
+var OutputHandler = (function _OutputHandler() {
   var pub = {};
 
-  pub.Dataset = function(id){
+  pub.Dataset = function _Dataset(id){
   	this.id = id;
 
   	this.fullDatasetLength = 0;
@@ -11,10 +11,10 @@ var OutputHandler = (function() {
 
   	var dataset = this;
 
-  	this.requestNewDatasetId = function(){
+  	this.requestNewDatasetId = function _requestNewDatasetId(){
       $.post('http://kaofang.cs.berkeley.edu:8080/newdatasetsid', {}, function(resp){dataset.handleDatasetId(resp);});
     };
-    this.handleDatasetId = function(resp){
+    this.handleDatasetId = function _handleDatasetId(resp){
     	this.id = resp.id;
     };
     if (this.id === undefined){
@@ -22,7 +22,7 @@ var OutputHandler = (function() {
   		this.requestNewDatasetId();
     }
 
-    this.addRow = function(row){
+    this.addRow = function _addRow(row){
     	for (var i = 0; i < row.length; i++){
     		var val = row[i];
     		var coords = [this.fullDatasetLength, i];
@@ -40,7 +40,7 @@ var OutputHandler = (function() {
     	}
     };
 
-    this.sendDatasetSlice = function(){
+    this.sendDatasetSlice = function _sendDatasetSlice(){
       if (this.currentDatasetSliceLength === 0){
         return; // no need to send/save rows if we have no rows
       }
@@ -50,11 +50,11 @@ var OutputHandler = (function() {
       $.post('http://kaofang.cs.berkeley.edu:8080/datasetslice', {id: this.id, values: encodeURIComponent(JSON.stringify(this.sentDatasetSlice))}, function(resp){/* todo: add better error handling eventually*/ return;});
     };
 
-    this.closeDataset = function(){
+    this.closeDataset = function _closeDataset(){
     	this.sendDatasetSlice();
     };
 
-    this.downloadDataset = function(){
+    this.downloadDataset = function _downloadDataset(){
     	window.location = 'http://kaofang.cs.berkeley.edu:8080/datasets/'+this.id;
     };
   };

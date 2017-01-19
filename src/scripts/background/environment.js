@@ -1,16 +1,16 @@
-var Environment = (function() { var pub = {};
+var Environment = (function _Environment() { var pub = {};
 
-  pub.Frame = function(parent){
+  pub.Frame = function _Frame(parent){
     this.parent = parent;
     this.map = {};
 
     /* Extends the environment. */
-    this.envExtend = function(parent) {
+    this.envExtend = function _envExtend(parent) {
       return new pub.Frame(this); // current frame is the parent of the new frame
     };
 
     /* Binds a new value to the top frame. */
-    this.envBind = function(name, value) {
+    this.envBind = function _envBind(name, value) {
       if (name in this.map) {
         // Don't bind names twice --- you should never be doing this.
         throw new ExecError(name + ' is already declared');
@@ -19,7 +19,7 @@ var Environment = (function() { var pub = {};
     };
 
     /* Looks up the value of a variable. */
-    this.envLookup = function(name) {
+    this.envLookup = function _envLookup(name) {
       if (this.map.hasOwnProperty(name)) {
         return this.map[name];
       } else {
@@ -34,7 +34,7 @@ var Environment = (function() { var pub = {};
   };
 
   /* Creates a root environment. */
-  pub.envRoot = function() {
+  pub.envRoot = function _envRoot() {
     // The root doesn't have a parent.
     return new pub.Frame(null);
   };
@@ -42,7 +42,7 @@ var Environment = (function() { var pub = {};
   /* Updates the value binding of a variable. */
   /* currently only way to create a variable is to scrape it from a relation, and shouldn't do that twice for same variable, so we'll leave this out for now */
   /*
-  pub.envUpdate = function(frame, name, value) {
+  pub.envUpdate = function _envUpdate(frame, name, value) {
     if (frame.hasOwnProperty(name)) {
       // frame.hasOwnProperty allows us to avoid accessing things like
       // frame.toString, which are not defined in the environment but will

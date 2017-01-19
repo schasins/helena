@@ -40,15 +40,15 @@ MiscUtilities.repeatUntil(
  * The various node representations we may need
  **********************************************************************/
 
-var NodeRep = (function() { var pub = {};
-	pub.nodeToMainpanelNodeRepresentation = function(node){
+var NodeRep = (function _NodeRep() { var pub = {};
+	pub.nodeToMainpanelNodeRepresentation = function _nodeToMainpanelNodeRepresentation(node){
 	  if (node === null){
 	    return {text: "", link: "", xpath: "", frame: SimpleRecord.getFrameId()};
 	  }
 	  return {text: NodeRep.nodeToText(node), link: NodeRep.nodeToLink(node), xpath: nodeToXPath(node), frame: SimpleRecord.getFrameId()};
 	};
 
-	pub.nodeToLink = function(node){
+	pub.nodeToLink = function _nodeToLink(node){
 	  if (node.href){
 	    return node.href;
 	  }
@@ -60,7 +60,7 @@ var NodeRep = (function() { var pub = {};
 	  return pars[0].href;
 	}
 
-	pub.nodeToText = function(node){
+	pub.nodeToText = function _nodeToText(node){
 	  //var text = node.innerText;
 	  return getElementText(node);
 	}

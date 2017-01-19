@@ -236,11 +236,18 @@ var RecorderUI = (function() {
         for (var j = 0; j < columns.length; j++){
           (function(){
             var closJ = j;
+            
             var columnTitle = $("<input></input>");
             columnTitle.val(columns[j].name);
             columnTitle.change(function(){relation.setColumnName(columns[closJ], columnTitle.val()); RecorderUI.updateDisplayedScript();});
+            
+            var columnScraped = $("<input type='checkbox'>");
+            columnScraped.prop( "checked", relation.isColumnUsed(columns[j]));
+            columnScraped.change(function(){relation.toggleColumnUsed(columns[closJ]); RecorderUI.updateDisplayedScript();});
+
             var td = $("<td></td>");
             td.append(columnTitle);
+            td.append(columnScraped);
             tr.append(td);
           })();
         }
@@ -936,8 +943,11 @@ var WebAutomationLanguage = (function() {
   function unParameterizeNodeWithRelation(statement, relation){
     if (statement.relation === relation){
       statement.relation = null;
+      var variableUse = statement.currentNode;
       statement.currentNode = statement.origNode;
+      return variableUse;
     }
+    return null;
   }
 
   function currentNodeXpath(statement){
@@ -1028,6 +1038,9 @@ var WebAutomationLanguage = (function() {
       this.cleanTrace = cleanTrace(trace);    
     }
 
+    this.remove = function(){
+      this.parent.removeChild(this);
+    }
 
     this.clearRunningState = function(){
       return;
@@ -1056,6 +1069,10 @@ var WebAutomationLanguage = (function() {
     this.toStringLines = function(){
       var cUrl = this.cUrlString();
       return [this.outputPageVar.toString()+" = load("+cUrl+")"];
+    };
+
+    this.traverse = function(fn){
+      fn(this);
     };
 
     this.pbvs = function(){
@@ -1130,6 +1147,10 @@ var WebAutomationLanguage = (function() {
       this.cleanTrace = cleanTrace(this.trace);
     }
 
+    this.remove = function(){
+      this.parent.removeChild(this);
+    }
+
     this.clearRunningState = function(){
       return;
     }
@@ -1177,30 +1198,47 @@ var WebAutomationLanguage = (function() {
       requireFeature(this, featureName); // todo: put this method in all the other statements that have orig xpath in this.node
     };
   };
+  pub.ScrapeStatementFromVarUse = function(varUse){
+    var statement = new pub.ScrapeStatement([]);
+    statement.currentNode = varUse;
+    statement.pageVar = varUse.pageVar;
+    return statement;
+  }
   pub.ScrapeStatement = function(trace){
     Revival.addRevivalLabel(this);
+    this.associatedOutputStatements = [];
     if (trace){ // we will sometimes initialize with undefined, as when reviving a saved program
       this.trace = trace;
       this.cleanTrace = cleanTrace(this.trace);
 
-      // find the record-time constants that we'll turn into parameters
-      var ev = firstVisibleEvent(trace);
-      this.pageVar = EventM.getDOMInputPageVar(ev);
-      this.node = ev.target.xpath;
-      this.pageUrl = ev.frame.topURL;
-      // for now, assume the ones we saw at record time are the ones we'll want at replay
-      this.currentNode = this.node;
-      this.origNode = this.node;
+      if (trace.length > 0){ // may get 0-length trace if we're just adding a scrape statement by editing (as for a known column in a relation)
+        // find the record-time constants that we'll turn into parameters
+        var ev = firstVisibleEvent(trace);
+        this.pageVar = EventM.getDOMInputPageVar(ev);
+        this.node = ev.target.xpath;
+        this.pageUrl = ev.frame.topURL;
+        // for now, assume the ones we saw at record time are the ones we'll want at replay
+        this.currentNode = this.node;
+        this.origNode = this.node;
 
-      // are we scraping a link or just the text?
-      this.scrapeLink = false;
-      for (var i = 0; i <  trace.length; i++){
-        if (trace[i].additional && trace[i].additional.scrape){
-          if (trace[i].additional.scrape.linkScraping){
-            this.scrapeLink = true;
-            break;
+        // are we scraping a link or just the text?
+        this.scrapeLink = false;
+        for (var i = 0; i <  trace.length; i++){
+          if (trace[i].additional && trace[i].additional.scrape){
+            if (trace[i].additional.scrape.linkScraping){
+              this.scrapeLink = true;
+              break;
+            }
           }
         }
+      }
+      
+    }
+
+    this.remove = function(){
+      this.parent.removeChild(this);
+      for (var i = 0; i < this.associatedOutputStatements.length; i++){
+        this.associatedOutputStatements[i].removeAssociatedScrapeStatement(this);
       }
     }
 
@@ -1225,27 +1263,31 @@ var WebAutomationLanguage = (function() {
 
     this.pbvs = function(){
       var pbvs = [];
-      if (currentTab(this)){
-        // do we actually know the target tab already?  if yes, go ahead and paremterize that
-        pbvs.push({type:"tab", value: originalTab(this)});
+      if (this.trace.length > 0){ // no need to make pbvs based on this statement's parameterization if it doesn't have any events to parameterize anyway...
+        if (currentTab(this)){
+          // do we actually know the target tab already?  if yes, go ahead and paremterize that
+          pbvs.push({type:"tab", value: originalTab(this)});
+        }
+        if (this.node !== this.currentNode){
+          pbvs.push({type:"node", value: this.node});
+        }
+        if (this.preferredXpath){
+          // using the usual pbv process happens to be a convenient way to enforce a preferred xpath, since it sets it to prefer a given xpath
+          // and replaces all uses in the trace of a given xpath with a preferred xpath
+          // but may prefer to extract this non-relation based pbv process from the normal relation pbv.  we'll see
+          // side note: the node pbv above will only appear if it's a use of a relation cell, and this one will only appear if it's not
+          pbvs.push({type:"node", value: this.node});
+        }
       }
-      if (this.node !== this.currentNode){
-        pbvs.push({type:"node", value: this.node});
-      }
-      if (this.preferredXpath){
-        // using the usual pbv process happens to be a convenient way to enforce a preferred xpath, since it sets it to prefer a given xpath
-        // and replaces all uses in the trace of a given xpath with a preferred xpath
-        // but may prefer to extract this non-relation based pbv process from the normal relation pbv.  we'll see
-        // side note: the node pbv above will only appear if it's a use of a relation cell, and this one will only appear if it's not
-        pbvs.push({type:"node", value: this.node});
-      }
+
       return pbvs;
     };
 
     this.parameterizeForRelation = function(relation){
       console.log("scraping cleantrace", this.cleanTrace);
-      var relationColumnUsed = parameterizeNodeWithRelation(this, relation, this.pageVar, this.scrapeLink);
+      var relationColumnUsed = parameterizeNodeWithRelation(this, relation, this.pageVar, this.scrapeLink); // this sets the currentNode
       if (relationColumnUsed){
+        relationColumnUsed.scraped = true; // need the relation column to keep track of the fact that this is being scraped
         // this is cool because now we don't need to actually run scraping interactions to get the value, so let's update the cleanTrace to reflect that
         for (var i = this.cleanTrace.length - 1; i >= 0; i--){
           if (this.cleanTrace[i].additional && this.cleanTrace[i].additional.scrape){
@@ -1263,7 +1305,15 @@ var WebAutomationLanguage = (function() {
       }
     };
     this.unParameterizeForRelation = function(relation){
-      unParameterizeNodeWithRelation(this, relation);
+      var removedVarUse = unParameterizeNodeWithRelation(this, relation);
+      // todo: right now we're assuming we only scrape a given column once in a given script, so if we unparameterize here
+      // we assume no where else is scraping this column, and we reset the column object's scraped value
+      // but there's no reason for this assumption to be true.  it doesn't matter much, so not fixing it now.  but fix in future
+      if (removedVarUse){ // will be null if we're not actually unparameterizing anything
+        var colObject = removedVarUse.currentColumnObj();
+        colObject.scraped = false;
+      }
+
       // have to go back to actually running the scraping interactions...
       // note! right now unparameterizing a scrape statement adds back in all the removed scraping events, which won't always be necessary
       // should really do it on a relation by relation basis, only remove the ones related to the current relation
@@ -1272,10 +1322,12 @@ var WebAutomationLanguage = (function() {
 
     this.args = function(){
       var args = [];
-      args.push({type:"node", value: currentNodeXpath(this)});
-      args.push({type:"tab", value: currentTab(this)});
-      if (this.preferredXpath){
-        args.push({type:"node", value: this.preferredXpath});
+      if (this.trace.length > 0){ // no need to make pbvs based on this statement's parameterization if it doesn't have any events to parameterize anyway...
+        args.push({type:"node", value: currentNodeXpath(this)});
+        args.push({type:"tab", value: currentTab(this)});
+        if (this.preferredXpath){
+          args.push({type:"node", value: this.preferredXpath});
+        }
       }
       return args;
     };
@@ -1338,7 +1390,30 @@ var WebAutomationLanguage = (function() {
         }
       }
     };
+
+    this.addAssociatedOutputStatement = function(outputStatement){
+      this.associatedOutputStatements.push(outputStatement);
+      this.associatedOutputStatements = _.uniq(this.associatedOutputStatements);
+    };
+    this.removeAssociatedOutputStatement = function(outputStatement){
+      this.associatedOutputStatements = _.without(this.associatedOutputStatements, outputStatement);
+    }
+
+    this.currentRelation = function(){
+      if (this.currentNode instanceof pub.VariableUse){
+        return this.currentNode.currentRelation();
+      }
+      return null;
+    };
+
+    this.currentColumnObj = function(){
+      if (this.currentNode instanceof pub.VariableUse){
+        return this.currentNode.currentColumnObj();
+      }
+      return null;
+    };    
   };
+
   pub.TypeStatement = function(trace){
     Revival.addRevivalLabel(this);
     if (trace){ // we will sometimes initialize with undefined, as when reviving a saved program
@@ -1382,6 +1457,11 @@ var WebAutomationLanguage = (function() {
         this.keyEvents = textEntryEvents;
         this.keyCodes = _.map(this.keyEvents, function(ev){ return ev.data.keyCode; });
       }
+    }
+
+
+    this.remove = function(){
+      this.parent.removeChild(this);
     }
 
     this.clearRunningState = function(){
@@ -1497,11 +1577,31 @@ var WebAutomationLanguage = (function() {
   pub.OutputRowStatement = function(scrapeStatements){
     Revival.addRevivalLabel(this);
 
-    if (scrapeStatements){ // we will sometimes initialize with undefined, as when reviving a saved program
+    var doInitialize = scrapeStatements; // we will sometimes initialize with undefined, as when reviving a saved program
+
+    this.initialize = function(){
       this.trace = []; // no extra work to do in r+r layer for this
       this.cleanTrace = [];
-      this.scrapeStatements = scrapeStatements;
+      this.scrapeStatements = [];
+      for (var i = 0; i < scrapeStatements.length; i++){
+        this.addAssociatedScrapeStatement(scrapeStatements[i]);
+      }
       this.relations = [];
+    }
+
+    this.remove = function(){
+      this.parent.removeChild(this);
+      for (var i = 0; i < this.scrapeStatements.length; i++){
+        this.scrapeStatements[i].removeAssociatedOutputStatement(this);
+      }
+    }
+
+    this.addAssociatedScrapeStatement = function(scrapeStatement){
+      this.scrapeStatements.push(scrapeStatement);
+      scrapeStatement.addAssociatedOutputStatement(this);
+    }
+    this.removeAssociatedScrapeStatement = function(scrapeStatement){
+      this.scrapeStatements = _.without(this.scrapeStatements, scrapeStatement);
     }
 
     this.clearRunningState = function(){
@@ -1553,6 +1653,10 @@ var WebAutomationLanguage = (function() {
       ReplayScript.prog.currentDataset.addRow(cells); // todo: is replayscript.prog really the best way to access the prog object so that we can get the current dataset object, save data to server?
       ReplayScript.prog.mostRecentRow = cells;
     };
+
+    if (doInitialize){
+      this.initialize();
+    }
   }
 
   /*
@@ -1565,6 +1669,10 @@ var WebAutomationLanguage = (function() {
     if (pageVarCurr){ // we will sometimes initialize with undefined, as when reviving a saved program
       this.pageVarCurr = pageVarCurr;
       this.pageVarBack = pageVarBack;
+    }
+
+    this.remove = function(){
+      this.parent.removeChild(this);
     }
 
     this.clearRunningState = function(){
@@ -1615,6 +1723,10 @@ var WebAutomationLanguage = (function() {
     }
     var that = this;
 
+    this.remove = function(){
+      this.parent.removeChild(this);
+    }
+
     this.clearRunningState = function(){
       return;
     }
@@ -1656,6 +1768,10 @@ var WebAutomationLanguage = (function() {
   pub.ContinueStatement = function(){
     Revival.addRevivalLabel(this);
 
+    this.remove = function(){
+      this.parent.removeChild(this);
+    }
+
     this.clearRunningState = function(){
       return;
     }
@@ -1685,8 +1801,21 @@ var WebAutomationLanguage = (function() {
     Revival.addRevivalLabel(this);
 
     if (bodyStatements){ // we will sometimes initialize with undefined, as when reviving a saved program
-      this.bodyStatements = bodyStatements;
+      this.updateChildStatements(bodyStatements);
     }
+
+    this.remove = function(){
+      this.parent.removeChild(this);
+    }
+
+    this.removeChild = function(childStatement){
+      this.bodyStatements = _.without(this.bodyStatements, childStatement);
+    };
+    this.appendChild = function(childStatement){
+      var newChildStatements = this.bodyStatements;
+      newChildStatements.push(childStatement);
+      this.updateChildStatements(newChildStatements);
+    };
 
     this.clearRunningState = function(){
       return;
@@ -1702,6 +1831,13 @@ var WebAutomationLanguage = (function() {
         this.bodyStatements[i].traverse(fn);
       }
     };
+
+    this.updateChildStatements = function(newChildStatements){
+      this.bodyStatements = newChildStatements;
+      for (var i = 0; i < this.bodyStatements.length; i++){
+        this.bodyStatements[i].parent = this;
+      }
+    }
 
     this.run = function(programObj, rbbcontinuation){
       // todo: the condition is hard-coded for now, but obviously we should ultimately have real conds
@@ -1757,14 +1893,29 @@ var WebAutomationLanguage = (function() {
   pub.LoopStatement = function(relation, relationColumnsUsed, bodyStatements, pageVar){
     Revival.addRevivalLabel(this);
 
-    if (bodyStatements){ // we will sometimes initialize with undefined, as when reviving a saved program
+    var doInitialization = bodyStatements;
+
+    this.initialize = function(){
       this.relation = relation;
       this.relationColumnsUsed = relationColumnsUsed;
-      this.bodyStatements = bodyStatements;
+      this.updateChildStatements(bodyStatements);
       this.pageVar = pageVar;
       this.maxRows = null; // note: for now, can only be sat at js console.  todo: eventually should have ui interaction for this.
-      this.rowsSoFar = 0;
+      this.rowsSoFar = 0; 
     }
+
+    this.remove = function(){
+      this.parent.removeChild(this);
+    }
+    
+    this.removeChild = function(childStatement){
+      this.bodyStatements = _.without(this.bodyStatements, childStatement);
+    };
+    this.appendChild = function(childStatement){
+      var newChildStatements = this.bodyStatements;
+      newChildStatements.push(childStatement);
+      this.updateChildStatements(newChildStatements);
+    };
 
     this.clearRunningState = function(){
       this.rowsSoFar = 0;
@@ -1793,12 +1944,24 @@ var WebAutomationLanguage = (function() {
       }
     };
 
+    this.updateChildStatements = function(newChildStatements){
+      this.bodyStatements = newChildStatements;
+      for (var i = 0; i < this.bodyStatements.length; i++){
+        this.bodyStatements[i].parent = this;
+      }
+    }
+
     this.parameterizeForRelation = function(relation){
       return _.flatten(_.map(this.bodyStatements, function(statement){return statement.parameterizeForRelation(relation);}));
     };
     this.unParameterizeForRelation = function(relation){
       _.each(this.bodyStatements, function(statement){statement.unParameterizeForRelation(relation);});
     };
+
+    if (doInitialization){
+      this.initialize();
+    }
+
   }
 
   function usedByTextStatement(statement, parameterizeableStrings){
@@ -1967,6 +2130,15 @@ var WebAutomationLanguage = (function() {
           colObject.name = relation.name+"_item_"+(index+1); // a filler name that we'll use for now
         }
       }
+      // let's keep track of whether it's scraped by the current program
+      if (colObject.scraped === undefined){
+        if (oldColObject){
+          colObject.scraped = oldColObject.scraped;
+        }
+        else {
+          colObject.scraped = false;
+        }
+      }
       if (relation.demonstrationTimeRelation[0]){
         var firstRowCell = findByXpath(relation.demonstrationTimeRelation[0], colObject.xpath); // for now we're aligning the demonstration items with everything else via xpath.  may not always be best
         if (firstRowCell){
@@ -1989,6 +2161,60 @@ var WebAutomationLanguage = (function() {
     
     if (doInitialization){
       initialize();
+    }
+
+    this.toggleColumnUsed = function(colObject){
+      // if it was previously scraped, we must remove any statements that scrape it
+      if (colObject.scraped){
+        colObject.scraped = false;
+        ReplayScript.prog.traverse(function(statement){
+          if (statement instanceof WebAutomationLanguage.ScrapeStatement){
+            if (statement.currentRelation() === relation && statement.currentColumnObj() === colObject){
+              // ok, this is a scrapestatement that has the target relation and columnobj.  let's delete it
+              statement.remove();
+            }
+          }
+        });
+      }
+      // if it was previously unscraped, we must add a scrape statement for it in the appropriate place
+      else{
+        colObject.scraped = true;
+        var newScrapeStatement = null;
+        var outputRowStatement = null;
+        ReplayScript.prog.traverse(function(statement){
+          if (statement instanceof WebAutomationLanguage.LoopStatement){
+            if (statement.relation === relation){
+              var varUse = new WebAutomationLanguage.VariableUse(colObject, relation, statement.pageVar, false);
+              newScrapeStatement = WebAutomationLanguage.ScrapeStatementFromVarUse(varUse);
+              statement.bodyStatements.push(newScrapeStatement);
+            }
+          }
+          // ok, now we have the new scrape statement, which is great, but we also need to actually add it to output
+          // so the next time we hit an outputrowstatement, let's add it in there.
+          // this is not the way to do it, because really need to make sure that the outputrowstatement is in scope to see the new scrape statement
+          // but this will work as long as the outputrowstatement is the last statement in a prog that just has a bunch of nested loops
+          // todo: do this right
+          if (statement instanceof WebAutomationLanguage.OutputRowStatement){
+            if (newScrapeStatement !== null){
+              statement.addAssociatedScrapeStatement(newScrapeStatement);
+              outputRowStatement = statement;
+            }
+          }
+        });
+        if (outputRowStatement){
+          // we may have actually added the new scraping statements after the output statement, so fix it
+          outputRowStatement.parent.removeChild(outputRowStatement);
+          outputRowStatement.parent.appendChild(outputRowStatement);
+        }
+      }
+    };
+
+    this.isColumnUsed = function(colObject){
+      return colObject.scraped;
+    };
+
+    this.setColumnUsed = function(colObject, val){
+      colObject.scraped = val;
     }
 
     this.setNewAttributes = function(selector, selectorVersion, excludeFirst, columns, demonstrationTimeRelation, numRowsInDemo, nextType, nextButtonSelector){
@@ -2358,6 +2584,14 @@ var WebAutomationLanguage = (function() {
     this.currentLink = function(){
       return this.relation.getCurrentLink(this.pageVar, this.columnObject);
     };
+
+    this.currentRelation = function(){
+      return this.relation;
+    };
+
+    this.currentColumnObj = function(){
+      return this.columnObject;
+    }; 
   }
 
   function outlier(sortedList, potentialItem){ // note that first arg should be SortedArray not just sorted array
@@ -2536,6 +2770,15 @@ var WebAutomationLanguage = (function() {
     var scrapeStatements = _.filter(this.statements, function(statement){return statement instanceof WebAutomationLanguage.ScrapeStatement;});
     if (scrapeStatements.length > 0){ this.statements.push(new WebAutomationLanguage.OutputRowStatement(scrapeStatements));}
 
+    this.removeChild = function(childStatement){
+      this.loopyStatements = _.without(this.loopyStatements, childStatement);
+    };
+    this.appendChild = function(childStatement){
+      var newChildStatements = this.loopyStatements;
+      newChildStatements.push(childStatement);
+      this.updateChildStatements(newChildStatements);
+    };
+
     this.toString = function(){
       var statementLs = this.loopyStatements;
       if (this.loopyStatements.length === 0){
@@ -2546,11 +2789,20 @@ var WebAutomationLanguage = (function() {
       return scriptString;
     };
 
+    // a convenient way to traverse the statements of a program
+    // todo: currently no way to halt traversal, may ultimately want fn arg to return boolean to do that
     this.traverse = function(fn){
       for (var i = 0; i < this.loopyStatements.length; i++){
         this.loopyStatements[i].traverse(fn);
       }
     };
+
+    this.updateChildStatements = function(newChildStatements){
+      this.loopyStatements = newChildStatements;
+      for (var i = 0; i < this.loopyStatements.length; i++){
+        this.loopyStatements[i].parent = this;
+      }
+    }
 
     // just for replaying the straight-line recording, primarily for debugging
     this.replayOriginal = function(){
@@ -3357,7 +3609,7 @@ var WebAutomationLanguage = (function() {
         }
       }
 
-      this.loopyStatements = this.statements;
+      this.updateChildStatements(this.statements);
       var indexes = _.keys(indexesToRelations).sort(function(a, b){return b-a}); // start at end, work towards beginning
       for (var i = 0; i < indexes.length; i++){
         var index = indexes[i];
@@ -3365,11 +3617,15 @@ var WebAutomationLanguage = (function() {
         var bodyStatementLs = this.loopyStatements.slice(index, this.loopyStatements.length);
         var pageVar = bodyStatementLs[0].pageVar; // pageVar comes from first item because that's the one using the relation, since it's the one that made us decide to insert a new loop starting with that 
         var loopStatement = loopStatementFromBodyAndRelation(bodyStatementLs, indexesToRelations[index], pageVar); // let's use bodyStatementLs as our body, indexesToRelations[index] as our relation 
-        this.loopyStatements = this.loopyStatements.slice(0, index);
-        this.loopyStatements.push(loopStatement);
+        
+        var newChildStatements = this.loopyStatements.slice(0, index);
+        newChildStatements.push(loopStatement);
+        this.updateChildStatements(newChildStatements);
       }
 
       RecorderUI.updateDisplayedScript();
+      // now that we know which columns are being scraped, we may also need to update how the relations are displayed
+      RecorderUI.updateDisplayedRelations();
     };
 
     this.tryAddingRelation = function(relation){
@@ -3392,14 +3648,7 @@ var WebAutomationLanguage = (function() {
           // awesome, we have our new loop statement, which should now be the final statement in the parent
           var newStatements = loopyStatements.slice(0,i);
           newStatements.push(loopStatement);
-          if (parent instanceof WebAutomationLanguage.Program){
-            // parent is a whole program, so go ahead and update this.loopystatments
-            parent.loopyStatements = newStatements;
-          }
-          else{
-            // parent is a loop statement, so update bodyStatements
-            parent.bodyStatements = newStatements;
-          }
+          parent.updateChildStatements(newStatements);
           return true;
         }
       }
@@ -3410,7 +3659,8 @@ var WebAutomationLanguage = (function() {
       this.relations = _.without(this.relations, relationObj);
 
       // now let's actually remove any loops that were trying to use this relation
-      this.loopyStatements = removeLoopsForRelation(this.loopyStatements, relationObj);
+      newChildStatements = removeLoopsForRelation(this.loopyStatements, relationObj);
+      this.updateChildStatements(newChildStatements);
 
       RecorderUI.updateDisplayedScript();
       RecorderUI.updateDisplayedRelations();
@@ -3427,7 +3677,8 @@ var WebAutomationLanguage = (function() {
           }
           else{
             // we want to keep this loop, but we'd better descend and check the loop body still
-            loopyStatements[i].bodyStatements = removeLoopsForRelation(loopyStatements[i].bodyStatements, relation);
+            var newChildStatements = removeLoopsForRelation(loopyStatements[i].bodyStatements, relation);
+            loopyStatements[i].updateChildStatements(newChildStatements);
             outputStatements.push(loopyStatements[i]);
           }
         }

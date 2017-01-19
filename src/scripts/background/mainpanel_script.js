@@ -1609,8 +1609,11 @@ var WebAutomationLanguage = (function() {
     }
 
     this.toStringLines = function(){
+      var textRelationRepLs = _.reduce(this.relations, function(acc,relation){return acc.concat(relation.scrapedColumnNames());}, []);
       var nodeRepLs = _.map(this.scrapeStatements, function(statement){return nodeRepresentation(statement, statement.scrapeLink);});
-      return ["addOutputRow(["+nodeRepLs.join(",")+",time])"];
+      var allNames = textRelationRepLs.concat(nodeRepLs).concat(["time"]);
+      console.log("outputRowStatement", textRelationRepLs, nodeRepLs);
+      return ["addOutputRow(["+allNames.join(",")+"])"];
     };
 
     this.traverse = function(fn){
@@ -1622,8 +1625,9 @@ var WebAutomationLanguage = (function() {
     };
 
     this.parameterizeForRelation = function(relation){
-      if (relation instanceof WebAutomationLanguage.TextRelation){
-        // for now, we assume that we always want to include in our scraped data all cells of the text relation
+      if (relation instanceof WebAutomationLanguage.TextRelation){ // only for text relations!
+        // the textrelation's own function for grabbing current texts will handle keeping track of whether a given col should be scraped
+        // note that this currently doesn't handle well cases where multiple output statements would be trying to grab the contents of a textrelation...
         this.relations = _.union(this.relations, [relation]); // add relation if it's not already in there
         return relation.columns;
       }
@@ -1924,7 +1928,10 @@ var WebAutomationLanguage = (function() {
 
     this.toStringLines = function(){
       var relation = this.relation;
-      var varNames = _.map(relationColumnsUsed, function(columnObject){return columnObject.name;});
+      var varNames = this.relation.scrapedColumnNames();
+      var additionalVarNames = this.relation.columnNames(this.relationColumnUsed);
+      varNames = _.union(varNames, additionalVarNames);
+      console.log("loopstatement", varNames, additionalVarNames);
       var prefix = "";
       if (this.relation instanceof WebAutomationLanguage.TextRelation){
         var prefix = "for "+varNames.join(", ")+" in "+this.relation.name+":"; 
@@ -1990,6 +1997,14 @@ var WebAutomationLanguage = (function() {
       this.firstRowTexts = this.relation[0];
     }
 
+    this.scrapedColumnNames = function(){
+      return _.map(_.filter(this.columns, function(colObj){return colObj.scraped;}), function(colObj){return colObj.name;});
+    };
+
+    this.columnNames = function(colObj){
+      return _.map(colObj, function(colObj){return colObj.name;});
+    };
+
     this.demonstrationTimeRelationText = function(){
       return this.relation;
     }
@@ -1997,7 +2012,8 @@ var WebAutomationLanguage = (function() {
     this.columns = [];
     this.processColumns = function(){
       for (var i = 0; i < this.relation[0].length; i++){
-        this.columns.push({index: i, name: "column_"+i, firstRowXpath: null, xpath: null, firstRowText: this.firstRowTexts[i]}); // todo: don't actually want to put filler here
+        this.columns.push({index: i, name: "column_"+i, firstRowXpath: null, xpath: null, firstRowText: this.firstRowTexts[i], // todo: don't actually want to put filler here
+          scraped: true}); // by default, assume we want to scrape all of a text relation's cols (or else, why are they even here?)
       }
     };
     if (doInitialization){
@@ -2038,8 +2054,10 @@ var WebAutomationLanguage = (function() {
     this.getCurrentCellsText = function(pageVar){
       var cells = [];
       for (var i = 0; i < this.columns.length; i++){
-        var cellText = this.getCurrentText(pageVar, this.columns[i]);
-        cells.push(cellText);
+        if (this.columns[i].scraped){
+          var cellText = this.getCurrentText(pageVar, this.columns[i]);
+          cells.push(cellText);
+        }
       }
       return cells;
     }
@@ -2066,6 +2084,26 @@ var WebAutomationLanguage = (function() {
 
     this.clearRunningState = function(){
       currentRowsCounter = -1;
+    };
+
+    this.isColumnUsed = function(colObject){
+      return colObject.scraped;
+    };
+
+    this.setColumnUsed = function(colObject, val){
+      colObject.scraped = val;
+    };
+
+
+    this.toggleColumnUsed = function(colObject){
+      // if it was previously scraped, we must remove it from output statement
+      if (colObject.scraped){
+        colObject.scraped = false; // easy to remove, becuase getCurrentCellsText controls what gets scraped when a text relation included with an outputrowstatement, and just responds to whether .scraped is set
+      }
+      // if it was previously unscraped, we must add it to output statement
+      else{
+        colObject.scraped = true;
+      }
     };
   }
 
@@ -2099,6 +2137,14 @@ var WebAutomationLanguage = (function() {
     this.demonstrationTimeRelationText = function(){
       return _.map(this.demonstrationTimeRelation, function(row){return _.map(row, function(cell){return cell.text;});});
     }
+
+    this.scrapedColumnNames = function(){
+      return _.map(_.filter(this.columns, function(colObj){return colObj.scraped;}), function(colObj){return colObj.name;});
+    };
+
+    this.columnNames = function(colObj){
+      return _.map(colObj, function(colObj){return colObj.name;});
+    };
 
     function domain(url){
       var domain = "";

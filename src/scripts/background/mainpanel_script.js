@@ -3494,7 +3494,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               // todo: should probably do a fancy similarity thing here, but for now we'll be casual
               // we'll sort by number of cells, then return the first one that shares a url with our spec nodes, or the first one if none share that url
               dataObjs = _.filter(dataObjs, function(obj){return obj !== null && obj !== undefined;});
-              var sortedDataObjs = _.sortBy(dataObjs, function(data){ if (!data || !data.first_page_relation || !data.first_page_relation[0]){return -1;} else {return data.first_page_relation.length * data.first_page_relation[0].length; }});
+              var sortedDataObjs = _.sortBy(dataObjs, function(data){ if (!data || !data.first_page_relation || !data.first_page_relation[0]){return -1;} else {return data.first_page_relation.length * data.first_page_relation[0].length; }}); // ascending
+	      sortedDataObjs = sortedDataObjs.reverse();
               WALconsole.log("sortedDataObjs", sortedDataObjs);
               var frameUrls = pagesToFrameUrls[targetPageVar.name];
               WALconsole.log("frameUrls", frameUrls, pagesToFrameUrls, targetPageVar.name);

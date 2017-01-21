@@ -6,7 +6,7 @@ var ReplayTraceManipulation = (function() { var pub = {};
 			if (trace[i].type !== "dom"){ continue;}
 			xpath = trace[i].target.xpath.toUpperCase();
 			if (xpath === targetXpath){
-				console.log("requiring stability of feature", feature, targetXpath);
+				WALconsole.log("requiring stability of feature", feature, targetXpath);
 				if (!trace[i].target.requiredFeatures){
 					trace[i].target.requiredFeatures = [feature];
 				}

@@ -423,12 +423,19 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
     }
   };
 
-  pub.repeatUntil = function _repeatUntil(repeatFunction, untilFunction, interval){
+  pub.repeatUntil = function _repeatUntil(repeatFunction, untilFunction, interval, grow){
+    if (grow === undefined){ grow = false;}
     if (untilFunction()){
       return;
     }
     repeatFunction();
-    setTimeout(function(){pub.repeatUntil(repeatFunction, untilFunction, interval);}, interval);
+    var nextInterval = interval;
+    if (grow){
+      nextInterval = nextInterval * 2; // is this really how we want to grow it?  should it be a strategy passed in?
+    }
+    WALconsole.log("grow", grow);
+    WALconsole.log("interval", nextInterval);
+    setTimeout(function(){pub.repeatUntil(repeatFunction, untilFunction, nextInterval, grow);}, interval);
   };
 
 return pub; }());

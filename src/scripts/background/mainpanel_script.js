@@ -481,6 +481,11 @@ var RecorderUI = (function () {
     });
   }
 
+  pub.updateRowsSoFar = function _updateRowsSoFar(num){
+    var div = $("#new_script_content");
+    div.find("#rows_so_far").html(num);
+  };
+
   return pub;
 }());
 
@@ -2469,10 +2474,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                                                   relation.messageRelationRepresentation(), 
                                                   tabId, frame.frameId, 
                                                   // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?  maybe accept once we have at least one good response from one of the frames?
-                                                  function _getRelationItemsHandler(response) { WALconsole.log("Receiving response: ", response); if (response !== null) {handleNewRelationItemsFromFrame(response, frame.frameId);}}); // when get response, call handleNewRelationItemsFromFrame (defined above) to pick from the frames' answers
+                                                  function _getRelationItemsHandler(response) { WALconsole.log("Receiving response: ", frame.frameId, response); if (response !== null && response !== undefined) {handleNewRelationItemsFromFrame(response, frame.frameId);}}); // when get response, call handleNewRelationItemsFromFrame (defined above) to pick from the frames' answers
             };
             // here's the function for sending the message until we get the answer
-            MiscUtilities.repeatUntil(sendGetRelationItems, function(){return relationItemsRetrieved[frame.frameId];}, 1000);
+            MiscUtilities.repeatUntil(sendGetRelationItems, function(){return relationItemsRetrieved[frame.frameId];}, 1000, true);
           });
       });
 

@@ -35,6 +35,7 @@ var OutputHandler = (function _OutputHandler() {
     	}
     	this.currentDatasetSliceLength += 1;
     	this.fullDatasetLength += 1;
+      RecorderUI.updateRowsSoFar(this.fullDatasetLength);
     	if (this.currentDatasetSliceLength % 10 === 0){
     		this.sendDatasetSlice();
     	}

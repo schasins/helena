@@ -279,7 +279,7 @@ function recordEvent(eventData) {
       },
       state: lastRecordEvent.meta.recordState
     };
-    console.log('Update:', update);
+    recordLog.debug('Update:', update);
     port.postMessage(update);
   }, 0);
 
@@ -790,7 +790,6 @@ function updateParams(newParams) {
 var handlers = {
   'recording': function(v) {
     recording = v;
-    console.log("recording: ", v);
     if (v === RecordState.RECORDING){
       /* handle any startup the addons need once a tab knows it's recording */
       for (var i = 0, ii = addonStartRecording.length; i < ii; ++i) {

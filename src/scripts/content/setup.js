@@ -10,7 +10,7 @@ var tabId = "setme";
 var windowId = "setme";
 var currentRecordingWindow = null;
 
-utilities.listenForMessage("background", "content", "tabID", function(msg){tabId = msg.tab_id; windowId = msg.window_id; console.log("tab id: ", msg);});
+utilities.listenForMessage("background", "content", "tabID", function(msg){tabId = msg.tab_id; windowId = msg.window_id; WALconsole.log("tab id: ", msg);});
 utilities.listenForMessage("mainpanel", "content", "getRelationItems", function(msg){RelationFinder.getRelationItems(msg);});
 utilities.listenForMessage("mainpanel", "content", "getFreshRelationItems", function(msg){RelationFinder.getFreshRelationItems(msg);});
 utilities.listenForMessage("mainpanel", "content", "editRelation", function(msg){RelationFinder.editRelation(msg);});

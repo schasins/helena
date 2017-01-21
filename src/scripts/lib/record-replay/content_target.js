@@ -338,9 +338,9 @@ function getFeatures(element){
   };
 
   var getTargetForSimilarityFilteredByText = function(targetInfo, filterFeatures) {
-    console.log("getTargetForSimilarityFilteredByText", targetInfo, filterFeatures);
+    //console.log("getTargetForSimilarityFilteredByText", targetInfo, filterFeatures);
     if (filterFeatures === undefined){ filterFeatures = []; }
-    console.log("getTargetForSimilarityFilteredByText", targetInfo);
+    //console.log("getTargetForSimilarityFilteredByText", targetInfo);
     var unfilteredCandidates = getAllSimilarityCandidates(targetInfo);
 
     // soon we'll filter by text, since we're doing getTargetForSimilarityFilteredByText
@@ -358,7 +358,7 @@ function getFeatures(element){
         }         
       }
     }
-    console.log("userFilteredCandidates", userFilteredCandidates.length, userFilteredCandidates);
+    //console.log("userFilteredCandidates", userFilteredCandidates.length, userFilteredCandidates);
     // this is a case where, because user can require features that no longer appear, we can get zero matches!
     if (userFilteredCandidates.length === 0){
       console.log("After filtering on user-selected features, no candidates qualify.");

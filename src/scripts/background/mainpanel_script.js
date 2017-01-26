@@ -2357,6 +2357,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return maxWithXpathsPercent;
     }
 
+    var getRowsCounter = 0;
+    var doneArray = [];
     // the funciton that we'll call when we actually have to go back to a page for freshRelationItems
     function getRowsFromPageVar(pageVar, callback, prinfo){
       
@@ -2365,17 +2367,30 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var relationItemsRetrieved = {};
       var missesSoFar = {};
 
-      var done = false;
+      getRowsCounter += 1;
+      doneArray.push(false);
       // once we've gotten data from any frame, this is the function we'll call to process all the results
       var handleNewRelationItemsFromFrame = function(data, frameId){
-        if (done){
+        var currentGetRowsCounter = getRowsCounter;
+        if (doneArray[currentGetRowsCounter]){
           return;
         }
+
+        if (relationItemsRetrieved[frameId]){
+          // we actually already have data from this frame.  this can happen because pages are still updating what they're showing
+          // but it's a bit of a concern.  let's see what the data actually is, make sure we're not totally losing data because of
+          // overwriting old data with new data, then only processing the new data...
+          var currentGetRowsCounter = getRowsCounter;
+          console.log("Got data from a frame for which we already have data", getRowsCounter);
+          console.log(_.isEqual(data, relationItemsRetrieved[frameId]), data, relationItemsRetrieved[frameId]);
+        }
+
         WALconsole.log("data", data);
-        if (data.type === RelationItemsOutputs.NOMOREITEMS || (data.type === RelationItemsOutputs.NONEWITEMSYET && missesSoFar[frameId] > 40)){
+        if (data.type === RelationItemsOutputs.NOMOREITEMS || (data.type === RelationItemsOutputs.NONEWITEMSYET && missesSoFar[frameId] > 10)){
           // NOMOREITEMS -> definitively out of items.  this relation is done
-          // NONEWITEMSYET && missesSoFar > 60 -> ok, time to give up at this point...
+          // NONEWITEMSYET && missesSoFar > 10 -> ok, time to give up at this point...
           relationItemsRetrieved[frameId] = data; // to stop us from continuing to ask for freshitems
+          console.log("We're giving up on asking for new items.");
           // ????? done = true;
           // ????? relation.noMoreRows(prinfo, callback);
         }
@@ -2397,6 +2412,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           else{
             WALconsole.log("The relations are different.");
             WALconsole.log(prinfo.currentRows, data.relation);
+            console.log(currentGetRowsCounter, data.relation.length);
           }
 
           relationItemsRetrieved[frameId] = data; // to stop us from continuing to ask for freshitems
@@ -2410,7 +2426,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // only want to do the below if we've decided this is the actual data...
           // if this is the only frame, then it's definitely the data
           if (Object.keys(relationItemsRetrieved).length == 1 || (aRowWithAllXpaths && diffPercent < .2 )){
-            done = true;
+            doneArray[getRowsCounter] = true;
             relation.gotMoreRows(prinfo, callback, data.relation);
             return;
           }
@@ -2423,7 +2439,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var allDefined = _.reduce(Object.keys(relationItemsRetrieved), function(acc, key){return acc && relationItemsRetrieved[key];}, true);
         if (allDefined){
           // ok, we have 'real' (NEWITEMS or decided we're done) data for all of them, we won't be getting anything new, better just pick the best one
-          done = true;
+          doneArray[getRowsCounter] = true;
           var dataObjs = _.map(Object.keys(relationItemsRetrieved), function(key){return relationItemsRetrieved[key];});
           var dataObjsFiltered = _.filter(dataObjs, function(data){return data.type === RelationItemsOutputs.NEWITEMS;});
           // ok, let's see whether any is close in length to our original one. otherwise have to give up
@@ -2437,14 +2453,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             var targetNumRows = relation.demonstrationTimeRelation.length;
             var diffPercent = Math.abs(data.relation.length - targetNumRows) / targetNumRows;
             if (percentColumns > .5 && diffPercent < .3){
-              done = true;
+              doneArray[getRowsCounter] = true;
               relation.gotMoreRows(prinfo, callback, data.relation);
               return;
             }
           }
 
           // drat, even with our more flexible requirements, still didn't find one that works.  guess we're done?
-          done = true;
+          doneArray[getRowsCounter] = true;
           relation.noMoreRows(prinfo, callback);
           return;
         }
@@ -2454,6 +2470,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var tabId = pageVar.currentTabId();
       WALconsole.log("pageVar.currentTabId()", pageVar.currentTabId());
       chrome.webNavigation.getAllFrames({tabId: tabId}, function(details) {
+          var currentGetRowsCounter = getRowsCounter;
           relationItemsRetrieved = {};
           missesSoFar = {};
           details.forEach(function(frame){
@@ -2470,20 +2487,22 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             var msg = relation.messageRelationRepresentation();
             msg.msgType = "getFreshRelationItems";
             var sendGetRelationItems = function(){
+              console.log("requesting relation items", currentGetRowsCounter);
               utilities.sendFrameSpecificMessage("mainpanel", "content", "getFreshRelationItems", 
                                                   relation.messageRelationRepresentation(), 
                                                   tabId, frame.frameId, 
                                                   // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?  maybe accept once we have at least one good response from one of the frames?
                                                   function _getRelationItemsHandler(response) { WALconsole.log("Receiving response: ", frame.frameId, response); if (response !== null && response !== undefined) {handleNewRelationItemsFromFrame(response, frame.frameId);}}); // when get response, call handleNewRelationItemsFromFrame (defined above) to pick from the frames' answers
             };
-            // here's the function for sending the message until we get the answer
-            MiscUtilities.repeatUntil(sendGetRelationItems, function(){return relationItemsRetrieved[frame.frameId];}, 1000, true);
+            // here's the function for sending the message until we decide we're done with the current attempt to get new rows, or until actually get the answer
+            MiscUtilities.repeatUntil(sendGetRelationItems, function(){return doneArray[currentGetRowsCounter] || relationItemsRetrieved[frame.frameId];}, 1000, true);
           });
       });
 
     }
 
 
+    var getNextRowCounter = 0;
     this.getNextRow = function _getNextRow(pageVar, callback){ // has to be called on a page, since a relation selector can be applied to many pages.  higher-level tool must control where to apply
       // todo: this is a very simplified version that assumes there's only one page of results.  add the rest soon.
 
@@ -2502,12 +2521,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         getRowsFromPageVar(pageVar, callback, prinfo);
       }
       else if (prinfo.currentRowsCounter + 1 >= prinfo.currentRows.length){
+
+        getNextRowCounter += 1;
         // ok, we had some data but we've run out.  time to try running the next button interaction and see if we can retrieve some more
 
         // here's what we want to do once we've actually clicked on the next button, more button, etc
         // essentially, we want to run getNextRow again, ready to grab new data from the page that's now been loaded or updated
         var runningNextInteraction = false;
         utilities.listenForMessageOnce("content", "mainpanel", "runningNextInteraction", function(data){
+          var currentGetNextRowCounter = getNextRowCounter;
+          console.log(currentGetNextRowCounter, "got nextinteraction ack");
           runningNextInteraction = true;
           // cool, and now let's start the process of retrieving fresh items by calling this function again
           prinfo.needNewRows = true;
@@ -2517,6 +2540,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // here's us telling the content script to take care of clicking on the next button, more button, etc
         if (!pageVar.currentTabId()){ WALconsole.log("Hey!  How'd you end up trying to click next button on a page for which you don't have a current tab id??  That doesn't make sense.", pageVar); }
         var sendRunNextInteraction = function(){
+          var currentGetNextRowCounter = getNextRowCounter;
+          console.log(currentGetNextRowCounter, "requestNext");
           utilities.sendMessage("mainpanel", "content", "runNextInteraction", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);};
         MiscUtilities.repeatUntil(sendRunNextInteraction, function(){return runningNextInteraction;}, 1000);
       }

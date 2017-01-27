@@ -2329,18 +2329,26 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return {id: this.id, name: this.name, selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns, next_type: this.nextType, next_button_selector: this.nextButtonSelector, url: this.url, num_rows_in_demonstration: this.numRowsInDemo};
     };
 
-    this.noMoreRows = function _noMoreRows(prinfo, callback){
-      // no more rows -- let the callback know we're done
-      // clear the stored relation data also
-      prinfo.currentRows = null;
-      prinfo.currentRowsCounter = 0;
-      callback(false); 
+    this.noMoreRows = function _noMoreRows(pageVar, callback, prinfo){
+      // first let's see if we can try running the next interaction again to get some fresh stuff.  maybe that just didn't go through?
+      if (prinfo.currentNextInteractionAttempts < 3){
+        this.getNextRow(pageVar, callback);
+      }
+      else{
+        // no more rows -- let the callback know we're done
+        // clear the stored relation data also
+        prinfo.currentRows = null;
+        prinfo.currentRowsCounter = 0;
+        prinfo.currentNextInteractionAttempts = 0;
+        callback(false); 
+      }
     };
 
     this.gotMoreRows = function _gotMoreRows(prinfo, callback, rel){
       prinfo.needNewRows = false; // so that we don't fall back into this same case even though we now have the items we want
       prinfo.currentRows = rel;
       prinfo.currentRowsCounter = 0;
+      prinfo.currentNextInteractionAttempts = 0;
       callback(true);
     }
 
@@ -2441,7 +2449,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
       };
 
-      function processEndOfCurrentGetRows(){
+      function processEndOfCurrentGetRows(pageVar, callback, prinfo){
         WALconsole.namedLog("getRelationItems", "processEndOfCurrentGetRows", getRowsCounter);
         // ok, we have 'real' (NEWITEMS or decided we're done) data for all of them, we won't be getting anything new, better just pick the best one
         doneArray[getRowsCounter] = true;
@@ -2468,7 +2476,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // drat, even with our more flexible requirements, still didn't find one that works.  guess we're done?
         WALconsole.namedLog("getRelationItems", "all defined and couldn't find any relation items from any frames", getRowsCounter);
         doneArray[getRowsCounter] = true;
-        relation.noMoreRows(prinfo, callback);
+        relation.noMoreRows(pageVar, callback, prinfo);
       }
 
       // let's go ask all the frames to give us relation items for the relation
@@ -2509,7 +2517,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               WALconsole.namedLog("getRelationItems", "Reached timeout", currentGetRowsCounter);
               if (!doneArray[currentGetRowsCounter]){
                 doneArray[currentGetRowsCounter] = false;
-                processEndOfCurrentGetRows();
+                processEndOfCurrentGetRows(pageVar, callback, prinfo);
               }
             },
             desiredTimeout
@@ -2527,7 +2535,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       WALconsole.log(pageVar.pageRelations);
       var prinfo = pageVar.pageRelations[this.name+"_"+this.id]; // separate relations can have same name (no rule against that) and same id (undefined if not yet saved to server), but since we assign unique names when not saved to server and unique ides when saved to server, should be rare to have same both.  todo: be more secure in future
       if (prinfo === undefined){ // if we haven't seen the frame currently associated with this pagevar, need to clear our state and start fresh
-        prinfo = {currentRows: null, currentRowsCounter: 0, currentTabId: pageVar.currentTabId()};
+        prinfo = {currentRows: null, currentRowsCounter: 0, currentTabId: pageVar.currentTabId(), currentNextInteractionAttempts: 0};
         pageVar.pageRelations[this.name+"_"+this.id] = prinfo;
       }
 
@@ -2548,6 +2556,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         utilities.listenForMessageOnce("content", "mainpanel", "runningNextInteraction", function _nextInteractionAck(data){
           var currentGetNextRowCounter = getNextRowCounter;
           WALconsole.namedLog("getRelationItems", currentGetNextRowCounter, "got nextinteraction ack");
+          prinfo.currentNextInteractionAttempts += 1;
           runningNextInteraction = true;
           // cool, and now let's start the process of retrieving fresh items by calling this function again
           prinfo.needNewRows = true;

@@ -2386,6 +2386,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           if (relationItemsRetrieved[frameId].type === RelationItemsOutputs.NEWITEMS && data.type !== RelationItemsOutputs.NEWITEMS){
             return;
           }
+          // we also don't want to clobber if the old data is actually longer than the new data...
+          // if we have long data, it's a little weird that we wouldn't just have accepted it and moved on, but it does happen...
+          if (relationItemsRetrieved[frameId].type === RelationItemsOutputs.NEWITEMS && data.type === RelationItemsOutputs.NEWITEMS && relationItemsRetrieved[frameId].relation.length > data.relation.length){
+            WALconsole.namedLog("getRelationItems", "The new data is also new items, but it's shorter than the others, so we're actually going to throw it away for now.  May be something to change later.");
+            return;
+          }
         }
 
         WALconsole.log("data", data);

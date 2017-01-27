@@ -2380,8 +2380,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // but it's a bit of a concern.  let's see what the data actually is, 
           // todo: we should make sure we're not totally losing data because of
           // overwriting old data with new data, then only processing the new data...
-          console.log("Got data from a frame for which we already have data", getRowsCounter);
-          console.log(_.isEqual(data, relationItemsRetrieved[frameId]), data, relationItemsRetrieved[frameId]);
+          WALconsole.namedLog("getRelationItems", "Got data from a frame for which we already have data", getRowsCounter);
+          WALconsole.namedLog("getRelationItems", _.isEqual(data, relationItemsRetrieved[frameId]), data, relationItemsRetrieved[frameId]);
           // we definitely don't want to clobber real new items with anything that's not new items, so let's make sure we don't
           if (relationItemsRetrieved[frameId].type === RelationItemsOutputs.NEWITEMS && data.type !== RelationItemsOutputs.NEWITEMS){
             return;
@@ -2392,7 +2392,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         if (data.type === RelationItemsOutputs.NOMOREITEMS){
           // NOMOREITEMS -> definitively out of items.  this frame says this relation is done
           relationItemsRetrieved[frameId] = data; // to stop us from continuing to ask for freshitems
-          console.log("We're giving up on asking for new items for one of ", Object.keys(relationItemsRetrieved).length, " frames. frameId: ", frameId, relationItemsRetrieved, missesSoFar);
+          WALconsole.namedLog("getRelationItems", "We're giving up on asking for new items for one of ", Object.keys(relationItemsRetrieved).length, " frames. frameId: ", frameId, relationItemsRetrieved, missesSoFar);
         }
         else if (data.type === RelationItemsOutputs.NONEWITEMSYET || (data.type === RelationItemsOutputs.NEWITEMS && data.relation.length === 0)){
           // todo: currently if we get data but it's only 0 rows, it goes here.  is that just an unnecessary delay?  should we just believe that that's the final answer?
@@ -2404,14 +2404,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // ok, the content script is supposed to prevent us from getting the same thing that it already sent before
           // but to be on the safe side, let's put in some extra protections so we don't try to advance too early
           if (prinfo.currentRows && _.isEqual(prinfo.currentRows, data.relation)){
-            console.log("This really shouldn't happen.  We got the same relation back from the content script that we'd already gotten.");
-            console.log(prinfo.currentRows);
+            WALconsole.namedLog("getRelationItems", "This really shouldn't happen.  We got the same relation back from the content script that we'd already gotten.");
+            WALconsole.namedLog("getRelationItems", prinfo.currentRows);
             missesSoFar[frameId] += 1;
           }
           else{
             WALconsole.log("The relations are different.");
             WALconsole.log(prinfo.currentRows, data.relation);
-            console.log(currentGetRowsCounter, data.relation.length);
+            WALconsole.namedLog("getRelationItems", currentGetRowsCounter, data.relation.length);
 
             relationItemsRetrieved[frameId] = data; // to stop us from continuing to ask for freshitems
 
@@ -2436,7 +2436,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
 
       function processEndOfCurrentGetRows(){
-        console.log("processEndOfCurrentGetRows", getRowsCounter);
+        WALconsole.namedLog("getRelationItems", "processEndOfCurrentGetRows", getRowsCounter);
         // ok, we have 'real' (NEWITEMS or decided we're done) data for all of them, we won't be getting anything new, better just pick the best one
         doneArray[getRowsCounter] = true;
         var dataObjs = _.map(Object.keys(relationItemsRetrieved), function(key){return relationItemsRetrieved[key];});
@@ -2452,7 +2452,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           var targetNumRows = relation.demonstrationTimeRelation.length;
           var diffPercent = Math.abs(data.relation.length - targetNumRows) / targetNumRows;
           if (percentColumns > .5 && diffPercent < .3){
-            console.log("all defined and found new items", getRowsCounter);
+            WALconsole.namedLog("getRelationItems", "all defined and found new items", getRowsCounter);
             doneArray[getRowsCounter] = true;
             relation.gotMoreRows(prinfo, callback, data.relation);
             return;
@@ -2460,7 +2460,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
 
         // drat, even with our more flexible requirements, still didn't find one that works.  guess we're done?
-        console.log("all defined and couldn't find any relation items from any frames", getRowsCounter);
+        WALconsole.namedLog("getRelationItems", "all defined and couldn't find any relation items from any frames", getRowsCounter);
         doneArray[getRowsCounter] = true;
         relation.noMoreRows(prinfo, callback);
       }
@@ -2486,7 +2486,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             var msg = relation.messageRelationRepresentation();
             msg.msgType = "getFreshRelationItems";
             var sendGetRelationItems = function(){
-              console.log("requesting relation items", currentGetRowsCounter);
+              WALconsole.namedLog("getRelationItems", "requesting relation items", currentGetRowsCounter);
               utilities.sendFrameSpecificMessage("mainpanel", "content", "getFreshRelationItems", 
                                                   relation.messageRelationRepresentation(), 
                                                   tabId, frame.frameId, 
@@ -2500,7 +2500,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           var desiredTimeout = 120000;
           setTimeout(
             function(){
-              console.log("Reached timeout", currentGetRowsCounter);
+              WALconsole.namedLog("getRelationItems", "Reached timeout", currentGetRowsCounter);
               if (!doneArray[currentGetRowsCounter]){
                 doneArray[currentGetRowsCounter] = false;
                 processEndOfCurrentGetRows();
@@ -2539,9 +2539,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // here's what we want to do once we've actually clicked on the next button, more button, etc
         // essentially, we want to run getNextRow again, ready to grab new data from the page that's now been loaded or updated
         var runningNextInteraction = false;
-        utilities.listenForMessageOnce("content", "mainpanel", "runningNextInteraction", function(data){
+        utilities.listenForMessageOnce("content", "mainpanel", "runningNextInteraction", function _nextInteractionAck(data){
           var currentGetNextRowCounter = getNextRowCounter;
-          console.log(currentGetNextRowCounter, "got nextinteraction ack");
+          WALconsole.namedLog("getRelationItems", currentGetNextRowCounter, "got nextinteraction ack");
           runningNextInteraction = true;
           // cool, and now let's start the process of retrieving fresh items by calling this function again
           prinfo.needNewRows = true;
@@ -2552,7 +2552,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         if (!pageVar.currentTabId()){ WALconsole.log("Hey!  How'd you end up trying to click next button on a page for which you don't have a current tab id??  That doesn't make sense.", pageVar); }
         var sendRunNextInteraction = function(){
           var currentGetNextRowCounter = getNextRowCounter;
-          console.log(currentGetNextRowCounter, "requestNext");
+          WALconsole.namedLog("getRelationItems", currentGetNextRowCounter, "requestNext");
           utilities.sendMessage("mainpanel", "content", "runNextInteraction", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);};
         MiscUtilities.repeatUntil(sendRunNextInteraction, function(){return runningNextInteraction;}, 1000);
       }

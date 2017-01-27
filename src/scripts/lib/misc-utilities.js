@@ -2,22 +2,29 @@
 var WALconsole = (function _WALconsole() { var pub = {};
 
   pub.debugging = false;
-  pub.namedDebugging = null;
+  pub.namedDebugging = "getRelationItems";
+  pub.styleMinimal = true;
+
+  function loggingGuts(callerName, args){
+    var prefix = [];
+    if (!pub.styleMinimal){
+      prefix = ["["+caller+"]"];
+    }
+    var newArgs = prefix.concat(Array.prototype.slice.call(args));
+    Function.apply.call(console.log, console, newArgs);
+  };
 
   pub.log = function _log(){
     if (pub.debugging){
-      var info = "["+pub.log.caller.name+"]";
-      var newArgs = [info].concat(Array.prototype.slice.call(arguments));
-      Function.apply.call(console.log, console, newArgs);
+      loggingGuts(arguments.callee.caller.name, arguments);
     }
   };
 
   pub.namedLog = function _log(){
     var name = arguments[0];
     if (pub.debugging || pub.namedDebugging === name){
-      var info = "["+pub.log.caller.name+"]";
-      var newArgs = [info].concat(Array.prototype.slice.call(arguments));
-      Function.apply.call(console.log, console, newArgs);
+      var args = Array.prototype.slice.call(arguments);
+      loggingGuts(arguments.callee.caller.name, args.slice(1, arguments.length));
     }
   };
 

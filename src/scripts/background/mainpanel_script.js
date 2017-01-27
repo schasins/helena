@@ -2359,14 +2359,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     var getRowsCounter = 0;
     var doneArray = [];
+    var relationItemsRetrieved = {};
+    var missesSoFar = {}; // may still be interesting to track misses.  may choose to send an extra next button press, something like that
     // the funciton that we'll call when we actually have to go back to a page for freshRelationItems
     function getRowsFromPageVar(pageVar, callback, prinfo){
       
       if (!pageVar.currentTabId()){ WALconsole.log("Hey!  How'd you end up trying to find a relation on a page for which you don't have a current tab id??  That doesn't make sense.", pageVar); }
   
-      var relationItemsRetrieved = {};
-      var missesSoFar = {};
-
       getRowsCounter += 1;
       doneArray.push(false);
       // once we've gotten data from any frame, this is the function we'll call to process all the results
@@ -2378,21 +2377,22 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
         if (relationItemsRetrieved[frameId]){
           // we actually already have data from this frame.  this can happen because pages are still updating what they're showing
-          // but it's a bit of a concern.  let's see what the data actually is, make sure we're not totally losing data because of
+          // but it's a bit of a concern.  let's see what the data actually is, 
+          // todo: we should make sure we're not totally losing data because of
           // overwriting old data with new data, then only processing the new data...
-          var currentGetRowsCounter = getRowsCounter;
           console.log("Got data from a frame for which we already have data", getRowsCounter);
           console.log(_.isEqual(data, relationItemsRetrieved[frameId]), data, relationItemsRetrieved[frameId]);
+          // we definitely don't want to clobber real new items with anything that's not new items, so let's make sure we don't
+          if (relationItemsRetrieved[frameId].type === RelationItemsOutputs.NEWITEMS && data.type !== RelationItemsOutputs.NEWITEMS){
+            return;
+          }
         }
 
         WALconsole.log("data", data);
-        if (data.type === RelationItemsOutputs.NOMOREITEMS || (data.type === RelationItemsOutputs.NONEWITEMSYET && missesSoFar[frameId] > 10)){
-          // NOMOREITEMS -> definitively out of items.  this relation is done
-          // NONEWITEMSYET && missesSoFar > 10 -> ok, time to give up at this point...
+        if (data.type === RelationItemsOutputs.NOMOREITEMS){
+          // NOMOREITEMS -> definitively out of items.  this frame says this relation is done
           relationItemsRetrieved[frameId] = data; // to stop us from continuing to ask for freshitems
-          console.log("We're giving up on asking for new items.");
-          // ????? done = true;
-          // ????? relation.noMoreRows(prinfo, callback);
+          console.log("We're giving up on asking for new items for one of ", Object.keys(relationItemsRetrieved).length, " frames. frameId: ", frameId, relationItemsRetrieved, missesSoFar);
         }
         else if (data.type === RelationItemsOutputs.NONEWITEMSYET || (data.type === RelationItemsOutputs.NEWITEMS && data.relation.length === 0)){
           // todo: currently if we get data but it's only 0 rows, it goes here.  is that just an unnecessary delay?  should we just believe that that's the final answer?
@@ -2404,67 +2404,66 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // ok, the content script is supposed to prevent us from getting the same thing that it already sent before
           // but to be on the safe side, let's put in some extra protections so we don't try to advance too early
           if (prinfo.currentRows && _.isEqual(prinfo.currentRows, data.relation)){
-            WALconsole.log("This really shouldn't happen.  We got the same relation back from the content script that we'd already gotten.");
-            WALconsole.log(prinfo.currentRows);
+            console.log("This really shouldn't happen.  We got the same relation back from the content script that we'd already gotten.");
+            console.log(prinfo.currentRows);
             missesSoFar[frameId] += 1;
-            return;
           }
           else{
             WALconsole.log("The relations are different.");
             WALconsole.log(prinfo.currentRows, data.relation);
             console.log(currentGetRowsCounter, data.relation.length);
-          }
 
-          relationItemsRetrieved[frameId] = data; // to stop us from continuing to ask for freshitems
+            relationItemsRetrieved[frameId] = data; // to stop us from continuing to ask for freshitems
 
-          // let's see if this one has xpaths for all of a row in the first few
-          var aRowWithAllXpaths = highestPercentOfHasXpathPerRow(data.relation, 20) === 1;
-          // and then see if the difference between the num rows and the target num rows is less than 20% of the target num rows 
-          var targetNumRows = relation.demonstrationTimeRelation.length;
-          var diffPercent = Math.abs(data.relation.length - targetNumRows) / targetNumRows;
-          
-          // only want to do the below if we've decided this is the actual data...
-          // if this is the only frame, then it's definitely the data
-          if (Object.keys(relationItemsRetrieved).length == 1 || (aRowWithAllXpaths && diffPercent < .2 )){
-            doneArray[getRowsCounter] = true;
-            relation.gotMoreRows(prinfo, callback, data.relation);
-            return;
-          }
-        }
-        else{
-          WALconsole.log("woaaaaaah freak out, there's freshRelationItems that have an unknown type.");
-        }
-        WALconsole.log("relationItemsRetrieved", relationItemsRetrieved);
-
-        var allDefined = _.reduce(Object.keys(relationItemsRetrieved), function(acc, key){return acc && relationItemsRetrieved[key];}, true);
-        if (allDefined){
-          // ok, we have 'real' (NEWITEMS or decided we're done) data for all of them, we won't be getting anything new, better just pick the best one
-          doneArray[getRowsCounter] = true;
-          var dataObjs = _.map(Object.keys(relationItemsRetrieved), function(key){return relationItemsRetrieved[key];});
-          var dataObjsFiltered = _.filter(dataObjs, function(data){return data.type === RelationItemsOutputs.NEWITEMS;});
-          // ok, let's see whether any is close in length to our original one. otherwise have to give up
-          // how should we decide whether to accept something close or to believe it's just done???
-
-          for (var i = 0; i < dataObjsFiltered.length; i++){
-            var data = dataObjsFiltered[i];
             // let's see if this one has xpaths for all of a row in the first few
-            var percentColumns = highestPercentOfHasXpathPerRow(data.relation, 20);
+            var aRowWithAllXpaths = highestPercentOfHasXpathPerRow(data.relation, 20) === 1;
             // and then see if the difference between the num rows and the target num rows is less than 20% of the target num rows 
             var targetNumRows = relation.demonstrationTimeRelation.length;
             var diffPercent = Math.abs(data.relation.length - targetNumRows) / targetNumRows;
-            if (percentColumns > .5 && diffPercent < .3){
+            
+            // only want to do the below if we've decided this is the actual data...
+            // if this is the only frame, then it's definitely the data
+            if (Object.keys(relationItemsRetrieved).length == 1 || (aRowWithAllXpaths && diffPercent < .2 )){
               doneArray[getRowsCounter] = true;
               relation.gotMoreRows(prinfo, callback, data.relation);
               return;
             }
           }
-
-          // drat, even with our more flexible requirements, still didn't find one that works.  guess we're done?
-          doneArray[getRowsCounter] = true;
-          relation.noMoreRows(prinfo, callback);
-          return;
+        }
+        else{
+          WALconsole.log("woaaaaaah freak out, there's freshRelationItems that have an unknown type.");
         }
       };
+
+      function processEndOfCurrentGetRows(){
+        console.log("processEndOfCurrentGetRows", getRowsCounter);
+        // ok, we have 'real' (NEWITEMS or decided we're done) data for all of them, we won't be getting anything new, better just pick the best one
+        doneArray[getRowsCounter] = true;
+        var dataObjs = _.map(Object.keys(relationItemsRetrieved), function(key){return relationItemsRetrieved[key];});
+        var dataObjsFiltered = _.filter(dataObjs, function(data){return data.type === RelationItemsOutputs.NEWITEMS;});
+        // ok, let's see whether any is close in length to our original one. otherwise have to give up
+        // how should we decide whether to accept something close or to believe it's just done???
+
+        for (var i = 0; i < dataObjsFiltered.length; i++){
+          var data = dataObjsFiltered[i];
+          // let's see if this one has xpaths for all of a row in the first few
+          var percentColumns = highestPercentOfHasXpathPerRow(data.relation, 20);
+          // and then see if the difference between the num rows and the target num rows is less than 20% of the target num rows 
+          var targetNumRows = relation.demonstrationTimeRelation.length;
+          var diffPercent = Math.abs(data.relation.length - targetNumRows) / targetNumRows;
+          if (percentColumns > .5 && diffPercent < .3){
+            console.log("all defined and found new items", getRowsCounter);
+            doneArray[getRowsCounter] = true;
+            relation.gotMoreRows(prinfo, callback, data.relation);
+            return;
+          }
+        }
+
+        // drat, even with our more flexible requirements, still didn't find one that works.  guess we're done?
+        console.log("all defined and couldn't find any relation items from any frames", getRowsCounter);
+        doneArray[getRowsCounter] = true;
+        relation.noMoreRows(prinfo, callback);
+      }
 
       // let's go ask all the frames to give us relation items for the relation
       var tabId = pageVar.currentTabId();
@@ -2474,7 +2473,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           relationItemsRetrieved = {};
           missesSoFar = {};
           details.forEach(function(frame){
-            // keep track of which frames need to respond before we'll be read to advance
+            // keep track of which frames need to respond before we'll be ready to advance
             relationItemsRetrieved[frame.frameId] = false;
             missesSoFar[frame.frameId] = 0;
           });
@@ -2497,6 +2496,18 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             // here's the function for sending the message until we decide we're done with the current attempt to get new rows, or until actually get the answer
             MiscUtilities.repeatUntil(sendGetRelationItems, function(){return doneArray[currentGetRowsCounter] || relationItemsRetrieved[frame.frameId];}, 1000, true);
           });
+          // and let's make sure that after our chosen timeout, we'll stop and just process whatever we have
+          var desiredTimeout = 120000;
+          setTimeout(
+            function(){
+              console.log("Reached timeout", currentGetRowsCounter);
+              if (!doneArray[currentGetRowsCounter]){
+                doneArray[currentGetRowsCounter] = false;
+                processEndOfCurrentGetRows();
+              }
+            },
+            desiredTimeout
+          );
       });
 
     }

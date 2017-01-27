@@ -2,9 +2,19 @@
 var WALconsole = (function _WALconsole() { var pub = {};
 
   pub.debugging = false;
+  pub.namedDebugging = null;
 
   pub.log = function _log(){
     if (pub.debugging){
+      var info = "["+pub.log.caller.name+"]";
+      var newArgs = [info].concat(Array.prototype.slice.call(arguments));
+      Function.apply.call(console.log, console, newArgs);
+    }
+  };
+
+  pub.namedLog = function _log(){
+    var name = arguments[0];
+    if (pub.debugging || pub.namedDebugging === name){
       var info = "["+pub.log.caller.name+"]";
       var newArgs = [info].concat(Array.prototype.slice.call(arguments));
       Function.apply.call(console.log, console, newArgs);
@@ -87,7 +97,8 @@ var utilities = (function _utilities() { var pub = {};
     chrome.runtime.onMessage.addListener(function _frameSpecificListener(msg, sender, sendResponse) {
       if (msg.subject === subject && msg.send_type === sendTypes.FRAMESPECIFIC){
         WALconsole.log("Receiving frame-specific message: ", msg);
-        sendResponse(fn(msg.content));
+        fn(msg.content, sendResponse);
+        return true; // must return true so that the sendResponse channel remains open (indicates we'll use sendResponse asynchronously.  may not always, but have the option)
       }
     });
   }
@@ -436,6 +447,43 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
     WALconsole.log("grow", grow);
     WALconsole.log("interval", nextInterval);
     setTimeout(function(){pub.repeatUntil(repeatFunction, untilFunction, nextInterval, grow);}, interval);
+  };
+
+  /* there are some messages that we send repeatedly from the mainpanel because we don't know whether the 
+  content script has actually received them.  but for most of these, we don't actually want a dozen answers, 
+  we just want to get one answer with the current, most up-to-date answer, and if we later decide we want 
+  another, we'll send another later.  for these cases, rather than build up an enormous backlog of messages 
+  (and it can get enormous and even crash everything), better to just register that we want the current 
+  response, then let us send the one */
+  // note that if we have *anything* changing about the message, this is currently a bad way to handle
+  // so if we have something like a counter in the message telling how many times it's been sent, this approach won't help
+
+  var currentResponseRequested = {};
+  var currentResponseHandler = {};
+
+  function handleRegisterCurrentResponseRequested(message){
+    var key = StableStringify.stringify(message);
+    if (currentResponseRequested[key]){
+      currentResponseRequested[key] = false;
+      // now call the actual function
+      currentResponseHandler[key](message);
+    }
+    // else nothing to do.  yay!
+  };
+
+  pub.registerCurrentResponseRequested = function _registerCurrentResponseRequested(message, functionToHandleMessage){
+    var key = StableStringify.stringify(message);
+    currentResponseRequested[key] = true;
+    currentResponseHandler[key] = functionToHandleMessage;
+    setTimeout(
+      function(){handleRegisterCurrentResponseRequested(message);},
+      0);
+    // so it does get called immediately if there's no backup, but just goes in its place at the back of the queue 
+    // if there is a backup right now, and then we can get a bunch of them backed up but we'll still 
+    // only run it the first time.  must have a separate dictionary for the function, because you 
+    // want to attach the current handler, not run an old handler.  For instance, we might send the same message to 
+    // request a new fresh set of relation items, but have a different mainpanel response handler, and we want to 
+    // send it to the current handler, not the old one.
   };
 
 return pub; }());

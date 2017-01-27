@@ -22,8 +22,16 @@ utilities.listenForMessage("mainpanel", "content", "pageStats", function(){ util
 utilities.listenForMessage("mainpanel", "content", "runNextInteraction", function(msg){RelationFinder.runNextInteraction(msg);});
 utilities.listenForMessage("mainpanel", "content", "currentColumnIndex", function(msg){RelationFinder.setEditRelationIndex(msg.index);});
 
-utilities.listenForFrameSpecificMessage("mainpanel", "content", "likelyRelation", function(msg){return RelationFinder.likelyRelation(msg);});
-utilities.listenForFrameSpecificMessage("mainpanel", "content", "getFreshRelationItems", function(msg){return RelationFinder.getFreshRelationItemsHelper(msg);});
+utilities.listenForFrameSpecificMessage("mainpanel", "content", "likelyRelation", function(msg, sendResponse){sendResponse(RelationFinder.likelyRelation(msg));});
+utilities.listenForFrameSpecificMessage("mainpanel", "content", "getFreshRelationItems", 
+	function(msg, sendResponse){
+		MiscUtilities.registerCurrentResponseRequested(msg, 
+			function(m){
+				var freshRelationItems = RelationFinder.getFreshRelationItemsHelper(m);
+				sendResponse(freshRelationItems);
+			});
+	}
+);
 
 // keep requesting this tab's tab id until we get it
 MiscUtilities.repeatUntil(

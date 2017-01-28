@@ -1462,16 +1462,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         this.keyEvents = textEntryEvents;
         this.keyCodes = _.map(this.keyEvents, function(ev){ return ev.data.keyCode; });
       }
-    }
+    };
 
 
     this.remove = function _remove(){
       this.parent.removeChild(this);
-    }
+    };
 
     this.clearRunningState = function _clearRunningState(){
       return;
-    }
+    };
 
     this.toStringLines = function _toStringLines(){
       if (!this.onlyKeyups && !this.onlyKeydowns){
@@ -2329,9 +2329,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return {id: this.id, name: this.name, selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns, next_type: this.nextType, next_button_selector: this.nextButtonSelector, url: this.url, num_rows_in_demonstration: this.numRowsInDemo};
     };
 
-    this.noMoreRows = function _noMoreRows(pageVar, callback, prinfo){
+    this.noMoreRows = function _noMoreRows(pageVar, callback, prinfo, allowMoreNextInteractions){
       // first let's see if we can try running the next interaction again to get some fresh stuff.  maybe that just didn't go through?
-      if (prinfo.currentNextInteractionAttempts < 3){
+      if (allowMoreNextInteractions && prinfo.currentNextInteractionAttempts < 3){
+        prinfo.needNewRows = false; // so that we don't fall back into trying to grab rows from current page when what we really want is to run the next interaction again.
         this.getNextRow(pageVar, callback);
       }
       else{
@@ -2447,6 +2448,23 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         else{
           WALconsole.log("woaaaaaah freak out, there's freshRelationItems that have an unknown type.");
         }
+
+        // so?  are we done?  if all frames indicated that there are no more, then we just need to stop because the page tried using a next button,
+        // couldn't find one, and just won't be getting us more data
+        var stillPossibleMoreItems = false; // this should be the value if all frames said NOMOREITEMS
+        for (var key in relationItemsRetrieved){
+          var obj = relationItemsRetrieved[key];
+          if (!obj || obj.type !== RelationItemsOutputs.NOMOREITEMS){
+            // ok, there's some reason to think it might be ok, so let's actually go ahead and try again
+            stillPossibleMoreItems = true;
+          }
+        }
+        if (!stillPossibleMoreItems){
+          WALconsole.namedLog("getRelationItems", "all frames say we're done", getRowsCounter);
+          doneArray[getRowsCounter] = true;
+          relation.noMoreRows(pageVar, callback, prinfo, false); // false because shouldn't try pressing the next button
+        }
+
       };
 
       function processEndOfCurrentGetRows(pageVar, callback, prinfo){
@@ -2474,9 +2492,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
 
         // drat, even with our more flexible requirements, still didn't find one that works.  guess we're done?
+
         WALconsole.namedLog("getRelationItems", "all defined and couldn't find any relation items from any frames", getRowsCounter);
         doneArray[getRowsCounter] = true;
-        relation.noMoreRows(pageVar, callback, prinfo);
+        relation.noMoreRows(pageVar, callback, prinfo, true); // true because should allow trying the next button
       }
 
       // let's go ask all the frames to give us relation items for the relation

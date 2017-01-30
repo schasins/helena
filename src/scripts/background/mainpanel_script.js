@@ -2530,7 +2530,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             MiscUtilities.repeatUntil(sendGetRelationItems, function(){return doneArray[currentGetRowsCounter] || relationItemsRetrieved[frame.frameId];}, 1000, true);
           });
           // and let's make sure that after our chosen timeout, we'll stop and just process whatever we have
-          var desiredTimeout = 120000;
+          var desiredTimeout = 60000;
           setTimeout(
             function(){
               WALconsole.namedLog("getRelationItems", "Reached timeout", currentGetRowsCounter);

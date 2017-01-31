@@ -314,6 +314,7 @@ var RecorderUI = (function () {
     readyButton.click(function(){
       RecorderUI.showProgramPreview();
       // we also want to close the tab...
+      console.log("showRelationEditor removing tab", tabId);
       chrome.tabs.remove(tabId);
       // once ready button clicked, we'll already have updated the relation selector info based on messages the content panel has been sending, so we can just go back to looking at the program preview
       // the one thing we do need to change is there may now be nodes included in the relation (or excluded) that weren't before, so we should redo loop insertion
@@ -1352,6 +1353,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // it's not just a relation item, so relation extraction hasn't extracted it, so we have to actually look at the trace
         // find the scrape that corresponds to this scrape statement based on temporarystatementidentifier
         var ourStatementTraceSegment = _.filter(trace, function(ev){return EventM.getTemporaryStatementIdentifier(ev) === temporaryStatementIdentifier;});
+        var matchI = null;
         for (var i = 0; i < ourStatementTraceSegment.length; i++){
           if (ourStatementTraceSegment[i].additional && ourStatementTraceSegment[i].additional.scrape && ourStatementTraceSegment[i].additional.scrape.text){
             if (this.scrapeLink){
@@ -1360,25 +1362,32 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             else{
               this.currentNodeCurrentValue = ourStatementTraceSegment[i].additional.scrape.text;
             }
+            matchI = i;
             break;
           }
+        }
+        if (!matchI){
+          this.currentNodeCurrentValue = null;
         }
 
         // it's not a relation item, so let's start keeping track of the xpaths of the nodes we actually find, so we can figure out if we want to stop running full similarity
         // note, we could factor this out and let this apply to other statement types --- clicks, typing
         // but empirically, have mostly had this issue slowing down scraping, not clicks and the like, since there are usually few of those
         if (!this.preferredXpath){ // if we haven't yet picked a preferredXpath...
-          var firstNodeUse = ourStatementTraceSegment[0]; // assumption: the first event is always going to be the interaction with the scraped item.  if break this, must change!
-          var xpath = firstNodeUse.target.xpath;
-          this.xpaths.push(xpath);
-          WALconsole.log("this.xpaths", this.xpaths);
-          if (this.xpaths.length === 5){ // todo: 3 is just for debugging!
-            // ok, we have enough data now that we might be able to decide to do something smarter
-            var uniqueXpaths = _.uniq(this.xpaths);
-            if (uniqueXpaths.length === 1){
-              // we've used the exact same one this whole time...  let's try using that as our preferred xpath
-              this.preferredXpath = uniqueXpaths[0];
-              WALconsole.log("chose preferredXpath", this.preferredXpath);
+          console.log(ourStatementTraceSegment);
+          if (matchI){
+            var firstNodeUse = ourStatementTraceSegment[matchI];
+            var xpath = firstNodeUse.target.xpath;
+            this.xpaths.push(xpath);
+            console.log("this.xpaths", this.xpaths);
+            if (this.xpaths.length === 5){
+              // ok, we have enough data now that we might be able to decide to do something smarter
+              var uniqueXpaths = _.uniq(this.xpaths);
+              if (uniqueXpaths.length === 1){
+                // we've used the exact same one this whole time...  let's try using that as our preferred xpath
+                this.preferredXpath = uniqueXpaths[0];
+                console.log("chose preferredXpath", this.preferredXpath);
+              }
             }
           }
         }
@@ -1386,12 +1395,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // we've already decided we have a preferred xpath.  we should check and make sure we're still using it.  if we had to revert to using similarity
           // we should stop trying to use the current preferred xpath, start tracking again.  maybe the page has been redesigned and we can discover a new preferred xpath
           // so we'll enter that phase again
-          var firstNodeUse = ourStatementTraceSegment[0]; // assumption: the first event is always going to be the interaction with the scraped item.  if break this, must change!
-          var xpath = firstNodeUse.target.xpath;
-          if (xpath !== this.preferredXpath){
-            this.preferredXpath = null;
-            this.xpaths = [];
+          if (matchI){ // only make this call if we actually have an event that aligns...
+            var firstNodeUse = ourStatementTraceSegment[matchI]; 
+            var xpath = firstNodeUse.target.xpath;
+            if (xpath !== this.preferredXpath){
+              this.preferredXpath = null;
+              this.xpaths = [];
+            }      
           }
+
         }
       }
     };
@@ -1755,6 +1767,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       var tabId = this.pageVarCurr.currentTabId();
       if (tabId !== undefined && tabId !== null){
+        console.log("ClosePageStatement run removing tab", this.pageVarCurr.currentTabId());
         chrome.tabs.remove(this.pageVarCurr.currentTabId(), function(){
             that.pageVarCurr.clearCurrentTabId();
             rbbcontinuation();
@@ -3146,9 +3159,27 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // make the trace we'll replay
         var trace = [];
         // label each trace item with the basicBlock statement being used
+        var withinScrapeSection = false;
         for (var i = 0; i < basicBlockStatements.length; i++){
           var cleanTrace = basicBlockStatements[i].cleanTrace;
+          _.each(cleanTrace, function(ev){console.log(ev.data.type);});
           _.each(cleanTrace, function(ev){EventM.setTemporaryStatementIdentifier(ev, i);});
+
+          // ok, now let's deal with speeding up the trace based on knowing that scraping shouldn't change stuff, so we don't need to wait after it
+          if (withinScrapeSection){
+            // don't need to wait after scraping.  scraping doesn't change stuff.
+            if (cleanTrace.length > 0){
+              cleanTrace[0].timing.ignoreWait = true;
+            }
+          }
+          if (basicBlockStatements[i] instanceof WebAutomationLanguage.ScrapeStatement){
+            withinScrapeSection = true;
+            for (var j = 1; j < cleanTrace.length; j++){cleanTrace[j].timing.ignoreWait = true;} // the first event may need to wait after whatever came before
+          }
+          else{
+            withinScrapeSection = false;
+          }
+
           trace = trace.concat(cleanTrace);
         }
 
@@ -3464,7 +3495,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       for (var i = sets.length - 1; i >= 0; i--){
         var set = sets[i];
         for (var j = set.length - 1; j >= 0; j--){
-          statements.splice(set[j], 1);
+          //statements.splice(set[j], 1);
         }
       }
       
@@ -3628,8 +3659,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
       }
       // ok we hit the end of the loop without returning after finding a new page to work on.  time to close tabs
-      tabsToCloseAfter = _.uniq(tabsToCloseAfter);      
+      tabsToCloseAfter = _.uniq(tabsToCloseAfter); 
+      console.log("tabsToCloseAfter", tabsToCloseAfter);     
       for (var i = 0; i < tabsToCloseAfter.length; i++){
+        console.log("processServerRelations removing tab", tabsToCloseAfter[i]);
         chrome.tabs.remove(tabsToCloseAfter[i], function(){
           // do we need to do anything?
         }); 

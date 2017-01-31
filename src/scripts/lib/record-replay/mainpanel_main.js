@@ -290,7 +290,7 @@ var Record = (function RecordClosure() {
       if (lastTime == 0) {
         var waitTime = 0;
       } else {
-        var waitTime = time - lastTime;
+        var waitTime = time - lastTime; // the time to wait between running the last event and running this one.
       }
       if (!('timing' in e))
         e.timing = {};
@@ -645,11 +645,16 @@ var Replay = (function ReplayClosure() {
       if (nextIndex >= events.length)
         return 0;
       if (curIndex == 0)
-        return 1000;
+        return 0; // note: this used to be 1,000.  not sure why.  may need to look into this at some point.
 
       var defaultTime = 0;
-      for (var i = curIndex; i <= nextIndex; ++i)
-        defaultTime += events[i].timing.waitTime;
+      for (var i = curIndex; i <= nextIndex; ++i){
+        var timeToAdd = events[i].timing.waitTime;
+        if (events[i].timing.ignoreWait && timeToAdd > 5){
+          timeToAdd = timeToAdd / 3;
+        }
+        defaultTime += timeToAdd; 
+      }
 
       if (defaultTime > 10000)
         defaultTime = 10000;

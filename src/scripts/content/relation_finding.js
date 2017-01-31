@@ -1038,6 +1038,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         button = min_candidate;
       }
     }
+    console.log("button", button);
     return button;
   }
 
@@ -1066,6 +1067,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   // below the methods for actually using the next button when we need the next page of results
   // this also identifies if there are no more items to retrieve, in which case that info is stored in case someone tries to run getFreshRelationItems on us
   pub.runNextInteraction = function _runNextInteraction(msg){
+
     utilities.sendMessage("content", "mainpanel", "runningNextInteraction", {}); // todo: will this always reach the page?  if not, big trouble
     var sid = selectorId(msg);
     nextInteractionSinceLastGetFreshRelationItems[sid] = true; // note that we're assuming that the next interaction for a given relation only affects that relation
@@ -1073,6 +1075,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     var next_button_type = msg.next_type;
 
     if (next_button_type === NextTypes.SCROLLFORMORE){
+      WALconsole.namedLog("nextInteraction", "scrolling for more");
       var crd = currentRelationData[sid];
       var knowTheLastElement = false;
       // let's try scrolling to last element if we know it
@@ -1093,12 +1096,19 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       }
     }
     else if (next_button_type === NextTypes.MOREBUTTON || next_button_type === NextTypes.NEXTBUTTON){
-      WALconsole.log("msg.next_button_selector", msg.next_button_selector);
+      WALconsole.namedLog("nextInteraction", "msg.next_button_selector", msg.next_button_selector);
       var button = findNextButton(msg.next_button_selector);
       if (button !== null){
-        button.click();
+        WALconsole.namedLog("nextInteraction", "clicked next or more button");
+        $button = $(button);
+        $button.trigger("mousedown");
+        $button.trigger("focus");
+        $button.trigger("mouseup");
+        $button.trigger("click");
+        $button.trigger("blur");
       }
       else{
+        WALconsole.namedLog("nextInteraction", "next or more button was null");
         noMoreItemsAvailable[sid] = true;
       }
     }
@@ -1106,7 +1116,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       noMoreItemsAvailable[sid] = true;
     }
     else{
-      WALconsole.log("Failure.  Don't know how to produce items because don't know next button type.  Guessing we just want the current page items.");
+      WALconsole.namedLog("nextInteraction", "Failure.  Don't know how to produce items because don't know next button type.  Guessing we just want the current page items.");
       noMoreItemsAvailable[sid] = true;
     }
   }

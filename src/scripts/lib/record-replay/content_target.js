@@ -386,19 +386,27 @@ function getFeatures(element){
   var identifiedNodesCache = {};
 
   getTarget = function(targetInfo) {
+    console.log("identifiedNodesCache", identifiedNodesCache.length, identifiedNodesCache);
     if (! targetInfo){
       return null;
     }
     var xpath = targetInfo.xpath;
     if (xpath in identifiedNodesCache){
       // we've already had to find this node on this page.  go ahead and use the cached node.
-      return identifiedNodesCache[xpath];
+      var cachedNode = identifiedNodesCache[xpath];
+      // unless the page has changed and that node's not around anymore!
+      if ($.inArray(cachedNode, $("*")) > -1){
+        return cachedNode;
+      }
+      return cachedNode;
     }
     // we have a useXpathOnly flag set to true when the top level has parameterized on xpath, and normal node addressing approach should be ignored
     if (targetInfo.useXpathOnly){
       var nodes = xPathToNodes(xpath);
       if (nodes.length > 0){
-        return nodes[0];
+        var xpathNode = nodes[0];
+        console.log("xpathNode", xpathNode);
+        return xpathNode;
       }
     }
     // the top-level tool may specify that some subset of features remain stable (text, id, so on, if they have special knowledge of page design)

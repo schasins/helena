@@ -2,7 +2,7 @@
 var WALconsole = (function _WALconsole() { var pub = {};
 
   pub.debugging = false;
-  pub.namedDebugging = "getRelationItems";
+  pub.namedDebugging = ["getRelationItems", "nextInteraction"];
   pub.styleMinimal = true;
 
   function loggingGuts(callerName, args){
@@ -22,7 +22,7 @@ var WALconsole = (function _WALconsole() { var pub = {};
 
   pub.namedLog = function _log(){
     var name = arguments[0];
-    if (pub.debugging || pub.namedDebugging === name){
+    if (pub.debugging || pub.namedDebugging.indexOf(name) > -1) {
       var args = Array.prototype.slice.call(arguments);
       loggingGuts(arguments.callee.caller.name, args.slice(1, arguments.length));
     }

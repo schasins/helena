@@ -1267,6 +1267,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       fn(this);
     };
 
+    this.scrapingRelationItem = function _scrapingRelationItem(){
+      return this.node !== this.currentNode;
+    };
+
     this.pbvs = function _pbvs(){
       var pbvs = [];
       if (this.trace.length > 0){ // no need to make pbvs based on this statement's parameterization if it doesn't have any events to parameterize anyway...
@@ -3464,7 +3468,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           keyIndexes.push(i);
           keysdown = keysdown.concat(statements[i].keyCodes);
         }
-        else if (keyIndexes.length > 0 && statements[i] instanceof WebAutomationLanguage.ScrapeStatement){
+        else if (keyIndexes.length > 0 && statements[i] instanceof WebAutomationLanguage.ScrapeStatement && statements[i].scrapingRelationItem()){
           continue;
         }
         else if (keyIndexes.length > 0 && statements[i] instanceof WebAutomationLanguage.TypeStatement && statements[i].onlyKeyups){
@@ -3477,12 +3481,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           keysup.sort();
           if (_.isEqual(keysdown, keysup)) {
             sets.push(keyIndexes);
+            console.log("Decided to remove set: ", keyIndexes, keysdown, keysup);
             keyIndexes = [];
             keysdown = [];
             keysup = [];
           }
         }
-        else if (keyIndexes.length > 0 && !(statements[i] instanceof WebAutomationLanguage.ScrapeStatement)){
+        else if (keyIndexes.length > 0 && !(statements[i] instanceof WebAutomationLanguage.ScrapeStatement && statements[i].scrapingRelationItem())){
           keyIndexes = [];
           keysdown = [];
           keysup = [];
@@ -3494,9 +3499,35 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       for (var i = sets.length - 1; i >= 0; i--){
         var set = sets[i];
+
+        /*
+        // let's first make sure to make the state match the state it should have, based on no longer having these keypresses around
+        for (var k = set[0]; k < set[set.length - 1]; k++){
+          var cleanTrace = statements[k].cleanTrace;
+          _.each(cleanTrace, function(ev){if (ev.data.ctrlKey){ev.data.ctrlKey = false;}}); // right now hard coded to get rid of ctrl alt every time.  todo: fix
+          _.each(cleanTrace, function(ev){if (ev.data.altKey){ev.data.altKey = false;}});
+        }
+        */
+        
+        // now let's actually get rid of the keypress statements
+        for (var j = set.length - 1; j >= 0; j--){
+          statements.splice(set[j], 1);
+        }
+
+        /* an alternative that removes keyup, keydown events instead of the whole statements
         for (var j = set.length - 1; j >= 0; j--){
           //statements.splice(set[j], 1);
+          var statement = statements[set[j]];
+          console.log("statement", statement);
+          var cleanTrace = statement.cleanTrace;
+          for (var l =  cleanTrace.length - 1; l >= 0; l--){
+            if (cleanTrace[l].data.type === "keyup" || cleanTrace[l].data.type === "keydown"){
+              cleanTrace.splice(l, 1);
+            }
+          }
         }
+        */
+        
       }
       
       WALconsole.log("filterScrapingKeypresses", statements);

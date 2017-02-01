@@ -2349,7 +2349,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.noMoreRows = function _noMoreRows(pageVar, callback, prinfo, allowMoreNextInteractions){
       // first let's see if we can try running the next interaction again to get some fresh stuff.  maybe that just didn't go through?
       if (allowMoreNextInteractions && prinfo.currentNextInteractionAttempts < 3){
-        prinfo.needNewRows = false; // so that we don't fall back into trying to grab rows from current page when what we really want is to run the next interaction again.
+        prinfo.runNextInteraction = true; // so that we don't fall back into trying to grab rows from current page when what we really want is to run the next interaction again.
         this.getNextRow(pageVar, callback);
       }
       else{
@@ -2577,11 +2577,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       // now that we have the page info to manipulate, what do we need to do to get the next row?
       WALconsole.log("getnextrow", this, prinfo.currentRowsCounter);
-      if (prinfo.currentRows === null || prinfo.needNewRows){
+      if ((prinfo.currentRows === null || prinfo.needNewRows) && !prinfo.runNextInteraction){
         // cool!  no data right now, so we have to go to the page and ask for some
         getRowsFromPageVar(pageVar, callback, prinfo);
       }
-      else if (prinfo.currentRowsCounter + 1 >= prinfo.currentRows.length){
+      else if (prinfo.currentRowsCounter + 1 >= prinfo.currentRows.length || prinfo.runNextInteraction){
 
         getNextRowCounter += 1;
         // ok, we had some data but we've run out.  time to try running the next button interaction and see if we can retrieve some more

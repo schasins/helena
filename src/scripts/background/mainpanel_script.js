@@ -3166,7 +3166,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var withinScrapeSection = false;
         for (var i = 0; i < basicBlockStatements.length; i++){
           var cleanTrace = basicBlockStatements[i].cleanTrace;
-          _.each(cleanTrace, function(ev){console.log(ev.data.type);});
           _.each(cleanTrace, function(ev){EventM.setTemporaryStatementIdentifier(ev, i);});
 
           // ok, now let's deal with speeding up the trace based on knowing that scraping shouldn't change stuff, so we don't need to wait after it

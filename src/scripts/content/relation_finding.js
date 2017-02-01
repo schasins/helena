@@ -1100,12 +1100,15 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       var button = findNextButton(msg.next_button_selector);
       if (button !== null){
         WALconsole.namedLog("nextInteraction", "clicked next or more button");
+        button.click();
+        /*
         $button = $(button);
         $button.trigger("mousedown");
         $button.trigger("focus");
         $button.trigger("mouseup");
         $button.trigger("click");
         $button.trigger("blur");
+        */
       }
       else{
         WALconsole.namedLog("nextInteraction", "next or more button was null");

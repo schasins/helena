@@ -651,7 +651,7 @@ var Replay = (function ReplayClosure() {
       for (var i = curIndex; i <= nextIndex; ++i){
         var timeToAdd = events[i].timing.waitTime;
         if (events[i].timing.ignoreWait && timeToAdd > 5){
-          timeToAdd = timeToAdd / 3;
+          timeToAdd = timeToAdd / 5;
         }
         defaultTime += timeToAdd; 
       }

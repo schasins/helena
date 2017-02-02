@@ -48,7 +48,15 @@ var OutputHandler = (function _OutputHandler() {
     	this.sentDatasetSlice = this.currentDatasetSlice;
     	this.currentDatasetSlice = {};
       this.currentDatasetSliceLength = 0;
-      $.post('http://kaofang.cs.berkeley.edu:8080/datasetslice', {id: this.id, values: encodeURIComponent(JSON.stringify(this.sentDatasetSlice))}, function(resp){/* todo: add better error handling eventually*/ return;});
+      var msg = {id: this.id, values: encodeURIComponent(JSON.stringify(this.sentDatasetSlice))};
+      var sendHelper = function _sendHelper(message){
+        $.post('http://kaofang.cs.berkeley.edu:8080/datasetslice', 
+          message, 
+          function(resp){/* todo: add better error handling eventually*/ return;}).fail(function(){
+            sendHelper(message); // if we failed, need to be sure to send the slice again...
+          });
+      };
+      sendHelper(msg);
     };
 
     this.closeDataset = function _closeDataset(){

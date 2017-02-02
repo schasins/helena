@@ -1378,19 +1378,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // note, we could factor this out and let this apply to other statement types --- clicks, typing
         // but empirically, have mostly had this issue slowing down scraping, not clicks and the like, since there are usually few of those
         if (!this.preferredXpath){ // if we haven't yet picked a preferredXpath...
-          console.log(ourStatementTraceSegment);
           if (matchI){
             var firstNodeUse = ourStatementTraceSegment[matchI];
             var xpath = firstNodeUse.target.xpath;
             this.xpaths.push(xpath);
-            console.log("this.xpaths", this.xpaths);
             if (this.xpaths.length === 5){
               // ok, we have enough data now that we might be able to decide to do something smarter
               var uniqueXpaths = _.uniq(this.xpaths);
               if (uniqueXpaths.length === 1){
                 // we've used the exact same one this whole time...  let's try using that as our preferred xpath
                 this.preferredXpath = uniqueXpaths[0];
-                console.log("chose preferredXpath", this.preferredXpath);
               }
             }
           }
@@ -3480,7 +3477,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           keysup.sort();
           if (_.isEqual(keysdown, keysup)) {
             sets.push(keyIndexes);
-            console.log("Decided to remove set: ", keyIndexes, keysdown, keysup);
             keyIndexes = [];
             keysdown = [];
             keysup = [];

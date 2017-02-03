@@ -1104,10 +1104,10 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         /*
         $button = $(button);
         $button.trigger("mousedown");
-        $button.trigger("focus");
+        //$button.trigger("focus");
         $button.trigger("mouseup");
         $button.trigger("click");
-        $button.trigger("blur");
+        //$button.trigger("blur");
         */
       }
       else{

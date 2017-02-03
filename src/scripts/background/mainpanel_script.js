@@ -3162,6 +3162,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // label each trace item with the basicBlock statement being used
         var withinScrapeSection = false;
         for (var i = 0; i < basicBlockStatements.length; i++){
+          // if it's a scrape of a relation item, we don't actually need to do anything, so skip it
+          if (basicBlockStatements[i] instanceof WebAutomationLanguage.ScrapeStatement && basicBlockStatements[i].scrapingRelationItem()){
+            continue;
+          }
+
           var cleanTrace = basicBlockStatements[i].cleanTrace;
           _.each(cleanTrace, function(ev){EventM.setTemporaryStatementIdentifier(ev, i);});
 
@@ -3181,6 +3186,21 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }
 
           trace = trace.concat(cleanTrace);
+        }
+
+        if (trace.length < 1){
+          // ok, no point actually running Ringer here...
+          console.log("no events for r+r to run in these loopyStatements: ", loopyStatements);
+          // let's skip straight to the 'callback!'
+
+          // statements may need to do something as post-processing, even without a replay so go ahead and do any extra processing
+          for (var i = 0; i < basicBlockStatements.length; i++){
+            WALconsole.log("calling postReplayProcessing on", basicBlockStatements[i]);
+            basicBlockStatements[i].postReplayProcessing([], i);
+          }
+          // once we're done replaying, have to replay the remainder of the script
+          program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback);
+          return;
         }
 
         // now that we have the trace, let's figure out how to parameterize it

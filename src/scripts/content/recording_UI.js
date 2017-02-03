@@ -131,10 +131,12 @@ var Scraping = (function _Scraping() { var pub = {};
 
   // note that this line must run after the r+r content script runs (to produce the additional_recording_handlers object)
   additional_recording_handlers.scrape = function(node, eventMessage){
-    if (eventMessage.data.type !== "click") {return true;} // not a click, so don't need to record info, but do want to note that it happened during a scrape
     var data = NodeRep.nodeToMainpanelNodeRepresentation(node,false);
-    data.linkScraping = eventMessage.data.shiftKey || eventMessage.data.metaKey; // convention is ALT means we want to scrape the link, not the text 
-    utilities.sendMessage("content", "mainpanel", "scrapedData", data);
+    var linkScraping = eventMessage.data.shiftKey || eventMessage.data.metaKey; // convention is SHIFT means we want to scrape the link, not the text 
+    data.linkScraping = linkScraping;
+    if (eventMessage.data.type === "click") {
+      utilities.sendMessage("content", "mainpanel", "scrapedData", data);
+    } // send it to the mainpanel for visualization
     return data;
   };
 

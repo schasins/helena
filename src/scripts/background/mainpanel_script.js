@@ -1370,7 +1370,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             break;
           }
         }
-        if (!matchI){
+        if (matchI === null){
           this.currentNodeCurrentValue = null;
         }
 

@@ -2578,7 +2578,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // cool!  no data right now, so we have to go to the page and ask for some
         getRowsFromPageVar(pageVar, callback, prinfo);
       }
-      else if (prinfo.currentRowsCounter + 1 >= prinfo.currentRows.length || prinfo.runNextInteraction){
+      else if ((prinfo.currentRows && prinfo.currentRowsCounter + 1 >= prinfo.currentRows.length) || prinfo.runNextInteraction){
         prinfo.runNextInteraction = false; // have to turn that flag back off so we don't fall back into here after running the next interaction
         getNextRowCounter += 1;
         // ok, we had some data but we've run out.  time to try running the next button interaction and see if we can retrieve some more

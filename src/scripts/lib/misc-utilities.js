@@ -2,7 +2,7 @@
 var WALconsole = (function _WALconsole() { var pub = {};
 
   pub.debugging = false;
-  pub.namedDebugging = ["getRelationItems", "nextInteraction"];
+  pub.namedDebugging = [];//["getRelationItems", "nextInteraction"];
   pub.styleMinimal = true;
 
   function loggingGuts(callerName, args){

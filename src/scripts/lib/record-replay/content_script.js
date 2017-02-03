@@ -481,8 +481,8 @@ function simulate(events, startIndex) {
 
     /* if no target exists, lets try to dispatch this event a little bit in
      *the future, and hope the page changes */
-    if (!target) {
-      if (checkTimeout(events, i)) {
+    if (!target || target === "TIMEDOUTNODE") {
+      if (checkTimeout(events, i) || target === "TIMEDOUTNODE") {
         if (eventRecord.target.requiredFeatures){
           // this is a special case, because the user has insisted on a few special features, and we want
           // the top-level tool to be allowed to decide what happens if node addressing fails in this case
@@ -493,6 +493,7 @@ function simulate(events, startIndex) {
           // todo: is this really what we want?  perhaps we should let the higher-level tool know what happened
           // we can thus let it pick the strategy.  perhaps when it isn't found, we should quit
           replayLog.warn('timeout finding target, skip event: ', events, i);
+          markTimedOut(targetInfo);
           // we timed out with this target, so lets skip the event
           i++;
         }

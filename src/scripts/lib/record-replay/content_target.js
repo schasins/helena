@@ -7,6 +7,7 @@ var getTarget;
 var getTargetFunction;
 var targetFunctions;
 var saveTargetInfo;
+var markTimedOut;
 
 (function() {
   var log = getLog('target');
@@ -361,7 +362,7 @@ function getFeatures(element){
     //console.log("userFilteredCandidates", userFilteredCandidates.length, userFilteredCandidates);
     // this is a case where, because user can require features that no longer appear, we can get zero matches!
     if (userFilteredCandidates.length === 0){
-      console.log("After filtering on user-selected features, no candidates qualify.");
+      //console.log("After filtering on user-selected features, no candidates qualify.");
       return null;
     }
 
@@ -386,7 +387,7 @@ function getFeatures(element){
   var identifiedNodesCache = {};
 
   getTarget = function(targetInfo) {
-    console.log("identifiedNodesCache", identifiedNodesCache.length, identifiedNodesCache);
+    // console.log("identifiedNodesCache", identifiedNodesCache.length, identifiedNodesCache);
     if (! targetInfo){
       return null;
     }
@@ -400,12 +401,17 @@ function getFeatures(element){
       }
       return cachedNode;
     }
+    if (xpath in timedOutNodes){
+      WALconsole.namedLog("nodeTimeout", "nope, this node timed out");
+      return "TIMEDOUTNODE";
+    }
+
     // we have a useXpathOnly flag set to true when the top level has parameterized on xpath, and normal node addressing approach should be ignored
     if (targetInfo.useXpathOnly){
       var nodes = xPathToNodes(xpath);
       if (nodes.length > 0){
         var xpathNode = nodes[0];
-        console.log("xpathNode", xpathNode);
+        WALconsole.namedLog("nodeTimeout", "xpathNode", xpathNode);
         return xpathNode;
       }
     }
@@ -419,9 +425,28 @@ function getFeatures(element){
     // ok, now let's use similarity-based node finding
     var features = targetInfo.snapshot;
     var winningNode = getTargetForSimilarityFilteredByText(features, filterFeatures);
-    identifiedNodesCache[xpath] = winningNode;
+    if (winningNode){
+      identifiedNodesCache[xpath] = winningNode;
+    }
     return winningNode;
   }
+
+  var timedOutNodes = {};
+
+  // trying an approach where we keep track of the fact that a given node doesn't appear to exist on current page
+  markTimedOut = function(targetInfo) {
+    WALconsole.namedLog("nodeTimeout", "marked timed out");
+    timedOutNodes[targetInfo.xpath] = true;
+  };
+
+  // now let's not go crazy with recording when we've seen a timeout.  if the page changes, let's clear out all our timedOutNodes
+  // todo: should we also clear out the identifiedNodesCache
+  MutationObserver = window.MutationObserver || window.WebKitMutationObserver;
+  var observer = new MutationObserver(function(mutations, observer) {
+      // fired when a mutation occurs
+      WALconsole.namedLog("nodeTimeout", "observed dom change, clearing timeout cache");
+      timedOutNodes = {};
+  });
 
   /* List of all target functions. Used for benchmarking */
   targetFunctions = {

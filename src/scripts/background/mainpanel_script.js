@@ -1299,8 +1299,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (relationColumnUsed){
         relationColumnUsed.scraped = true; // need the relation column to keep track of the fact that this is being scraped
         // this is cool because now we don't need to actually run scraping interactions to get the value, so let's update the cleanTrace to reflect that
+        /*
         for (var i = this.cleanTrace.length - 1; i >= 0; i--){
-          if (this.cleanTrace[i].additional && this.cleanTrace[i].additional.scrape){
+          if (this.cleanTrace[i].additional && this.cleanTrace[i].additional.scrape && this.cleanTrace[i].data.type !== "focus"){
             // todo: do we need to add this to the above condition:
             // && !(["keyup", "keypress", "keydown"].indexOf(this.cleanTrace[i].data.type) > -1)
             // todo: the below is commented out for debugging;  fix it
@@ -1308,6 +1309,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }
         }
         WALconsole.log("shortened cleantrace", this.cleanTrace);
+        */
         return [relationColumnUsed];
       }
       else {
@@ -3155,19 +3157,25 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           throw("nextBlockStartIndex 0");
         }
 
-        basicBlockStatements = filterScrapingKeypresses(basicBlockStatements);
+        basicBlockStatements = markNonTraceContributingStatements(basicBlockStatements);
 
         // make the trace we'll replay
         var trace = [];
         // label each trace item with the basicBlock statement being used
         var withinScrapeSection = false;
         for (var i = 0; i < basicBlockStatements.length; i++){
-          // if it's a scrape of a relation item, we don't actually need to do anything, so skip it
-          if (basicBlockStatements[i] instanceof WebAutomationLanguage.ScrapeStatement && basicBlockStatements[i].scrapingRelationItem()){
-            continue;
-          }
 
           var cleanTrace = basicBlockStatements[i].cleanTrace;
+
+          // first let's figure out whether we're even doing anything with this statement
+          if (basicBlockStatements[i].contributesTrace === TraceContributions.NONE){
+            continue; // don't need this one.  just skip
+          }
+          else if (basicBlockStatements[i].contributesTrace === TraceContributions.FOCUS){
+            // let's just change the cleanTrace so that it only grabs the focus events
+            cleanTrace = _.filter(cleanTrace, function(ev){return ev.data.type === "focus";});
+          }
+
           _.each(cleanTrace, function(ev){EventM.setTemporaryStatementIdentifier(ev, i);});
 
           // ok, now let's deal with speeding up the trace based on knowing that scraping shouldn't change stuff, so we don't need to wait after it
@@ -3491,10 +3499,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return false;
     }
 
-    function filterScrapingKeypresses(statements){
+    var TraceContributions = {
+      NONE: 0,
+      FOCUS: 1
+    };
+
+    function markNonTraceContributingStatements(statements){
       // if we ever get a sequence within the statements that's a keydown statement, then only scraping statements, then a keyup, assume we can toss the keyup and keydown ones
 
-      WALconsole.log("filterScrapingKeypresses", statements);
+      WALconsole.log("markNonTraceContributingStatements", statements);
       var keyIndexes = [];
       var keysdown = [];
       var keysup = [];
@@ -3516,7 +3529,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           keysdown.sort();
           keysup.sort();
           if (_.isEqual(keysdown, keysup) && isScrapingSet(keysdown)) {
-            console.log("decided to remove set", keyIndexes, keysdown);
+            WALconsole.log("decided to remove set", keyIndexes, keysdown);
             sets.push(keyIndexes);
             keyIndexes = [];
             keysdown = [];
@@ -3533,21 +3546,28 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // they're in sets because may ultimately want to try manipulating scraping statements in the middle if they don't have dom events (as when relation parameterized)
       // but for now we'll stick with this
 
-      for (var i = sets.length - 1; i >= 0; i--){
+      for (var i = 0; i < sets.length; i++){
         var set = sets[i];
 
-        /*
-        // let's first make sure to make the state match the state it should have, based on no longer having these keypresses around
-        for (var k = set[0]; k < set[set.length - 1]; k++){
-          var cleanTrace = statements[k].cleanTrace;
+        // let's ignore the events associated with all of these statements!
+        for (var j = set[0]; j < set[set.length -1] + 1; j++){
+          var statement = statements[j];
+          statement.contributesTrace = TraceContributions.NONE;
+        }
+        // ok, one exception.  sometimes the last relation scraping statement interacts with the same node that we'll use immediately after scraping stops
+        // in these cases, during record, the focus was shifted to the correct node during scraping, but the replay won't shift focus unless we replay that focus event
+        // so we'd better replay that focus event
+        var keyupIndex = set[set.length - 1];
+        if (statements.length > keyupIndex + 1){
+          // is it ok to restrict it to only cases where we're replaying another event immediately after?  rather than a for loop or ending or whatever?
+          // it's definitely ok while we're only using our own inserted for loops, since those get inserted where we start using a new node
+          var lastStatementBeforeKeyup = statements[keyupIndex - 1];
+          WALconsole.log("lastStatementBeforeKeyup", lastStatementBeforeKeyup);
+          lastStatementBeforeKeyup.contributesTrace = TraceContributions.FOCUS;
+          // let's make sure to make the state match the state it should have, based on no longer having these keypresses around
+          var cleanTrace = lastStatementBeforeKeyup.cleanTrace;
           _.each(cleanTrace, function(ev){if (ev.data.ctrlKey){ev.data.ctrlKey = false;}}); // right now hard coded to get rid of ctrl alt every time.  todo: fix
           _.each(cleanTrace, function(ev){if (ev.data.altKey){ev.data.altKey = false;}});
-        }
-        */
-        
-        // now let's actually get rid of the keypress statements
-        for (var j = set.length - 1; j >= 0; j--){
-          statements.splice(set[j], 1);
         }
 
         /* an alternative that removes keyup, keydown events instead of the whole statements
@@ -3566,7 +3586,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         
       }
       
-      WALconsole.log("filterScrapingKeypresses", statements);
+      WALconsole.log("markNonTraceContributingStatements", statements);
       return statements;
     }
 

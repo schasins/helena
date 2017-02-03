@@ -3451,6 +3451,26 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       $.post('http://kaofang.cs.berkeley.edu:8080/retrieverelations', { pages: reqList }, function(resp){that.processServerRelations(resp);});
     }
 
+    function isScrapingSet(keyCodes){
+      var charsDict = {SHIFT: 16, CTRL: 17, ALT: 18, CMD: 91};
+      keyCodes.sort();
+      var acceptableSets = [
+        [charsDict.ALT], // mac scraping
+        [charsDict.CTRL, charsDict.ALT], // unix scraping
+        [charsDict.ALT, charsDict.SHIFT], // mac link scraping
+        [charsDict.CTRL, charsDict.ALT, charsDict.SHIFT] // unix link scraping
+      ];
+      for (var i = 0; i < acceptableSets.length; i++){
+        acceptableSet = acceptableSets[i];
+        acceptableSet.sort();
+        if (_.isEqual(keyCodes, acceptableSet)){
+          return true;
+        }
+      }
+      // nope, none of them are the right set
+      return false;
+    }
+
     function filterScrapingKeypresses(statements){
       // if we ever get a sequence within the statements that's a keydown statement, then only scraping statements, then a keyup, assume we can toss the keyup and keydown ones
 
@@ -3475,7 +3495,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // todo: is this a strong enough condition?
           keysdown.sort();
           keysup.sort();
-          if (_.isEqual(keysdown, keysup)) {
+          if (_.isEqual(keysdown, keysup) && isScrapingSet(keysdown)) {
+            console.log("decided to remove set", keyIndexes, keysdown);
             sets.push(keyIndexes);
             keyIndexes = [];
             keysdown = [];

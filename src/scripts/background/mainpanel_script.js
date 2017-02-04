@@ -3515,7 +3515,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         if (statements[i].origNode === statement.origNode) {
           return true;
         }
-        if (statements[i] instanceof WebAutomationLanguage.ScrapeStatement || statements[i] instanceof WebAutomationLanguage.ClickStatement){
+        if (statements[i] instanceof WebAutomationLanguage.ClickStatement){ // || statements[i] instanceof WebAutomationLanguage.ScrapeStatement){
           // ok, we found another statement that focuses a node, but it's a different node
           // todo: is this the right condition?  certainly TypeStatements don't always have the same origNode as the focus event that came immediately before
           return false;

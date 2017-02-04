@@ -3173,6 +3173,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }
           else if (basicBlockStatements[i].contributesTrace === TraceContributions.FOCUS){
             // let's just change the cleanTrace so that it only grabs the focus events
+            console.log("Warning: we're including a focus event, which might cause problems.  If you see weird behavior, check this first.");
             cleanTrace = _.filter(cleanTrace, function(ev){return ev.data.type === "focus";});
           }
 
@@ -3504,6 +3505,26 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       FOCUS: 1
     };
 
+    function sameNodeIsNextUsed(statement, statements){
+      console.log("sameNodeIsNextUsed", statement, statements);
+      if (!statement.origNode){ // there's no node associated with the first arg
+        console.log("Warning!  No node associated with the statement, which may mean there was an earlier statement that we should have called on.");
+        return false;
+      }
+      for (var i = 0; i < statements.length; i++){
+        if (statements[i].origNode === statement.origNode) {
+          return true;
+        }
+        if (statements[i] instanceof WebAutomationLanguage.ScrapeStatement || statements[i] instanceof WebAutomationLanguage.ClickStatement){
+          // ok, we found another statement that focuses a node, but it's a different node
+          // todo: is this the right condition?  certainly TypeStatements don't always have the same origNode as the focus event that came immediately before
+          return false;
+        }
+      }
+      // we've run out
+      return false;
+    }
+
     function markNonTraceContributingStatements(statements){
       // if we ever get a sequence within the statements that's a keydown statement, then only scraping statements, then a keyup, assume we can toss the keyup and keydown ones
 
@@ -3558,8 +3579,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // in these cases, during record, the focus was shifted to the correct node during scraping, but the replay won't shift focus unless we replay that focus event
         // so we'd better replay that focus event
         var keyupIndex = set[set.length - 1];
-        if (statements.length > keyupIndex + 1){
-          // is it ok to restrict it to only cases where we're replaying another event immediately after?  rather than a for loop or ending or whatever?
+        if (sameNodeIsNextUsed(statements[keyupIndex - 1], statements.slice(keyupIndex + 1, statements.length))){
+          // is it ok to restrict it to only statements replayed immediately after?  rather than in a for loop that's coming up or whatever?
           // it's definitely ok while we're only using our own inserted for loops, since those get inserted where we start using a new node
           var lastStatementBeforeKeyup = statements[keyupIndex - 1];
           WALconsole.log("lastStatementBeforeKeyup", lastStatementBeforeKeyup);

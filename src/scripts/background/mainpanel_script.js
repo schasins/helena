@@ -17,6 +17,7 @@ function setUp(){
 
 $(setUp);
 
+var workspace = null;
 
 /**********************************************************************
  * Guide the user through making a demonstration recording
@@ -103,6 +104,10 @@ var RecorderUI = (function () {
     activateButton(div, "#save", RecorderUI.save);
     activateButton(div, "#replay", RecorderUI.replayOriginal);
     activateButton(div, '#relation_upload', RecorderUI.uploadRelation);
+
+    workspace = Blockly.inject('blockly_div', {toolbox: document.getElementById('toolbox')});
+    setTimeout(function(){Blockly.svgResize(workspace);}, 0);
+
     RecorderUI.updateDisplayedScript();
     RecorderUI.updateDisplayedRelations(inProgress);
   };

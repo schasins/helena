@@ -24,6 +24,12 @@
 	<script type="text/javascript" src="../scripts/background/output_handling.js"></script>
 	<script type="text/javascript" src="../scripts/background/errors.js"></script>
 	<script type="text/javascript" src="../scripts/background/environment.js"></script>
+
+	<script src="../scripts/lib/blockly/blockly_compressed.js"></script>
+	<script src="../scripts/lib/blockly/blocks_compressed.js"></script>
+	<script src="../scripts/lib/blockly/msg/js/en.js"></script>
+	<script type="text/javascript" src="../scripts/background/blockly_custom_blocks.js"></script>
+	
 	<script type="text/javascript" src="../scripts/background/mainpanel_script.js"></script>
 	
 	<link href='https://fonts.googleapis.com/css?family=Montserrat' rel='stylesheet' type='text/css'>
@@ -79,6 +85,12 @@
 
 			<div id="script_preview" class="new_script_message_stage">
 				<div id="program_representation"></div>
+				
+				<div id="blockly_div"></div>
+				<xml id="toolbox" style="display: none">
+				  <block type="scraping_for_each"></block>
+				</xml>
+
 				<div id="relations_container">
 					<div class="title">Relevant Tables</div>
 					<div id="status_message"></div>

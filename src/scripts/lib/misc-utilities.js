@@ -677,4 +677,17 @@ var SortedArray = (function () {
 }());
 
 
+var XMLBuilder = (function _XMLBuilder() { var pub = {};
+
+  pub.newNode = function _newNode(name, options, content){
+    var optionsStr = "";
+    for (var prop in options){
+      optionsStr += prop + "=\"" + options[prop] + "\"";
+    }
+    return "<" + name + optionStr + ">" + content + "</" + name + ">";
+  }
+
+return pub; }());
+
+
 

@@ -680,11 +680,12 @@ var SortedArray = (function () {
 var XMLBuilder = (function _XMLBuilder() { var pub = {};
 
   pub.newNode = function _newNode(name, options, content){
-    var optionsStr = "";
+    var optionsStrs = [];
     for (var prop in options){
-      optionsStr += prop + "=\"" + options[prop] + "\"";
+      optionsStrs.push(prop + "=\"" + options[prop] + "\"");
     }
-    return "<" + name + optionStr + ">" + content + "</" + name + ">";
+    var optionsStr = optionsStrs.join(" ");
+    return "<" + name + " " + optionsStr + ">" + content + "</" + name + ">";
   }
 
 return pub; }());

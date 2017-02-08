@@ -53,7 +53,7 @@ var OutputHandler = (function _OutputHandler() {
         $.post('http://kaofang.cs.berkeley.edu:8080/datasetslice', 
           message, 
           function(resp){/* todo: add better error handling eventually*/ return;}).fail(function(){
-            sendHelper(message); // if we failed, need to be sure to send the slice again...
+            setTimeout(function(){sendHelper(message);}, 2000); // if we failed, need to be sure to send the slice again...
           });
       };
       sendHelper(msg);

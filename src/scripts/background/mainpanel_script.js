@@ -379,6 +379,13 @@ var RecorderUI = (function () {
     var scriptString = program.toString();
     var scriptPreviewDiv = $("#new_script_content").find("#program_representation");
     DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
+
+    var xmlString = program.toBlocklyXML();
+    console.log("xmlString", xmlString);
+    var xml = Blockly.Xml.textToDom(xmlString);
+    console.log("xml", xml);
+    Blockly.Xml.domToWorkspace(xml, workspace);
+
     if (program.name){
       $("#new_script_content").find("#program_name").get(0).value = program.name;
     }
@@ -905,6 +912,24 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   // helper functions that some statements will use
 
+  function makePageVarsDropdown(pageVars){
+    var pageVarsDropDown = [];
+    for (var i = 0; i < pageVars.length; i++){
+      var pageVarStr = pageVars[i].toString();
+      pageVarsDropDown.push([pageVarStr, pageVarStr]);
+    }
+    return pageVarsDropDown;
+  }
+
+  function makeRelationsDropdown(relations){
+    var relationsDropDown = [];
+    for (var i = 0; i < relations.length; i++){
+      var relationStr = relations[i].name;
+      relationsDropDown.push([relationStr, relationStr]);
+    }
+    return relationsDropDown;
+  }
+
   function nodeRepresentation(statement, linkScraping){
     if (linkScraping === undefined){ linkScraping = false; }
     if (statement.currentNode instanceof WebAutomationLanguage.VariableUse){
@@ -1028,10 +1053,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     ReplayTraceManipulation.requireFeature(statement.cleanTrace, statement.node, featureName);
   }
 
+  function setBlocklyLabel(obj, label){
+    obj.blocklyLabel = label;
+  }
+
   // the actual statements
 
   pub.LoadStatement = function _LoadStatement(trace){
     Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "load");
     if (trace){ // we will sometimes initialize with undefined, as when reviving a saved program
       this.trace = trace;
 
@@ -1080,6 +1110,30 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.toStringLines = function _toStringLines(){
       var cUrl = this.cUrlString();
       return [this.outputPageVar.toString()+" = load("+cUrl+")"];
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      var pageVarsDropDown = makePageVarsDropdown(pageVars);
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          this.appendDummyInput()
+              .appendField("load")
+              .appendField(new Blockly.FieldTextInput("URL"), "url")
+              .appendField("in")
+              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+          this.setPreviousStatement(true, null);
+        }
+      };
+    };
+
+    this.toBlocklyXML = function _toBlocklyXML(options){
+      if (options === undefined){ options = {};}
+      var urlNode = XMLBuilder.newNode("field", {name: "url"}, encodeURIComponent(this.cUrl()));
+      var pageNode = XMLBuilder.newNode("field", {name: "page"}, this.outputPageVar.toString());
+      var content = urlNode + pageNode;
+      options.type = this.blocklyLabel;
+      var wholeNode = XMLBuilder.newNode("block", options, content);
+      return wholeNode;
     };
 
     this.traverse = function _traverse(fn){
@@ -1137,6 +1191,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   };
   pub.ClickStatement = function _ClickStatement(trace){
     Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "click");
     if (trace){ // we will sometimes initialize with undefined, as when reviving a saved program
       this.trace = trace;
 
@@ -1169,6 +1224,31 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.toStringLines = function _toStringLines(){
       var nodeRep = nodeRepresentation(this);
       return [outputPagesRepresentation(this)+"click("+this.pageVar.toString()+", "+nodeRep+")"];
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      var pageVarsDropDown = makePageVarsDropdown(pageVars);
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          this.appendDummyInput()
+              .appendField("click")
+              .appendField(new Blockly.FieldTextInput("node"), "node") // switch to pulldown
+              .appendField("in")
+              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+          this.setPreviousStatement(true, null);
+        }
+      };
+    };
+
+    this.toBlocklyXML = function _toBlocklyXML(options){
+      if (options === undefined){ options = {};}
+      var nodeRep = nodeRepresentation(this);
+      var nodeNode = XMLBuilder.newNode("field", {name: "node"}, nodeRep);
+      var pageNode = XMLBuilder.newNode("field", {name: "page"}, this.pageVar.toString());
+      var content = nodeNode + pageNode;
+      options.type = this.blocklyLabel;
+      var wholeNode = XMLBuilder.newNode("block", options, content);
+      return wholeNode;
     };
 
     this.traverse = function _traverse(fn){
@@ -1217,6 +1297,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   }
   pub.ScrapeStatement = function _ScrapeStatement(trace){
     Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "scrape");
     this.associatedOutputStatements = [];
     if (trace){ // we will sometimes initialize with undefined, as when reviving a saved program
       this.trace = trace;
@@ -1266,6 +1347,31 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       //  sString = "scrapeLink(";
       //}
       return [sString+this.pageVar.toString()+", "+nodeRep+")"];
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      var pageVarsDropDown = makePageVarsDropdown(pageVars);
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          this.appendDummyInput()
+              .appendField("scrape")
+              .appendField(new Blockly.FieldTextInput("node"), "node") // switch to pulldown
+              .appendField("in")
+              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+          this.setPreviousStatement(true, null);
+        }
+      };
+    };
+
+    this.toBlocklyXML = function _toBlocklyXML(options){
+      if (options === undefined){ options = {};}
+      var nodeRep = nodeRepresentation(this, this.scrapeLink);
+      var nodeNode = XMLBuilder.newNode("field", {name: "node"}, nodeRep);
+      var pageNode = XMLBuilder.newNode("field", {name: "page"}, this.pageVar.toString());
+      var content = nodeNode + pageNode;
+      options.type = this.blocklyLabel;
+      var wholeNode = XMLBuilder.newNode("block", options, content);
+      return wholeNode;
     };
 
     this.traverse = function _traverse(fn){
@@ -1441,6 +1547,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   pub.TypeStatement = function _TypeStatement(trace){
     Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "type");
     if (trace){ // we will sometimes initialize with undefined, as when reviving a saved program
       this.trace = trace;
       this.cleanTrace = cleanTrace(trace);
@@ -1493,16 +1600,21 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return;
     };
 
+    this.stringRep = function _typedString(){
+      var stringRep = "";
+      if (this.currentTypedString instanceof WebAutomationLanguage.Concatenate){
+        stringRep = this.currentTypedString.toString();
+      }
+      else{
+        stringRep = "'"+this.currentTypedString+"'";
+      }
+      return stringRep;
+    };
+
     this.toStringLines = function _toStringLines(){
       if (!this.onlyKeyups && !this.onlyKeydowns){
         // normal processing, for when there's actually a typed string
-        var stringRep = "";
-        if (this.currentTypedString instanceof WebAutomationLanguage.Concatenate){
-          stringRep = this.currentTypedString.toString();
-        }
-        else{
-          stringRep = "'"+this.currentTypedString+"'";
-        }
+        var stringRep = this.typedString();
         return [outputPagesRepresentation(this)+"type("+this.pageVar.toString()+", "+stringRep+")"];
       }
       else{
@@ -1520,6 +1632,31 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
         return [act + " " + charsString + " on " + this.pageVar.toString()];
       }
+    };
+
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      var pageVarsDropDown = makePageVarsDropdown(pageVars);
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          this.appendDummyInput()
+              .appendField("type")
+              .appendField(new Blockly.FieldTextInput("text"), "text")
+              .appendField("in")
+              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+          this.setPreviousStatement(true, null);
+        }
+      };
+    };
+
+    this.toBlocklyXML = function _toBlocklyXML(options){
+      if (options === undefined){ options = {};}
+      var textNode = XMLBuilder.newNode("field", {name: "text"}, this.stringRep());
+      var pageNode = XMLBuilder.newNode("field", {name: "page"}, this.pageVar.toString());
+      var content = textNode + pageNode;
+      options.type = this.blocklyLabel;
+      var wholeNode = XMLBuilder.newNode("block", options, content);
+      return wholeNode;
     };
 
     this.traverse = function _traverse(fn){
@@ -1601,6 +1738,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   pub.OutputRowStatement = function _OutputRowStatement(scrapeStatements){
     Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "output");
 
     var doInitialize = scrapeStatements; // we will sometimes initialize with undefined, as when reviving a saved program
 
@@ -1639,6 +1777,23 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var allNames = textRelationRepLs.concat(nodeRepLs).concat(["time"]);
       WALconsole.log("outputRowStatement", textRelationRepLs, nodeRepLs);
       return ["addOutputRow(["+allNames.join(",")+"])"];
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          this.appendDummyInput()
+              .appendField("output");
+          this.setPreviousStatement(true, null);
+        }
+      };
+    };
+
+    this.toBlocklyXML = function _toBlocklyXML(options){
+      if (options === undefined){ options = {};}
+      options.type = this.blocklyLabel;
+      var wholeNode = XMLBuilder.newNode("block", options, "");
+      return wholeNode;
     };
 
     this.traverse = function _traverse(fn){
@@ -1694,6 +1849,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   pub.BackStatement = function _BackStatement(pageVarCurr, pageVarBack){
     Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "back");
     var backStatement = this;
     if (pageVarCurr){ // we will sometimes initialize with undefined, as when reviving a saved program
       this.pageVarCurr = pageVarCurr;
@@ -1712,6 +1868,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // back statements are now invisible cleanup, not normal statements, so don't use the line below for now
       // return [this.pageVarBack.toString() + " = " + this.pageVarCurr.toString() + ".back()" ];
       return [];
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      var pageVarsDropDown = makePageVarsDropdown(pageVars);
+      Blockly.Blocks['load'] = {
+        init: function() {
+          this.appendDummyInput()
+              .appendField("load")
+              .appendField(new Blockly.FieldTextInput("URL"), "url")
+              .appendField("in")
+              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+          this.setPreviousStatement(true, null);
+        }
+      };
     };
 
     this.traverse = function _traverse(fn){
@@ -1747,6 +1917,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   pub.ClosePageStatement = function _ClosePageStatement(pageVarCurr){
     Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "close");
     if (pageVarCurr){ // we will sometimes initialize with undefined, as when reviving a saved program
       this.pageVarCurr = pageVarCurr;
     }
@@ -1764,6 +1935,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // close statements are now invisible cleanup, not normal statements, so don't use the line below for now
       // return [this.pageVarCurr.toString() + ".close()" ];
       return [];
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      return;
+    };
+
+    this.toBlocklyXML = function _toBlocklyXML(options){
+      if (options === undefined){ options = {};}
+      return "";
     };
 
     this.traverse = function _traverse(fn){
@@ -1797,6 +1977,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   pub.ContinueStatement = function _ContinueStatement(){
     Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "continue");
 
     this.remove = function _remove(){
       this.parent.removeChild(this);
@@ -1808,6 +1989,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.toStringLines = function _toStringLines(){
       return ["continue"];
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      var pageVarsDropDown = makePageVarsDropdown(pageVars);
+      Blockly.Blocks['load'] = {
+        init: function() {
+          this.appendDummyInput()
+              .appendField("load")
+              .appendField(new Blockly.FieldTextInput("URL"), "url")
+              .appendField("in")
+              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+          this.setPreviousStatement(true, null);
+        }
+      };
     };
 
     this.traverse = function _traverse(fn){
@@ -1829,6 +2024,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   pub.IfStatement = function _IfStatement(bodyStatements){
     Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "if");
 
     if (bodyStatements){ // we will sometimes initialize with undefined, as when reviving a saved program
       this.updateChildStatements(bodyStatements);
@@ -1853,6 +2049,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.toStringLines = function _toStringLines(){
       return ["if"]; // todo: when we have the real if statements, do the right thing
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      var pageVarsDropDown = makePageVarsDropdown(pageVars);
+      Blockly.Blocks['load'] = {
+        init: function() {
+          this.appendDummyInput()
+              .appendField("load")
+              .appendField(new Blockly.FieldTextInput("URL"), "url")
+              .appendField("in")
+              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+          this.setPreviousStatement(true, null);
+        }
+      };
     };
 
     this.traverse = function _traverse(fn){
@@ -1922,6 +2132,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   pub.LoopStatement = function _LoopStatement(relation, relationColumnsUsed, bodyStatements, pageVar){
     Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "loop");
 
     var doInitialization = bodyStatements;
 
@@ -1968,6 +2179,37 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var statementStrings = _.reduce(this.bodyStatements, function(acc, statement){return acc.concat(statement.toStringLines());}, []);
       statementStrings = _.map(statementStrings, function(line){return ("&nbsp&nbsp&nbsp&nbsp "+line);});
       return [prefix].concat(statementStrings);
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      var pageVarsDropDown = makePageVarsDropdown(pageVars);
+      var relationsDropDown = makeRelationsDropdown(relations);
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          this.appendDummyInput()
+              .appendField("for each row in")
+              .appendField(new Blockly.FieldDropdown(relationsDropDown), "list")        
+              .appendField("in")
+              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+          this.setPreviousStatement(true, null);
+        }
+      };
+    };
+
+    this.toBlocklyXML = function _toBlocklyXML(options){
+      if (options === undefined){ options = {};}
+      var listNode = XMLBuilder.newNode("field", {name: "list"}, this.relation.name);
+      var pageNode = XMLBuilder.newNode("field", {name: "page"}, this.pageVar.toString());
+      var statementXMLs = [];
+      for (var i = 0; i < this.bodyStatements.length; i++){
+        statementXMLs.push(this.bodyStatements[i].toBlocklyXML());
+      }
+      var statementContent = statementXMLs.join("");
+      var statementNode = XMLBuilder.newNode("statement", {name: "statement"}, statementContent);
+      var content = listNode + pageNode + statementNode;
+      options.type = this.blocklyLabel;
+      var wholeNode = XMLBuilder.newNode("block", options, content);
+      return wholeNode;
     };
 
     this.traverse = function _traverse(fn){
@@ -2929,6 +3171,29 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var scriptString = "";
       _.each(statementLs, function(statement){scriptString += statement.toStringLines().join("<br>") + "<br>";});
       return scriptString;
+    };
+
+    this.toBlocklyXML = function _toBlocklyXML(){
+      // first things first, have to update the current set of blocks based on our pageVars, relations, so on
+      this.traverse(function(statement){statement.updateBlocklyBlock(program.pageVars, program.relations)}); // so let's call updateBlocklyBlock on all statements
+      // ok, now we can actually make the XML
+      var statementLs = this.loopyStatements;
+      if (this.loopyStatements.length === 0){
+        statementLs = this.statements;
+      }
+      var xmlString = "";
+      for (var i = 0; i < statementLs.length; i++){
+        var statement = statementLs[i];
+        var options = {};
+        if (i === 0){
+          // special options for the first statement, since we have to place in the canvas
+          options.x = 50;
+          options.y = 50;
+        }
+        xmlString += statement.toBlocklyXML(options);
+      }
+      xmlString = "<xml>" + xmlString + "</xml>";
+      return xmlString;
     };
 
     // a convenient way to traverse the statements of a program
@@ -3961,6 +4226,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   }
 
+  // time to apply labels for revival purposes
   for (var prop in pub){
     if (typeof pub[prop] === "function"){
       WALconsole.log("making revival label for ", prop);

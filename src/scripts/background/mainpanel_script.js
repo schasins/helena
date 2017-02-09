@@ -13,6 +13,10 @@ function setUp(){
   //$("button").button(); 
   $( "#tabs" ).tabs();
   RecorderUI.setUpRecordingUI();
+
+  // control blockly look and feel
+  Blockly.HSV_SATURATION = 0.7;
+  Blockly.HSV_VALUE = 0.97;
 }
 
 $(setUp);
@@ -96,6 +100,39 @@ var RecorderUI = (function () {
     pub.showProgramPreview(true); // true because we're currently processing the script, stuff is in progress
   };
 
+  function handleBlocklyEditorResizing(){
+    // first make a toolbox with all the block nodes we want
+    var $toolboxDiv = $("#new_script_content").find("#toolbox");
+    $toolboxDiv.html("");
+    for (var i = 0; i < blocklyLabels.length; i++){
+      $toolboxDiv.append($("<block type=\"" + blocklyLabels[i] + "\"></block>"));
+    }
+
+    // now handle the actual editor resizing
+    var blocklyArea = document.getElementById('blockly_area');
+    var blocklyDiv = document.getElementById('blockly_div');
+    workspace = Blockly.inject('blockly_div', {toolbox: $toolboxDiv.get(0)});
+    var onresize = function(e) {
+      // compute the absolute coordinates and dimensions of blocklyArea.
+      var element = blocklyArea;
+      var x = 0;
+      var y = 0;
+      do {
+        x += element.offsetLeft;
+        y += element.offsetTop;
+        element = element.offsetParent;
+      } while (element);
+      // Position blocklyDiv over blocklyArea.
+      blocklyDiv.style.left = x + 'px';
+      blocklyDiv.style.top = y + 'px';
+      blocklyDiv.style.width = blocklyArea.offsetWidth + 'px';
+      blocklyDiv.style.height = blocklyArea.offsetHeight + 'px';
+    };
+    window.addEventListener('resize', onresize, false);
+    onresize();
+    Blockly.svgResize(workspace);
+  };
+
   pub.showProgramPreview = function _showProgramPreview(inProgress){
     WALconsole.log("showProgramPreview");
     if (inProgress === undefined){ inProgress = false; }
@@ -106,14 +143,14 @@ var RecorderUI = (function () {
     activateButton(div, "#replay", RecorderUI.replayOriginal);
     activateButton(div, '#relation_upload', RecorderUI.uploadRelation);
 
-    var $toolboxDiv = div.find("#toolbox");
-    $toolboxDiv.html("");
-    for (var i = 0; i < blocklyLabels.length; i++){
-      $toolboxDiv.append($("<block type=\"" + blocklyLabels[i] + "\"></block>"));
-    }
-
+    // first we better make sure we have all the blocks we want for the toolbox
+    ReplayScript.prog.updateBlocklyBlocks();
+    handleBlocklyEditorResizing();
+/*
     workspace = Blockly.inject('blockly_div', {toolbox: $toolboxDiv.get(0)});
     setTimeout(function(){Blockly.svgResize(workspace);}, 0);
+    window.addEventListener('resize', function(){Blockly.svgResize(workspace);}, false);
+    */
 
     RecorderUI.updateDisplayedScript();
     RecorderUI.updateDisplayedRelations(inProgress);
@@ -1131,6 +1168,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
           this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(280);
         }
       };
     };
@@ -1246,6 +1285,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
           this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(280);
         }
       };
     };
@@ -1370,6 +1411,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
           this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(280);
         }
       };
     };
@@ -1657,6 +1700,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
           this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(280);
         }
       };
     };
@@ -1798,6 +1843,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.appendDummyInput()
               .appendField("output");
           this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(25);
         }
       };
     };
@@ -1866,7 +1913,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   pub.BackStatement = function _BackStatement(pageVarCurr, pageVarBack){
     Revival.addRevivalLabel(this);
-    setBlocklyLabel(this, "back");
+    // setBlocklyLabel(this, "back");
     var backStatement = this;
     if (pageVarCurr){ // we will sometimes initialize with undefined, as when reviving a saved program
       this.pageVarCurr = pageVarCurr;
@@ -1888,17 +1935,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
-      var pageVarsDropDown = makePageVarsDropdown(pageVars);
-      Blockly.Blocks['load'] = {
-        init: function() {
-          this.appendDummyInput()
-              .appendField("load")
-              .appendField(new Blockly.FieldTextInput("URL"), "url")
-              .appendField("in")
-              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
-          this.setPreviousStatement(true, null);
-        }
-      };
+      // we don't display back presses for now
     };
 
     this.traverse = function _traverse(fn){
@@ -1934,7 +1971,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   pub.ClosePageStatement = function _ClosePageStatement(pageVarCurr){
     Revival.addRevivalLabel(this);
-    setBlocklyLabel(this, "close");
+    // setBlocklyLabel(this, "close");
     if (pageVarCurr){ // we will sometimes initialize with undefined, as when reviving a saved program
       this.pageVarCurr = pageVarCurr;
     }
@@ -2018,6 +2055,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
           this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
         }
       };
     };
@@ -2078,6 +2116,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
           this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
         }
       };
     };
@@ -2208,7 +2247,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField(new Blockly.FieldDropdown(relationsDropDown), "list")        
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+          this.appendStatementInput("statements")
+              .setCheck(null)
+              .appendField("do");
           this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(44);
+          this.setTooltip('');
+          this.setHelpUrl('');
         }
       };
     };
@@ -2226,7 +2272,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
       }
       var statementContent = lastStatementXML;
-      var statementNode = XMLBuilder.newNode("statement", {name: "statement"}, statementContent);
+      var statementNode = XMLBuilder.newNode("statement", {name: "statements"}, statementContent);
       var nextNode = XMLBuilder.newNode("next", {}, nextXml);
       var content = listNode + pageNode + statementNode + nextNode;
       options.type = this.blocklyLabel;
@@ -3195,10 +3241,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return scriptString;
     };
 
-    this.toBlocklyXML = function _toBlocklyXML(){
-      // first things first, have to update the current set of blocks based on our pageVars, relations, so on
+    this.updateBlocklyBlocks = function _updateBlocklyBlocks(){
+      // have to update the current set of blocks based on our pageVars, relations, so on
       this.traverse(function(statement){statement.updateBlocklyBlock(program.pageVars, program.relations)}); // so let's call updateBlocklyBlock on all statements
-      // ok, now we can actually make the XML
+    };
+
+
+
+    this.toBlocklyXML = function _toBlocklyXML(){
+      var parentBlock = workspace.newBlock("load")
+
+
       var statementLs = this.loopyStatements;
       if (this.loopyStatements.length === 0){
         statementLs = this.statements;
@@ -3210,8 +3263,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var options = {};
         if (i === 0){
           // special options for the first statement, since we have to place in the canvas
-          options.x = 50;
-          options.y = 50;
+          options.x = 30;
+          options.y = 30;
         }
         lastXmlString = statement.toBlocklyXML(options, lastXmlString);
       }

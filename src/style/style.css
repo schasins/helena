@@ -120,6 +120,7 @@ h4 {
 
 #blockly_div{
 	margin-top: 8px;
+	height: 400px;
 }
 
 .relation_preview{

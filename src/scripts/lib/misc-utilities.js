@@ -680,8 +680,19 @@ var SortedArray = (function () {
 var XMLBuilder = (function _XMLBuilder() { var pub = {};
 
   pub.newNode = function _newNode(name, options, content){
+    if (content === null || content === undefined){
+      console.log("no content, returning");
+      return ""; // assuming we don't actually want this?
+    }
     var optionsStrs = [];
+    if ("type" in options){
+      // we have to do type first, if it's in here
+      optionsStrs.push("type=\""+options["type"]+"\"");
+    }
     for (var prop in options){
+      if (prop === "type"){
+        continue;
+      }
       optionsStrs.push(prop + "=\"" + options[prop] + "\"");
     }
     var optionsStr = optionsStrs.join(" ");

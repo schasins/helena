@@ -13,11 +13,16 @@ function setUp(){
   //$("button").button(); 
   $( "#tabs" ).tabs();
   RecorderUI.setUpRecordingUI();
+
+  // control blockly look and feel
+  Blockly.HSV_SATURATION = 0.7;
+  Blockly.HSV_VALUE = 0.97;
 }
 
 $(setUp);
 
 var workspace = null;
+var blocklyLabels = [];
 
 /**********************************************************************
  * Guide the user through making a demonstration recording
@@ -95,6 +100,40 @@ var RecorderUI = (function () {
     pub.showProgramPreview(true); // true because we're currently processing the script, stuff is in progress
   };
 
+  function handleBlocklyEditorResizing(){
+    // first make a toolbox with all the block nodes we want
+    var $toolboxDiv = $("#new_script_content").find("#toolbox");
+    $toolboxDiv.html("");
+    for (var i = 0; i < blocklyLabels.length; i++){
+      $toolboxDiv.append($("<block type=\"" + blocklyLabels[i] + "\"></block>"));
+    }
+
+    // now handle the actual editor resizing
+    var blocklyArea = document.getElementById('blockly_area');
+    var blocklyDiv = document.getElementById('blockly_div');
+    workspace = Blockly.inject('blockly_div', {toolbox: $toolboxDiv.get(0)});
+    var onresize = function(e) {
+      // compute the absolute coordinates and dimensions of blocklyArea.
+      var element = blocklyArea;
+      var x = 0;
+      var y = 0;
+      do {
+        x += element.offsetLeft;
+        y += element.offsetTop;
+        element = element.offsetParent;
+      } while (element);
+      // Position blocklyDiv over blocklyArea.
+      blocklyDiv.style.left = x + 'px';
+      blocklyDiv.style.top = y + 'px';
+      blocklyDiv.style.width = blocklyArea.offsetWidth + 'px';
+      blocklyDiv.style.height = blocklyArea.offsetHeight + 'px';
+    };
+    window.addEventListener('resize', onresize, false);
+    onresize();
+    Blockly.svgResize(workspace);
+    return onresize;
+  };
+
   pub.showProgramPreview = function _showProgramPreview(inProgress){
     WALconsole.log("showProgramPreview");
     if (inProgress === undefined){ inProgress = false; }
@@ -105,11 +144,18 @@ var RecorderUI = (function () {
     activateButton(div, "#replay", RecorderUI.replayOriginal);
     activateButton(div, '#relation_upload', RecorderUI.uploadRelation);
 
-    workspace = Blockly.inject('blockly_div', {toolbox: document.getElementById('toolbox')});
+    // first we better make sure we have all the blocks we want for the toolbox
+    ReplayScript.prog.updateBlocklyBlocks();
+    var readjustFunc = handleBlocklyEditorResizing();
+/*
+    workspace = Blockly.inject('blockly_div', {toolbox: $toolboxDiv.get(0)});
     setTimeout(function(){Blockly.svgResize(workspace);}, 0);
+    window.addEventListener('resize', function(){Blockly.svgResize(workspace);}, false);
+    */
 
     RecorderUI.updateDisplayedScript();
     RecorderUI.updateDisplayedRelations(inProgress);
+    readjustFunc();
   };
 
   pub.run = function _run(){
@@ -380,11 +426,7 @@ var RecorderUI = (function () {
     var scriptPreviewDiv = $("#new_script_content").find("#program_representation");
     DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
 
-    var xmlString = program.toBlocklyXML();
-    console.log("xmlString", xmlString);
-    var xml = Blockly.Xml.textToDom(xmlString);
-    console.log("xml", xml);
-    Blockly.Xml.domToWorkspace(xml, workspace);
+    program.displayBlockly();
 
     if (program.name){
       $("#new_script_content").find("#program_name").get(0).value = program.name;
@@ -489,8 +531,8 @@ var RecorderUI = (function () {
       revivedProgram.id = response.program.id; // if id was only assigned when it was saved, serialized_prog might not have that info yet
       revivedProgram.name = response.program.name;
       ReplayScript.prog = revivedProgram;
-      pub.showProgramPreview(false); // false because we're not currently processing the program (as in, finding relations, something like that)
       $("#tabs").tabs("option", "active", 0); // make that first tab (the program running tab) active again
+      pub.showProgramPreview(false); // false because we're not currently processing the program (as in, finding relations, something like that)
     });
   }
 
@@ -1055,6 +1097,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   function setBlocklyLabel(obj, label){
     obj.blocklyLabel = label;
+    blocklyLabels.push(label);
+    blocklyLabels = _.uniq(blocklyLabels);
+  }
+
+  function attachToPrevBlock(currBlock, prevBlock){
+    if (prevBlock){ // sometimes prevblock is null
+      console.log("prevBlock", prevBlock);
+      var prevBlockConnection = prevBlock.nextConnection;
+      var thisBlockConnection = currBlock.previousConnection;
+      prevBlockConnection.connect(thisBlockConnection);
+    }
   }
 
   // the actual statements
@@ -1122,15 +1175,26 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
           this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(280);
         }
       };
     };
 
-    this.toBlocklyXML = function _toBlocklyXML(options){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      this.block.setFieldValue(encodeURIComponent(this.cUrl()), "url");
+      this.block.setFieldValue(this.outputPageVar.toString(), "page");
+      attachToPrevBlock(this.block, prevBlock);
+      return this.block;
+    };
+
+    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
       if (options === undefined){ options = {};}
       var urlNode = XMLBuilder.newNode("field", {name: "url"}, encodeURIComponent(this.cUrl()));
       var pageNode = XMLBuilder.newNode("field", {name: "page"}, this.outputPageVar.toString());
-      var content = urlNode + pageNode;
+      var nextNode = XMLBuilder.newNode("next", {}, nextXml);
+      var content = urlNode + pageNode + nextNode;
       options.type = this.blocklyLabel;
       var wholeNode = XMLBuilder.newNode("block", options, content);
       return wholeNode;
@@ -1236,16 +1300,27 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
           this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(280);
         }
       };
     };
 
-    this.toBlocklyXML = function _toBlocklyXML(options){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      this.block.setFieldValue(nodeRepresentation(this), "node");
+      this.block.setFieldValue(this.pageVar.toString(), "page");
+      attachToPrevBlock(this.block, prevBlock);
+      return this.block;
+    };
+
+    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
       if (options === undefined){ options = {};}
       var nodeRep = nodeRepresentation(this);
       var nodeNode = XMLBuilder.newNode("field", {name: "node"}, nodeRep);
       var pageNode = XMLBuilder.newNode("field", {name: "page"}, this.pageVar.toString());
-      var content = nodeNode + pageNode;
+      var nextNode = XMLBuilder.newNode("next", {}, nextXml);
+      var content = nodeNode + pageNode + nextNode;
       options.type = this.blocklyLabel;
       var wholeNode = XMLBuilder.newNode("block", options, content);
       return wholeNode;
@@ -1359,16 +1434,27 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
           this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(280);
         }
       };
     };
 
-    this.toBlocklyXML = function _toBlocklyXML(options){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      this.block.setFieldValue(nodeRepresentation(this), "node");
+      this.block.setFieldValue(this.pageVar.toString(), "page");
+      attachToPrevBlock(this.block, prevBlock);
+      return this.block;
+    };
+
+    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
       if (options === undefined){ options = {};}
       var nodeRep = nodeRepresentation(this, this.scrapeLink);
       var nodeNode = XMLBuilder.newNode("field", {name: "node"}, nodeRep);
       var pageNode = XMLBuilder.newNode("field", {name: "page"}, this.pageVar.toString());
-      var content = nodeNode + pageNode;
+      var nextNode = XMLBuilder.newNode("next", {}, nextXml);
+      var content = nodeNode + pageNode + nextNode;
       options.type = this.blocklyLabel;
       var wholeNode = XMLBuilder.newNode("block", options, content);
       return wholeNode;
@@ -1645,15 +1731,26 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
           this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(280);
         }
       };
     };
 
-    this.toBlocklyXML = function _toBlocklyXML(options){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      this.block.setFieldValue(this.stringRep(), "text");
+      this.block.setFieldValue(this.pageVar.toString(), "page");
+      attachToPrevBlock(this.block, prevBlock);
+      return this.block;
+    };
+
+    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
       if (options === undefined){ options = {};}
       var textNode = XMLBuilder.newNode("field", {name: "text"}, this.stringRep());
       var pageNode = XMLBuilder.newNode("field", {name: "page"}, this.pageVar.toString());
-      var content = textNode + pageNode;
+      var nextNode = XMLBuilder.newNode("next", {}, nextXml);
+      var content = textNode + pageNode + nextNode;
       options.type = this.blocklyLabel;
       var wholeNode = XMLBuilder.newNode("block", options, content);
       return wholeNode;
@@ -1785,14 +1882,26 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.appendDummyInput()
               .appendField("output");
           this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(25);
         }
       };
     };
 
-    this.toBlocklyXML = function _toBlocklyXML(options){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      attachToPrevBlock(this.block, prevBlock);
+      return this.block;
+    };
+
+    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
       if (options === undefined){ options = {};}
+      var nextNode = XMLBuilder.newNode("next", {}, nextXml);
+      console.log("options", options);
+      console.log(this.blocklyLabel);
       options.type = this.blocklyLabel;
-      var wholeNode = XMLBuilder.newNode("block", options, "");
+      console.log("options", options);
+      var wholeNode = XMLBuilder.newNode("block", options, nextNode);
       return wholeNode;
     };
 
@@ -1849,7 +1958,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   pub.BackStatement = function _BackStatement(pageVarCurr, pageVarBack){
     Revival.addRevivalLabel(this);
-    setBlocklyLabel(this, "back");
+    // setBlocklyLabel(this, "back");
     var backStatement = this;
     if (pageVarCurr){ // we will sometimes initialize with undefined, as when reviving a saved program
       this.pageVarCurr = pageVarCurr;
@@ -1871,17 +1980,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
-      var pageVarsDropDown = makePageVarsDropdown(pageVars);
-      Blockly.Blocks['load'] = {
-        init: function() {
-          this.appendDummyInput()
-              .appendField("load")
-              .appendField(new Blockly.FieldTextInput("URL"), "url")
-              .appendField("in")
-              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
-          this.setPreviousStatement(true, null);
-        }
-      };
+      // we don't display back presses for now
     };
 
     this.traverse = function _traverse(fn){
@@ -1917,7 +2016,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   pub.ClosePageStatement = function _ClosePageStatement(pageVarCurr){
     Revival.addRevivalLabel(this);
-    setBlocklyLabel(this, "close");
+    // setBlocklyLabel(this, "close");
     if (pageVarCurr){ // we will sometimes initialize with undefined, as when reviving a saved program
       this.pageVarCurr = pageVarCurr;
     }
@@ -1941,9 +2040,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return;
     };
 
-    this.toBlocklyXML = function _toBlocklyXML(options){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      // ok, we're not actually making a block
+      return null;
+    };
+
+    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
       if (options === undefined){ options = {};}
-      return "";
+      return null;
     };
 
     this.traverse = function _traverse(fn){
@@ -2001,6 +2105,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
           this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
         }
       };
     };
@@ -2061,6 +2166,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
           this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
         }
       };
     };
@@ -2191,22 +2297,76 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField(new Blockly.FieldDropdown(relationsDropDown), "list")        
               .appendField("in")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+          this.appendStatementInput("statements")
+              .setCheck(null)
+              .appendField("do");
           this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(44);
+          this.setTooltip('');
+          this.setHelpUrl('');
         }
       };
     };
 
-    this.toBlocklyXML = function _toBlocklyXML(options){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      this.block.setFieldValue(this.relation.name, "list");
+      this.block.setFieldValue(this.pageVar.toString(), "page");
+      attachToPrevBlock(this.block, prevBlock);
+
+      // handle the body statements
+      var foundFirstNonNull = false;
+      var lastBlock = null;
+      for (var i = 1; i < this.bodyStatements.length; i++){
+        var newBlock = this.bodyStatements[i].genBlocklyNode(lastBlock);
+        if (newBlock !== null){ // handle the fact that there could be null-producing nodes in the middle, and need to connect around those
+          lastBlock = newBlock;
+          // also, if this is our first non-null block we want to attach it to the loop statement
+          if (!foundFirstNonNull){
+            foundFirstNonNull = true;
+
+            var parentConnection = this.block.getInput('statements').connection;
+            var childConnection = newBlock.previousConnection;
+            parentConnection.connect(childConnection);
+            console.log("this.block.getInput('statements')", this.block.getInput('statements'));
+          }
+        }
+      }
+
+      /*
+      if (this.bodyStatements.length > 0){
+        var firstStatement = this.bodyStatements[0];
+        var firstBlock = firstStatement.genBlocklyNode(null);
+        var parentConnection = this.block.getInput('statements').connection;
+        var childConnection = firstBlock.outputConnection;
+        parentConnection.connect(childConnection);
+        var lastBlock = firstBlock;
+        for (var i = 1; i < this.bodyStatements.length; i++){
+          var lastBlock = this.bodyStatements[i].genBlocklyNode(lastBlock);
+        }
+      }
+      */
+
+      return this.block;
+    };
+
+    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
       if (options === undefined){ options = {};}
       var listNode = XMLBuilder.newNode("field", {name: "list"}, this.relation.name);
       var pageNode = XMLBuilder.newNode("field", {name: "page"}, this.pageVar.toString());
-      var statementXMLs = [];
-      for (var i = 0; i < this.bodyStatements.length; i++){
-        statementXMLs.push(this.bodyStatements[i].toBlocklyXML());
+      if (this.bodyStatements.length > 0){
+        var lastStatementXML = this.bodyStatements[this.bodyStatements.length - 1].toBlocklyXML({}, null);
+        console.log("lastStatementXML", lastStatementXML);
+        console.log("last statement", this.bodyStatements[this.bodyStatements.length - 1]);
+        for (var i = this.bodyStatements.length - 2; i >= 0; i--){
+          lastStatementXML = this.bodyStatements[i].toBlocklyXML({}, lastStatementXML);
+        }
       }
-      var statementContent = statementXMLs.join("");
-      var statementNode = XMLBuilder.newNode("statement", {name: "statement"}, statementContent);
-      var content = listNode + pageNode + statementNode;
+      var statementContent = lastStatementXML;
+      var statementNode = XMLBuilder.newNode("statement", {name: "statements"}, statementContent);
+      var nextNode = XMLBuilder.newNode("next", {}, nextXml);
+      var content = listNode + pageNode + statementNode + nextNode;
       options.type = this.blocklyLabel;
       var wholeNode = XMLBuilder.newNode("block", options, content);
       return wholeNode;
@@ -3173,25 +3333,54 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return scriptString;
     };
 
-    this.toBlocklyXML = function _toBlocklyXML(){
-      // first things first, have to update the current set of blocks based on our pageVars, relations, so on
+    this.updateBlocklyBlocks = function _updateBlocklyBlocks(){
+      // have to update the current set of blocks based on our pageVars, relations, so on
       this.traverse(function(statement){statement.updateBlocklyBlock(program.pageVars, program.relations)}); // so let's call updateBlocklyBlock on all statements
-      // ok, now we can actually make the XML
+    };
+
+    this.displayBlockly = function _displayBlockly(){
+      var statementLs = this.loopyStatements;
+      if (this.loopyStatements.length === 0){
+        statementLs = this.statements;
+      }
+
+      // get the individual statements to produce their corresponding blockly blocks
+      var lastBlock = null;
+      for (var i = 0; i < statementLs.length; i++){
+        var newBlock = statementLs[i].genBlocklyNode(lastBlock);
+        if (newBlock !== null){ // handle the fact that there could be null-producing nodes in the middle, and need to connect around those
+          lastBlock = newBlock;
+        }
+      }
+
+      // now go through and actually display all those nodes
+      this.traverse(function(statement){
+        if (statement.block){
+          statement.block.initSvg();
+          statement.block.render();
+        }
+      });
+
+    };
+
+    this.toBlocklyXML = function _toBlocklyXML(){
       var statementLs = this.loopyStatements;
       if (this.loopyStatements.length === 0){
         statementLs = this.statements;
       }
       var xmlString = "";
-      for (var i = 0; i < statementLs.length; i++){
+      var lastXmlString = statementLs[statementLs.length -1].toBlocklyXML({}, null); // for the last node, we don't need to put anything in next
+      for (var i = statementLs.length - 2; i >= 0; i--){
         var statement = statementLs[i];
         var options = {};
         if (i === 0){
           // special options for the first statement, since we have to place in the canvas
-          options.x = 50;
-          options.y = 50;
+          options.x = 30;
+          options.y = 30;
         }
-        xmlString += statement.toBlocklyXML(options);
+        lastXmlString = statement.toBlocklyXML(options, lastXmlString);
       }
+      xmlString += lastXmlString;
       xmlString = "<xml>" + xmlString + "</xml>";
       return xmlString;
     };

@@ -2695,13 +2695,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
             // let's see if this one has xpaths for all of a row in the first few
             var aRowWithAllXpaths = highestPercentOfHasXpathPerRow(data.relation, 20) === 1;
-            // and then see if the difference between the num rows and the target num rows is less than 20% of the target num rows 
+            // and then see if the difference between the num rows and the target num rows is less than 90% of the target num rows 
             var targetNumRows = relation.demonstrationTimeRelation.length;
             var diffPercent = Math.abs(data.relation.length - targetNumRows) / targetNumRows;
             
             // only want to do the below if we've decided this is the actual data...
             // if this is the only frame, then it's definitely the data
-            if (Object.keys(relationItemsRetrieved).length == 1 || (aRowWithAllXpaths && diffPercent < .2 )){
+            if (Object.keys(relationItemsRetrieved).length == 1 || (aRowWithAllXpaths && diffPercent < .9 )){
               doneArray[getRowsCounter] = true;
               relation.gotMoreRows(prinfo, callback, data.relation);
               return;

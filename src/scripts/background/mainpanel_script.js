@@ -1101,6 +1101,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     blocklyLabels = _.uniq(blocklyLabels);
   }
 
+  function attachToPrevBlock(currBlock, prevBlock){
+    if (prevBlock){ // sometimes prevblock is null
+      console.log("prevBlock", prevBlock);
+      var prevBlockConnection = prevBlock.nextConnection;
+      var thisBlockConnection = currBlock.previousConnection;
+      prevBlockConnection.connect(thisBlockConnection);
+    }
+  }
+
   // the actual statements
 
   pub.LoadStatement = function _LoadStatement(trace){
@@ -1172,10 +1181,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
     };
 
-    this.genBlocklyNode = function _genBlocklyNode(){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
       this.block = workspace.newBlock(this.blocklyLabel);
       this.block.setFieldValue(encodeURIComponent(this.cUrl()), "url");
       this.block.setFieldValue(this.outputPageVar.toString(), "page");
+      attachToPrevBlock(this.block, prevBlock);
       return this.block;
     };
 
@@ -1294,6 +1304,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setColour(280);
         }
       };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      this.block.setFieldValue(nodeRepresentation(this), "node");
+      this.block.setFieldValue(this.pageVar.toString(), "page");
+      attachToPrevBlock(this.block, prevBlock);
+      return this.block;
     };
 
     this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
@@ -1420,6 +1438,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setColour(280);
         }
       };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      this.block.setFieldValue(nodeRepresentation(this), "node");
+      this.block.setFieldValue(this.pageVar.toString(), "page");
+      attachToPrevBlock(this.block, prevBlock);
+      return this.block;
     };
 
     this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
@@ -1711,6 +1737,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
     };
 
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      this.block.setFieldValue(this.stringRep(), "text");
+      this.block.setFieldValue(this.pageVar.toString(), "page");
+      attachToPrevBlock(this.block, prevBlock);
+      return this.block;
+    };
+
     this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
       if (options === undefined){ options = {};}
       var textNode = XMLBuilder.newNode("field", {name: "text"}, this.stringRep());
@@ -1852,6 +1886,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setColour(25);
         }
       };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      attachToPrevBlock(this.block, prevBlock);
+      return this.block;
     };
 
     this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
@@ -1998,6 +2038,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
       return;
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      // ok, we're not actually making a block
+      return null;
     };
 
     this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
@@ -2264,10 +2309,45 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
     };
 
-    this.genBlocklyNode = function _genBlocklyNode(){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
       this.block = workspace.newBlock(this.blocklyLabel);
       this.block.setFieldValue(this.relation.name, "list");
       this.block.setFieldValue(this.pageVar.toString(), "page");
+      attachToPrevBlock(this.block, prevBlock);
+
+      // handle the body statements
+      var foundFirstNonNull = false;
+      var lastBlock = null;
+      for (var i = 1; i < this.bodyStatements.length; i++){
+        var newBlock = this.bodyStatements[i].genBlocklyNode(lastBlock);
+        if (newBlock !== null){ // handle the fact that there could be null-producing nodes in the middle, and need to connect around those
+          lastBlock = newBlock;
+          // also, if this is our first non-null block we want to attach it to the loop statement
+          if (!foundFirstNonNull){
+            foundFirstNonNull = true;
+
+            var parentConnection = this.block.getInput('statements').connection;
+            var childConnection = newBlock.previousConnection;
+            parentConnection.connect(childConnection);
+            console.log("this.block.getInput('statements')", this.block.getInput('statements'));
+          }
+        }
+      }
+
+      /*
+      if (this.bodyStatements.length > 0){
+        var firstStatement = this.bodyStatements[0];
+        var firstBlock = firstStatement.genBlocklyNode(null);
+        var parentConnection = this.block.getInput('statements').connection;
+        var childConnection = firstBlock.outputConnection;
+        parentConnection.connect(childConnection);
+        var lastBlock = firstBlock;
+        for (var i = 1; i < this.bodyStatements.length; i++){
+          var lastBlock = this.bodyStatements[i].genBlocklyNode(lastBlock);
+        }
+      }
+      */
+
       return this.block;
     };
 
@@ -3263,18 +3343,24 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (this.loopyStatements.length === 0){
         statementLs = this.statements;
       }
-      var blocks = [];
+
+      // get the individual statements to produce their corresponding blockly blocks
+      var lastBlock = null;
       for (var i = 0; i < statementLs.length; i++){
-        var statement = statementLs[i];
-        var lastBlock = null;
-        if (i > 0) { lastBlock = blocks[i - 1]; }
-        blocks.push(statement.genBlocklyNode(lastBlock));
+        var newBlock = statementLs[i].genBlocklyNode(lastBlock);
+        if (newBlock !== null){ // handle the fact that there could be null-producing nodes in the middle, and need to connect around those
+          lastBlock = newBlock;
+        }
       }
-      for (var i = 0; i < blocks.length; i++){
-        var block = blocks[i];
-        block.initSvg();
-        block.render();
-      }
+
+      // now go through and actually display all those nodes
+      this.traverse(function(statement){
+        if (statement.block){
+          statement.block.initSvg();
+          statement.block.render();
+        }
+      });
+
     };
 
     this.toBlocklyXML = function _toBlocklyXML(){

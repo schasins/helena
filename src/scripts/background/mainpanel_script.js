@@ -131,6 +131,7 @@ var RecorderUI = (function () {
     window.addEventListener('resize', onresize, false);
     onresize();
     Blockly.svgResize(workspace);
+    return onresize;
   };
 
   pub.showProgramPreview = function _showProgramPreview(inProgress){
@@ -145,7 +146,7 @@ var RecorderUI = (function () {
 
     // first we better make sure we have all the blocks we want for the toolbox
     ReplayScript.prog.updateBlocklyBlocks();
-    handleBlocklyEditorResizing();
+    var readjustFunc = handleBlocklyEditorResizing();
 /*
     workspace = Blockly.inject('blockly_div', {toolbox: $toolboxDiv.get(0)});
     setTimeout(function(){Blockly.svgResize(workspace);}, 0);
@@ -154,6 +155,7 @@ var RecorderUI = (function () {
 
     RecorderUI.updateDisplayedScript();
     RecorderUI.updateDisplayedRelations(inProgress);
+    readjustFunc();
   };
 
   pub.run = function _run(){
@@ -424,11 +426,7 @@ var RecorderUI = (function () {
     var scriptPreviewDiv = $("#new_script_content").find("#program_representation");
     DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
 
-    var xmlString = program.toBlocklyXML();
-    console.log("xmlString", xmlString);
-    var xml = Blockly.Xml.textToDom(xmlString);
-    console.log("xml", xml);
-    Blockly.Xml.domToWorkspace(xml, workspace);
+    program.displayBlockly();
 
     if (program.name){
       $("#new_script_content").find("#program_name").get(0).value = program.name;
@@ -533,8 +531,8 @@ var RecorderUI = (function () {
       revivedProgram.id = response.program.id; // if id was only assigned when it was saved, serialized_prog might not have that info yet
       revivedProgram.name = response.program.name;
       ReplayScript.prog = revivedProgram;
-      pub.showProgramPreview(false); // false because we're not currently processing the program (as in, finding relations, something like that)
       $("#tabs").tabs("option", "active", 0); // make that first tab (the program running tab) active again
+      pub.showProgramPreview(false); // false because we're not currently processing the program (as in, finding relations, something like that)
     });
   }
 
@@ -1172,6 +1170,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setColour(280);
         }
       };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      this.block.setFieldValue(encodeURIComponent(this.cUrl()), "url");
+      this.block.setFieldValue(this.outputPageVar.toString(), "page");
+      return this.block;
     };
 
     this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
@@ -2259,6 +2264,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
     };
 
+    this.genBlocklyNode = function _genBlocklyNode(){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      this.block.setFieldValue(this.relation.name, "list");
+      this.block.setFieldValue(this.pageVar.toString(), "page");
+      return this.block;
+    };
+
     this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
       if (options === undefined){ options = {};}
       var listNode = XMLBuilder.newNode("field", {name: "list"}, this.relation.name);
@@ -3246,12 +3258,26 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.traverse(function(statement){statement.updateBlocklyBlock(program.pageVars, program.relations)}); // so let's call updateBlocklyBlock on all statements
     };
 
-
+    this.displayBlockly = function _displayBlockly(){
+      var statementLs = this.loopyStatements;
+      if (this.loopyStatements.length === 0){
+        statementLs = this.statements;
+      }
+      var blocks = [];
+      for (var i = 0; i < statementLs.length; i++){
+        var statement = statementLs[i];
+        var lastBlock = null;
+        if (i > 0) { lastBlock = blocks[i - 1]; }
+        blocks.push(statement.genBlocklyNode(lastBlock));
+      }
+      for (var i = 0; i < blocks.length; i++){
+        var block = blocks[i];
+        block.initSvg();
+        block.render();
+      }
+    };
 
     this.toBlocklyXML = function _toBlocklyXML(){
-      var parentBlock = workspace.newBlock("load")
-
-
       var statementLs = this.loopyStatements;
       if (this.loopyStatements.length === 0){
         statementLs = this.statements;

@@ -1103,7 +1103,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   function attachToPrevBlock(currBlock, prevBlock){
     if (prevBlock){ // sometimes prevblock is null
-      console.log("prevBlock", prevBlock);
       var prevBlockConnection = prevBlock.nextConnection;
       var thisBlockConnection = currBlock.previousConnection;
       prevBlockConnection.connect(thisBlockConnection);
@@ -1187,17 +1186,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block.setFieldValue(this.outputPageVar.toString(), "page");
       attachToPrevBlock(this.block, prevBlock);
       return this.block;
-    };
-
-    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
-      if (options === undefined){ options = {};}
-      var urlNode = XMLBuilder.newNode("field", {name: "url"}, encodeURIComponent(this.cUrl()));
-      var pageNode = XMLBuilder.newNode("field", {name: "page"}, this.outputPageVar.toString());
-      var nextNode = XMLBuilder.newNode("next", {}, nextXml);
-      var content = urlNode + pageNode + nextNode;
-      options.type = this.blocklyLabel;
-      var wholeNode = XMLBuilder.newNode("block", options, content);
-      return wholeNode;
     };
 
     this.traverse = function _traverse(fn){
@@ -1312,18 +1300,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block.setFieldValue(this.pageVar.toString(), "page");
       attachToPrevBlock(this.block, prevBlock);
       return this.block;
-    };
-
-    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
-      if (options === undefined){ options = {};}
-      var nodeRep = nodeRepresentation(this);
-      var nodeNode = XMLBuilder.newNode("field", {name: "node"}, nodeRep);
-      var pageNode = XMLBuilder.newNode("field", {name: "page"}, this.pageVar.toString());
-      var nextNode = XMLBuilder.newNode("next", {}, nextXml);
-      var content = nodeNode + pageNode + nextNode;
-      options.type = this.blocklyLabel;
-      var wholeNode = XMLBuilder.newNode("block", options, content);
-      return wholeNode;
     };
 
     this.traverse = function _traverse(fn){
@@ -1446,18 +1422,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block.setFieldValue(this.pageVar.toString(), "page");
       attachToPrevBlock(this.block, prevBlock);
       return this.block;
-    };
-
-    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
-      if (options === undefined){ options = {};}
-      var nodeRep = nodeRepresentation(this, this.scrapeLink);
-      var nodeNode = XMLBuilder.newNode("field", {name: "node"}, nodeRep);
-      var pageNode = XMLBuilder.newNode("field", {name: "page"}, this.pageVar.toString());
-      var nextNode = XMLBuilder.newNode("next", {}, nextXml);
-      var content = nodeNode + pageNode + nextNode;
-      options.type = this.blocklyLabel;
-      var wholeNode = XMLBuilder.newNode("block", options, content);
-      return wholeNode;
     };
 
     this.traverse = function _traverse(fn){
@@ -1745,17 +1709,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.block;
     };
 
-    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
-      if (options === undefined){ options = {};}
-      var textNode = XMLBuilder.newNode("field", {name: "text"}, this.stringRep());
-      var pageNode = XMLBuilder.newNode("field", {name: "page"}, this.pageVar.toString());
-      var nextNode = XMLBuilder.newNode("next", {}, nextXml);
-      var content = textNode + pageNode + nextNode;
-      options.type = this.blocklyLabel;
-      var wholeNode = XMLBuilder.newNode("block", options, content);
-      return wholeNode;
-    };
-
     this.traverse = function _traverse(fn){
       fn(this);
     };
@@ -1892,17 +1845,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
       return this.block;
-    };
-
-    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
-      if (options === undefined){ options = {};}
-      var nextNode = XMLBuilder.newNode("next", {}, nextXml);
-      console.log("options", options);
-      console.log(this.blocklyLabel);
-      options.type = this.blocklyLabel;
-      console.log("options", options);
-      var wholeNode = XMLBuilder.newNode("block", options, nextNode);
-      return wholeNode;
     };
 
     this.traverse = function _traverse(fn){
@@ -2042,11 +1984,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock){
       // ok, we're not actually making a block
-      return null;
-    };
-
-    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
-      if (options === undefined){ options = {};}
       return null;
     };
 
@@ -2329,47 +2266,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             var parentConnection = this.block.getInput('statements').connection;
             var childConnection = newBlock.previousConnection;
             parentConnection.connect(childConnection);
-            console.log("this.block.getInput('statements')", this.block.getInput('statements'));
           }
         }
       }
 
-      /*
-      if (this.bodyStatements.length > 0){
-        var firstStatement = this.bodyStatements[0];
-        var firstBlock = firstStatement.genBlocklyNode(null);
-        var parentConnection = this.block.getInput('statements').connection;
-        var childConnection = firstBlock.outputConnection;
-        parentConnection.connect(childConnection);
-        var lastBlock = firstBlock;
-        for (var i = 1; i < this.bodyStatements.length; i++){
-          var lastBlock = this.bodyStatements[i].genBlocklyNode(lastBlock);
-        }
-      }
-      */
-
       return this.block;
-    };
-
-    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
-      if (options === undefined){ options = {};}
-      var listNode = XMLBuilder.newNode("field", {name: "list"}, this.relation.name);
-      var pageNode = XMLBuilder.newNode("field", {name: "page"}, this.pageVar.toString());
-      if (this.bodyStatements.length > 0){
-        var lastStatementXML = this.bodyStatements[this.bodyStatements.length - 1].toBlocklyXML({}, null);
-        console.log("lastStatementXML", lastStatementXML);
-        console.log("last statement", this.bodyStatements[this.bodyStatements.length - 1]);
-        for (var i = this.bodyStatements.length - 2; i >= 0; i--){
-          lastStatementXML = this.bodyStatements[i].toBlocklyXML({}, lastStatementXML);
-        }
-      }
-      var statementContent = lastStatementXML;
-      var statementNode = XMLBuilder.newNode("statement", {name: "statements"}, statementContent);
-      var nextNode = XMLBuilder.newNode("next", {}, nextXml);
-      var content = listNode + pageNode + statementNode + nextNode;
-      options.type = this.blocklyLabel;
-      var wholeNode = XMLBuilder.newNode("block", options, content);
-      return wholeNode;
     };
 
     this.traverse = function _traverse(fn){
@@ -3363,28 +3264,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     };
 
-    this.toBlocklyXML = function _toBlocklyXML(){
-      var statementLs = this.loopyStatements;
-      if (this.loopyStatements.length === 0){
-        statementLs = this.statements;
-      }
-      var xmlString = "";
-      var lastXmlString = statementLs[statementLs.length -1].toBlocklyXML({}, null); // for the last node, we don't need to put anything in next
-      for (var i = statementLs.length - 2; i >= 0; i--){
-        var statement = statementLs[i];
-        var options = {};
-        if (i === 0){
-          // special options for the first statement, since we have to place in the canvas
-          options.x = 30;
-          options.y = 30;
-        }
-        lastXmlString = statement.toBlocklyXML(options, lastXmlString);
-      }
-      xmlString += lastXmlString;
-      xmlString = "<xml>" + xmlString + "</xml>";
-      return xmlString;
-    };
-
     // a convenient way to traverse the statements of a program
     // todo: currently no way to halt traversal, may ultimately want fn arg to return boolean to do that
     this.traverse = function _traverse(fn){
@@ -3658,7 +3537,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
         if (trace.length < 1){
           // ok, no point actually running Ringer here...
-          console.log("no events for r+r to run in these loopyStatements: ", loopyStatements);
+          // console.log("no events for r+r to run in these loopyStatements: ", loopyStatements);
           // let's skip straight to the 'callback!'
 
           // statements may need to do something as post-processing, even without a replay so go ahead and do any extra processing
@@ -3965,7 +3844,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     function sameNodeIsNextUsed(statement, statements){
-      console.log("sameNodeIsNextUsed", statement, statements);
+      WALconsole.log("sameNodeIsNextUsed", statement, statements);
       if (!statement.origNode){ // there's no node associated with the first arg
         console.log("Warning!  No node associated with the statement, which may mean there was an earlier statement that we should have called on.");
         return false;

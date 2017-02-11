@@ -2,6 +2,7 @@
 var WALconsole = (function _WALconsole() { var pub = {};
 
   pub.debugging = false;
+  pub.showWarnings = true;
   pub.namedDebugging = [];//["getRelationItems", "nextInteraction"];
   pub.styleMinimal = true;
 
@@ -25,6 +26,14 @@ var WALconsole = (function _WALconsole() { var pub = {};
     if (pub.debugging || pub.namedDebugging.indexOf(name) > -1) {
       var args = Array.prototype.slice.call(arguments);
       loggingGuts(arguments.callee.caller.name, args.slice(1, arguments.length));
+    }
+  };
+
+  pub.warn = function _warn(){
+    if (pub.showWarnings){
+      var args = Array.prototype.slice.call(arguments);
+      var newArgs = ["Warning: "].concat(args);
+      loggingGuts(arguments.callee.caller.name, newArgs);
     }
   };
 

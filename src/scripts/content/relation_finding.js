@@ -1135,6 +1135,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     WALconsole.log("noMoreItemsAvailable", noMoreItemsAvailable[strMsg], noMoreItemsAvailable);
     if (noMoreItemsAvailable[strMsg]){
       // that's it, we're done.  last use of the next interaction revealed there's nothing left
+      console.log("no more items at all, because noMoreItemsAvailable was set.");
       return {type: RelationItemsOutputs.NOMOREITEMS, relation: null};
     }
     // below is commented out in case there are cases where after first load, it may take a while for the data to all get there (get empty list first, that kind of deal)  Does that happen or is this a wasted opportunity to cache?
@@ -1197,6 +1198,10 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       if (msg.next_type === NextTypes.NEXTBUTTON){
         // this is a next interaction, so we should never have overlap.  wait until everything is new
         if (relationNodes.length !== newRows.length){
+	  console.log("sending no new items yet because we found some repeated items and it's a next button.  is that bad?");
+	  console.log("alreadySeenRelationNodeIds", alreadySeenRelationNodeIds.length, alreadySeenRelationNodeIds);
+	  console.log("relationNodes", relationNodes.length, relationNodes);
+	  console.log("newRows", newRows.length, newRows);
           // looks like some of our rows weren't new, so next button hasn't happened yet
           return {type: RelationItemsOutputs.NONEWITEMSYET, relation: null};
         }
@@ -1215,6 +1220,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     if (crd && crd.length === relationData.length && _.isEqual(crd, relationData)){
       // this check should now be unnecessary.  todo: clean it up!
       // data still looks the same as it looked before.  no new items yet.
+      console.log("No new items yet because the data is actualy equal");
       return {type: RelationItemsOutputs.NONEWITEMSYET, relation: null};
     }
     // whee, we have some new stuff.  we can update the state

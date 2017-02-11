@@ -100,7 +100,10 @@ var RecorderUI = (function () {
     pub.showProgramPreview(true); // true because we're currently processing the script, stuff is in progress
   };
 
-  function handleBlocklyEditorResizing(){
+  pub.updateBlocklyToolbox = function _updateBlocklyToolbox(){
+    // before we can use the toolbox, we have to actually have all the relevant blocks
+    ReplayScript.prog.updateBlocklyBlocks();
+
     // first make a toolbox with all the block nodes we want
     var $toolboxDiv = $("#new_script_content").find("#toolbox");
     $toolboxDiv.html("");
@@ -108,10 +111,17 @@ var RecorderUI = (function () {
       $toolboxDiv.append($("<block type=\"" + blocklyLabels[i] + "\"></block>"));
     }
 
-    // now handle the actual editor resizing
+    console.log("toolboxDiv", $toolboxDiv);
+    workspace.updateToolbox($toolboxDiv.get(0));
+  }
+
+  function handleBlocklyEditorResizing(){
+    var $toolboxDiv = $("#new_script_content").find("#toolbox");
+    // handle the actual editor resizing
     var blocklyArea = document.getElementById('blockly_area');
     var blocklyDiv = document.getElementById('blockly_div');
     workspace = Blockly.inject('blockly_div', {toolbox: $toolboxDiv.get(0)});
+    pub.updateBlocklyToolbox();
     var onresize = function(e) {
       // compute the absolute coordinates and dimensions of blocklyArea.
       var element = blocklyArea;
@@ -144,14 +154,7 @@ var RecorderUI = (function () {
     activateButton(div, "#replay", RecorderUI.replayOriginal);
     activateButton(div, '#relation_upload', RecorderUI.uploadRelation);
 
-    // first we better make sure we have all the blocks we want for the toolbox
-    ReplayScript.prog.updateBlocklyBlocks();
     var readjustFunc = handleBlocklyEditorResizing();
-/*
-    workspace = Blockly.inject('blockly_div', {toolbox: $toolboxDiv.get(0)});
-    setTimeout(function(){Blockly.svgResize(workspace);}, 0);
-    window.addEventListener('resize', function(){Blockly.svgResize(workspace);}, false);
-    */
 
     RecorderUI.updateDisplayedScript();
     RecorderUI.updateDisplayedRelations(inProgress);
@@ -426,6 +429,8 @@ var RecorderUI = (function () {
     var scriptPreviewDiv = $("#new_script_content").find("#program_representation");
     DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
 
+    // first make sure we have all the up to date blocks.  for instance, if we have relations available, we'll add loops to toolbox
+    pub.updateBlocklyToolbox();
     program.displayBlockly();
 
     if (program.name){
@@ -964,6 +969,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   }
 
   function makeRelationsDropdown(relations){
+    console.log("rel", relations);
     var relationsDropDown = [];
     for (var i = 0; i < relations.length; i++){
       var relationStr = relations[i].name;
@@ -1097,6 +1103,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   function setBlocklyLabel(obj, label){
     obj.blocklyLabel = label;
+  }
+
+  function addToolboxLabel(label){
     blocklyLabels.push(label);
     blocklyLabels = _.uniq(blocklyLabels);
   }
@@ -1165,6 +1174,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      addToolboxLabel(this.blocklyLabel);
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -1178,6 +1188,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setColour(280);
         }
       };
+      console.log("Blockly.Blocks", Blockly.Blocks);
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock){
@@ -1279,6 +1290,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      addToolboxLabel(this.blocklyLabel);
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -1401,6 +1413,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      addToolboxLabel(this.blocklyLabel);
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -1686,6 +1699,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      addToolboxLabel(this.blocklyLabel);
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -1830,6 +1844,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      addToolboxLabel(this.blocklyLabel);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
@@ -1923,6 +1938,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
       // we don't display back presses for now
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      return null;
     };
 
     this.traverse = function _traverse(fn){
@@ -2033,18 +2052,23 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      addToolboxLabel(this.blocklyLabel);
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
-      Blockly.Blocks['load'] = {
+      Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
-              .appendField("load")
-              .appendField(new Blockly.FieldTextInput("URL"), "url")
-              .appendField("in")
-              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+              .appendField("skip");
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
+          this.setColour(25);
         }
       };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      attachToPrevBlock(this.block, prevBlock);
+      return this.block;
     };
 
     this.traverse = function _traverse(fn){
@@ -2094,18 +2118,22 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
-      var pageVarsDropDown = makePageVarsDropdown(pageVars);
-      Blockly.Blocks['load'] = {
+      addToolboxLabel(this.blocklyLabel);
+      Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
-              .appendField("load")
-              .appendField(new Blockly.FieldTextInput("URL"), "url")
-              .appendField("in")
-              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+              .appendField("if");
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
+          this.setColour(25);
         }
       };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      attachToPrevBlock(this.block, prevBlock);
+      return this.block;
     };
 
     this.traverse = function _traverse(fn){
@@ -2225,6 +2253,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      if (relations.length < 1){
+        WALconsole.log("no relations yet, so can't have any loops in blockly.");
+        return;
+      }
+
+      addToolboxLabel(this.blocklyLabel);
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       var relationsDropDown = makeRelationsDropdown(relations);
       Blockly.Blocks[this.blocklyLabel] = {
@@ -2756,13 +2790,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
             // let's see if this one has xpaths for all of a row in the first few
             var aRowWithAllXpaths = highestPercentOfHasXpathPerRow(data.relation, 20) === 1;
-            // and then see if the difference between the num rows and the target num rows is less than 20% of the target num rows 
+            // and then see if the difference between the num rows and the target num rows is less than 90% of the target num rows 
             var targetNumRows = relation.demonstrationTimeRelation.length;
             var diffPercent = Math.abs(data.relation.length - targetNumRows) / targetNumRows;
             
             // only want to do the below if we've decided this is the actual data...
             // if this is the only frame, then it's definitely the data
-            if (Object.keys(relationItemsRetrieved).length == 1 || (aRowWithAllXpaths && diffPercent < .2 )){
+            if (Object.keys(relationItemsRetrieved).length == 1 || (aRowWithAllXpaths && diffPercent < .9 )){
               doneArray[getRowsCounter] = true;
               relation.gotMoreRows(prinfo, callback, data.relation);
               return;
@@ -3236,7 +3270,35 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.updateBlocklyBlocks = function _updateBlocklyBlocks(){
       // have to update the current set of blocks based on our pageVars, relations, so on
-      this.traverse(function(statement){statement.updateBlocklyBlock(program.pageVars, program.relations)}); // so let's call updateBlocklyBlock on all statements
+
+      // this is silly, but just making a new object for each of our statements is an easy way to get access to
+      // the updateBlocklyBlock function and still keep it an instance method/right next to the genBlockly function
+      for (var prop in pub){
+        if (typeof pub[prop] === "function"){
+          try{
+            var obj = new pub[prop]();
+            if (obj.updateBlocklyBlock){
+              obj.updateBlocklyBlock(program.pageVars, program.relations)
+            };
+          }
+          catch(err){
+            WALconsole.namedLog("updateblocklyblock func creation err", err);
+          }
+        }
+      }
+
+      return;
+
+      WALconsole.log("Running updateBlocklyBlocks", this, this.loopyStatements);
+      var updateFunc = function(statement){statement.updateBlocklyBlock(program.pageVars, program.relations);};
+      if (this.loopyStatements.length > 0){
+        console.log("updateBlocklyBlocks traverse");
+        this.traverse(updateFunc); // so let's call updateBlocklyBlock on all statements
+      }
+      else{
+        console.log("updateBlocklyBlocks statements");
+        _.each(this.statements, updateFunc);
+      }
     };
 
     this.displayBlockly = function _displayBlockly(){
@@ -3244,6 +3306,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (this.loopyStatements.length === 0){
         statementLs = this.statements;
       }
+
+      // clear out whatever was in there before
+      workspace.clear();
 
       // get the individual statements to produce their corresponding blockly blocks
       var lastBlock = null;
@@ -3267,6 +3332,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     // a convenient way to traverse the statements of a program
     // todo: currently no way to halt traversal, may ultimately want fn arg to return boolean to do that
     this.traverse = function _traverse(fn){
+      if (this.loopyStatements.length < 1){
+        WALconsole.warn("Calling traverse on a program even though loopStatements is empty.");
+      }
       for (var i = 0; i < this.loopyStatements.length; i++){
         this.loopyStatements[i].traverse(fn);
       }
@@ -4137,6 +4205,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var rel = new WebAutomationLanguage.Relation(data.relation_id, data.name, data.selector, data.selector_version, data.exclude_first, data.columns, data.first_page_relation, data.num_rows_in_demonstration, data.page_var_name, data.url, data.next_type, data.next_button_selector);
         pagesToRelations[data.page_var_name] = rel;
         this.relations.push(rel);
+        this.relations = _.uniq(this.relations);
       }
 
       WALconsole.log(pagesToRelations, pagesToNodes);

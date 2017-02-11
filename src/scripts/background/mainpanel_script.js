@@ -100,7 +100,10 @@ var RecorderUI = (function () {
     pub.showProgramPreview(true); // true because we're currently processing the script, stuff is in progress
   };
 
-  function handleBlocklyEditorResizing(){
+  pub.updateBlocklyToolbox = function _updateBlocklyToolbox(){
+    // before we can use the toolbox, we have to actually have all the relevant blocks
+    ReplayScript.prog.updateBlocklyBlocks();
+
     // first make a toolbox with all the block nodes we want
     var $toolboxDiv = $("#new_script_content").find("#toolbox");
     $toolboxDiv.html("");
@@ -108,10 +111,17 @@ var RecorderUI = (function () {
       $toolboxDiv.append($("<block type=\"" + blocklyLabels[i] + "\"></block>"));
     }
 
-    // now handle the actual editor resizing
+    console.log("toolboxDiv", $toolboxDiv);
+    workspace.updateToolbox($toolboxDiv.get(0));
+  }
+
+  function handleBlocklyEditorResizing(){
+    var $toolboxDiv = $("#new_script_content").find("#toolbox");
+    // handle the actual editor resizing
     var blocklyArea = document.getElementById('blockly_area');
     var blocklyDiv = document.getElementById('blockly_div');
     workspace = Blockly.inject('blockly_div', {toolbox: $toolboxDiv.get(0)});
+    pub.updateBlocklyToolbox();
     var onresize = function(e) {
       // compute the absolute coordinates and dimensions of blocklyArea.
       var element = blocklyArea;
@@ -144,14 +154,7 @@ var RecorderUI = (function () {
     activateButton(div, "#replay", RecorderUI.replayOriginal);
     activateButton(div, '#relation_upload', RecorderUI.uploadRelation);
 
-    // first we better make sure we have all the blocks we want for the toolbox
-    ReplayScript.prog.updateBlocklyBlocks();
     var readjustFunc = handleBlocklyEditorResizing();
-/*
-    workspace = Blockly.inject('blockly_div', {toolbox: $toolboxDiv.get(0)});
-    setTimeout(function(){Blockly.svgResize(workspace);}, 0);
-    window.addEventListener('resize', function(){Blockly.svgResize(workspace);}, false);
-    */
 
     RecorderUI.updateDisplayedScript();
     RecorderUI.updateDisplayedRelations(inProgress);
@@ -426,6 +429,8 @@ var RecorderUI = (function () {
     var scriptPreviewDiv = $("#new_script_content").find("#program_representation");
     DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
 
+    // first make sure we have all the up to date blocks.  for instance, if we have relations available, we'll add loops to toolbox
+    pub.updateBlocklyToolbox();
     program.displayBlockly();
 
     if (program.name){
@@ -964,6 +969,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   }
 
   function makeRelationsDropdown(relations){
+    console.log("rel", relations);
     var relationsDropDown = [];
     for (var i = 0; i < relations.length; i++){
       var relationStr = relations[i].name;
@@ -1097,13 +1103,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   function setBlocklyLabel(obj, label){
     obj.blocklyLabel = label;
+  }
+
+  function addToolboxLabel(label){
     blocklyLabels.push(label);
     blocklyLabels = _.uniq(blocklyLabels);
   }
 
   function attachToPrevBlock(currBlock, prevBlock){
     if (prevBlock){ // sometimes prevblock is null
-      console.log("prevBlock", prevBlock);
       var prevBlockConnection = prevBlock.nextConnection;
       var thisBlockConnection = currBlock.previousConnection;
       prevBlockConnection.connect(thisBlockConnection);
@@ -1166,6 +1174,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      addToolboxLabel(this.blocklyLabel);
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -1179,6 +1188,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setColour(280);
         }
       };
+      console.log("Blockly.Blocks", Blockly.Blocks);
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock){
@@ -1187,17 +1197,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block.setFieldValue(this.outputPageVar.toString(), "page");
       attachToPrevBlock(this.block, prevBlock);
       return this.block;
-    };
-
-    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
-      if (options === undefined){ options = {};}
-      var urlNode = XMLBuilder.newNode("field", {name: "url"}, encodeURIComponent(this.cUrl()));
-      var pageNode = XMLBuilder.newNode("field", {name: "page"}, this.outputPageVar.toString());
-      var nextNode = XMLBuilder.newNode("next", {}, nextXml);
-      var content = urlNode + pageNode + nextNode;
-      options.type = this.blocklyLabel;
-      var wholeNode = XMLBuilder.newNode("block", options, content);
-      return wholeNode;
     };
 
     this.traverse = function _traverse(fn){
@@ -1291,6 +1290,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      addToolboxLabel(this.blocklyLabel);
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -1312,18 +1312,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block.setFieldValue(this.pageVar.toString(), "page");
       attachToPrevBlock(this.block, prevBlock);
       return this.block;
-    };
-
-    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
-      if (options === undefined){ options = {};}
-      var nodeRep = nodeRepresentation(this);
-      var nodeNode = XMLBuilder.newNode("field", {name: "node"}, nodeRep);
-      var pageNode = XMLBuilder.newNode("field", {name: "page"}, this.pageVar.toString());
-      var nextNode = XMLBuilder.newNode("next", {}, nextXml);
-      var content = nodeNode + pageNode + nextNode;
-      options.type = this.blocklyLabel;
-      var wholeNode = XMLBuilder.newNode("block", options, content);
-      return wholeNode;
     };
 
     this.traverse = function _traverse(fn){
@@ -1425,6 +1413,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      addToolboxLabel(this.blocklyLabel);
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -1446,18 +1435,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block.setFieldValue(this.pageVar.toString(), "page");
       attachToPrevBlock(this.block, prevBlock);
       return this.block;
-    };
-
-    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
-      if (options === undefined){ options = {};}
-      var nodeRep = nodeRepresentation(this, this.scrapeLink);
-      var nodeNode = XMLBuilder.newNode("field", {name: "node"}, nodeRep);
-      var pageNode = XMLBuilder.newNode("field", {name: "page"}, this.pageVar.toString());
-      var nextNode = XMLBuilder.newNode("next", {}, nextXml);
-      var content = nodeNode + pageNode + nextNode;
-      options.type = this.blocklyLabel;
-      var wholeNode = XMLBuilder.newNode("block", options, content);
-      return wholeNode;
     };
 
     this.traverse = function _traverse(fn){
@@ -1722,6 +1699,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      addToolboxLabel(this.blocklyLabel);
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -1743,17 +1721,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block.setFieldValue(this.pageVar.toString(), "page");
       attachToPrevBlock(this.block, prevBlock);
       return this.block;
-    };
-
-    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
-      if (options === undefined){ options = {};}
-      var textNode = XMLBuilder.newNode("field", {name: "text"}, this.stringRep());
-      var pageNode = XMLBuilder.newNode("field", {name: "page"}, this.pageVar.toString());
-      var nextNode = XMLBuilder.newNode("next", {}, nextXml);
-      var content = textNode + pageNode + nextNode;
-      options.type = this.blocklyLabel;
-      var wholeNode = XMLBuilder.newNode("block", options, content);
-      return wholeNode;
     };
 
     this.traverse = function _traverse(fn){
@@ -1877,6 +1844,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      addToolboxLabel(this.blocklyLabel);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
@@ -1892,17 +1860,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
       return this.block;
-    };
-
-    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
-      if (options === undefined){ options = {};}
-      var nextNode = XMLBuilder.newNode("next", {}, nextXml);
-      console.log("options", options);
-      console.log(this.blocklyLabel);
-      options.type = this.blocklyLabel;
-      console.log("options", options);
-      var wholeNode = XMLBuilder.newNode("block", options, nextNode);
-      return wholeNode;
     };
 
     this.traverse = function _traverse(fn){
@@ -1983,6 +1940,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // we don't display back presses for now
     };
 
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      return null;
+    };
+
     this.traverse = function _traverse(fn){
       fn(this);
     };
@@ -2045,11 +2006,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return null;
     };
 
-    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
-      if (options === undefined){ options = {};}
-      return null;
-    };
-
     this.traverse = function _traverse(fn){
       fn(this);
     };
@@ -2096,18 +2052,23 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      addToolboxLabel(this.blocklyLabel);
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
-      Blockly.Blocks['load'] = {
+      Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
-              .appendField("load")
-              .appendField(new Blockly.FieldTextInput("URL"), "url")
-              .appendField("in")
-              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+              .appendField("skip");
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
+          this.setColour(25);
         }
       };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      attachToPrevBlock(this.block, prevBlock);
+      return this.block;
     };
 
     this.traverse = function _traverse(fn){
@@ -2157,18 +2118,22 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
-      var pageVarsDropDown = makePageVarsDropdown(pageVars);
-      Blockly.Blocks['load'] = {
+      addToolboxLabel(this.blocklyLabel);
+      Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
-              .appendField("load")
-              .appendField(new Blockly.FieldTextInput("URL"), "url")
-              .appendField("in")
-              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+              .appendField("if");
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
+          this.setColour(25);
         }
       };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      attachToPrevBlock(this.block, prevBlock);
+      return this.block;
     };
 
     this.traverse = function _traverse(fn){
@@ -2288,6 +2253,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      if (relations.length < 1){
+        WALconsole.log("no relations yet, so can't have any loops in blockly.");
+        return;
+      }
+
+      addToolboxLabel(this.blocklyLabel);
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       var relationsDropDown = makeRelationsDropdown(relations);
       Blockly.Blocks[this.blocklyLabel] = {
@@ -2329,47 +2300,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             var parentConnection = this.block.getInput('statements').connection;
             var childConnection = newBlock.previousConnection;
             parentConnection.connect(childConnection);
-            console.log("this.block.getInput('statements')", this.block.getInput('statements'));
           }
         }
       }
 
-      /*
-      if (this.bodyStatements.length > 0){
-        var firstStatement = this.bodyStatements[0];
-        var firstBlock = firstStatement.genBlocklyNode(null);
-        var parentConnection = this.block.getInput('statements').connection;
-        var childConnection = firstBlock.outputConnection;
-        parentConnection.connect(childConnection);
-        var lastBlock = firstBlock;
-        for (var i = 1; i < this.bodyStatements.length; i++){
-          var lastBlock = this.bodyStatements[i].genBlocklyNode(lastBlock);
-        }
-      }
-      */
-
       return this.block;
-    };
-
-    this.toBlocklyXML = function _toBlocklyXML(options, nextXml){
-      if (options === undefined){ options = {};}
-      var listNode = XMLBuilder.newNode("field", {name: "list"}, this.relation.name);
-      var pageNode = XMLBuilder.newNode("field", {name: "page"}, this.pageVar.toString());
-      if (this.bodyStatements.length > 0){
-        var lastStatementXML = this.bodyStatements[this.bodyStatements.length - 1].toBlocklyXML({}, null);
-        console.log("lastStatementXML", lastStatementXML);
-        console.log("last statement", this.bodyStatements[this.bodyStatements.length - 1]);
-        for (var i = this.bodyStatements.length - 2; i >= 0; i--){
-          lastStatementXML = this.bodyStatements[i].toBlocklyXML({}, lastStatementXML);
-        }
-      }
-      var statementContent = lastStatementXML;
-      var statementNode = XMLBuilder.newNode("statement", {name: "statements"}, statementContent);
-      var nextNode = XMLBuilder.newNode("next", {}, nextXml);
-      var content = listNode + pageNode + statementNode + nextNode;
-      options.type = this.blocklyLabel;
-      var wholeNode = XMLBuilder.newNode("block", options, content);
-      return wholeNode;
     };
 
     this.traverse = function _traverse(fn){
@@ -3335,7 +3270,35 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.updateBlocklyBlocks = function _updateBlocklyBlocks(){
       // have to update the current set of blocks based on our pageVars, relations, so on
-      this.traverse(function(statement){statement.updateBlocklyBlock(program.pageVars, program.relations)}); // so let's call updateBlocklyBlock on all statements
+
+      // this is silly, but just making a new object for each of our statements is an easy way to get access to
+      // the updateBlocklyBlock function and still keep it an instance method/right next to the genBlockly function
+      for (var prop in pub){
+        if (typeof pub[prop] === "function"){
+          try{
+            var obj = new pub[prop]();
+            if (obj.updateBlocklyBlock){
+              obj.updateBlocklyBlock(program.pageVars, program.relations)
+            };
+          }
+          catch(err){
+            WALconsole.namedLog("updateblocklyblock func creation err", err);
+          }
+        }
+      }
+
+      return;
+
+      WALconsole.log("Running updateBlocklyBlocks", this, this.loopyStatements);
+      var updateFunc = function(statement){statement.updateBlocklyBlock(program.pageVars, program.relations);};
+      if (this.loopyStatements.length > 0){
+        console.log("updateBlocklyBlocks traverse");
+        this.traverse(updateFunc); // so let's call updateBlocklyBlock on all statements
+      }
+      else{
+        console.log("updateBlocklyBlocks statements");
+        _.each(this.statements, updateFunc);
+      }
     };
 
     this.displayBlockly = function _displayBlockly(){
@@ -3343,6 +3306,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (this.loopyStatements.length === 0){
         statementLs = this.statements;
       }
+
+      // clear out whatever was in there before
+      workspace.clear();
 
       // get the individual statements to produce their corresponding blockly blocks
       var lastBlock = null;
@@ -3363,31 +3329,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     };
 
-    this.toBlocklyXML = function _toBlocklyXML(){
-      var statementLs = this.loopyStatements;
-      if (this.loopyStatements.length === 0){
-        statementLs = this.statements;
-      }
-      var xmlString = "";
-      var lastXmlString = statementLs[statementLs.length -1].toBlocklyXML({}, null); // for the last node, we don't need to put anything in next
-      for (var i = statementLs.length - 2; i >= 0; i--){
-        var statement = statementLs[i];
-        var options = {};
-        if (i === 0){
-          // special options for the first statement, since we have to place in the canvas
-          options.x = 30;
-          options.y = 30;
-        }
-        lastXmlString = statement.toBlocklyXML(options, lastXmlString);
-      }
-      xmlString += lastXmlString;
-      xmlString = "<xml>" + xmlString + "</xml>";
-      return xmlString;
-    };
-
     // a convenient way to traverse the statements of a program
     // todo: currently no way to halt traversal, may ultimately want fn arg to return boolean to do that
     this.traverse = function _traverse(fn){
+      if (this.loopyStatements.length < 1){
+        WALconsole.warn("Calling traverse on a program even though loopStatements is empty.");
+      }
       for (var i = 0; i < this.loopyStatements.length; i++){
         this.loopyStatements[i].traverse(fn);
       }
@@ -4258,6 +4205,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var rel = new WebAutomationLanguage.Relation(data.relation_id, data.name, data.selector, data.selector_version, data.exclude_first, data.columns, data.first_page_relation, data.num_rows_in_demonstration, data.page_var_name, data.url, data.next_type, data.next_button_selector);
         pagesToRelations[data.page_var_name] = rel;
         this.relations.push(rel);
+        this.relations = _.uniq(this.relations);
       }
 
       WALconsole.log(pagesToRelations, pagesToNodes);

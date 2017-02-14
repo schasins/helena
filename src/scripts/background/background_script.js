@@ -40,7 +40,7 @@ var currently_on = false;
   utilities.listenForMessage("content", "background", "requestCurrentlyOn",function(){utilities.sendMessage("background","content","currentlyOn", currently_on);});
   utilities.listenForMessage("content", "background", "requestTabID",function(msg){
     chrome.tabs.get(msg.tab_id, function (tab) {
-      utilities.sendMessage("background","content","tabID", {tab_id: tab.id, window_id: tab.windowId}, null, null, [tab.id]);
+      utilities.sendMessage("background","content","tabID", {tab_id: tab.id, window_id: tab.windowId, top_frame_url: tab.url}, null, null, [tab.id]);
     });
   });
 

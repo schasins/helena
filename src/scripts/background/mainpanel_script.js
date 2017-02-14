@@ -2728,10 +2728,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     var doneArray = [];
     var relationItemsRetrieved = {};
     var missesSoFar = {}; // may still be interesting to track misses.  may choose to send an extra next button press, something like that
-    // the funciton that we'll call when we actually have to go back to a page for freshRelationItems
+    // the function that we'll call when we actually have to go back to a page for freshRelationItems
     function getRowsFromPageVar(pageVar, callback, prinfo){
       
-      if (!pageVar.currentTabId()){ WALconsole.log("Hey!  How'd you end up trying to find a relation on a page for which you don't have a current tab id??  That doesn't make sense.", pageVar); }
+      if (!pageVar.currentTabId()){ WALconsole.warn("Hey!  How'd you end up trying to find a relation on a page for which you don't have a current tab id??  That doesn't make sense.", pageVar); }
   
       getRowsCounter += 1;
       doneArray.push(false);

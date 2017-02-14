@@ -8,9 +8,14 @@
 
 var tabId = "setme";
 var windowId = "setme";
+var tabTopUrl = "setme";
 var currentRecordingWindow = null;
 
-utilities.listenForMessage("background", "content", "tabID", function(msg){tabId = msg.tab_id; windowId = msg.window_id; WALconsole.log("tab id: ", msg);});
+utilities.listenForMessage("background", "content", "tabID", function(msg){
+	tabId = msg.tab_id; 
+	windowId = msg.window_id;
+	tabTopUrl = msg.top_frame_url;
+});
 utilities.listenForMessage("mainpanel", "content", "getRelationItems", function(msg){RelationFinder.getRelationItems(msg);});
 utilities.listenForMessage("mainpanel", "content", "getFreshRelationItems", function(msg){RelationFinder.getFreshRelationItems(msg);});
 utilities.listenForMessage("mainpanel", "content", "editRelation", function(msg){RelationFinder.editRelation(msg);});
@@ -51,9 +56,23 @@ MiscUtilities.repeatUntil(
 var NodeRep = (function _NodeRep() { var pub = {};
 	pub.nodeToMainpanelNodeRepresentation = function _nodeToMainpanelNodeRepresentation(node){
 	  if (node === null){
-	    return {text: "", link: "", xpath: "", frame: SimpleRecord.getFrameId()};
+	    return {
+	    	text: "", 
+	    	link: "", 
+	    	xpath: "", 
+	    	frame: SimpleRecord.getFrameId(), 
+	    	url: window.location.href,
+	    	topUrl: tabTopUrl
+	    };
 	  }
-	  return {text: NodeRep.nodeToText(node), link: NodeRep.nodeToLink(node), xpath: nodeToXPath(node), frame: SimpleRecord.getFrameId()};
+	  return {
+	  	text: NodeRep.nodeToText(node), 
+	  	link: NodeRep.nodeToLink(node), 
+	  	xpath: nodeToXPath(node), 
+	  	frame: SimpleRecord.getFrameId(),
+    	url: window.location.href,
+    	topUrl: tabTopUrl
+	  };
 	};
 
 	pub.nodeToLink = function _nodeToLink(node){

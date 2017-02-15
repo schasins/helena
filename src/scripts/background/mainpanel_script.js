@@ -1522,11 +1522,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.postReplayProcessing = function _postReplayProcessing(trace, temporaryStatementIdentifier){
       if (this.currentNode instanceof WebAutomationLanguage.VariableUse){
         // this scrape statement is parameterized, so we can just grab the current value from the node...
+        this.currentNodeCurrentValue = this.currentNode.currentNode();
         if (this.scrapeLink){
-          this.currentNodeCurrentValue = this.currentNode.currentLink();
+          this.currentNodeCurrentValue.scraped_attribute = "LINK";
         }
         else{
-          this.currentNodeCurrentValue = this.currentNode.currentText();
+          this.currentNodeCurrentValue.scraped_attribute = "TEXT";
         }
       }
       else{
@@ -1536,11 +1537,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var matchI = null;
         for (var i = 0; i < ourStatementTraceSegment.length; i++){
           if (ourStatementTraceSegment[i].additional && ourStatementTraceSegment[i].additional.scrape && ourStatementTraceSegment[i].additional.scrape.text){
+            this.currentNodeCurrentValue = ourStatementTraceSegment[i].additional.scrape;
             if (this.scrapeLink){
-              this.currentNodeCurrentValue = ourStatementTraceSegment[i].additional.scrape.link;
+              this.currentNodeCurrentValue.scraped_attribute = "LINK";
             }
             else{
-              this.currentNodeCurrentValue = ourStatementTraceSegment[i].additional.scrape.text;
+              this.currentNodeCurrentValue.scraped_attribute = "TEXT";
             }
             matchI = i;
             break;
@@ -1885,6 +1887,19 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.args = function _args(){
       return [];
     };
+
+    // todo: is this the best place for this?
+    function textToMainpanelNodeRepresentation(text){
+      return {
+        text: text, 
+        link: null, 
+        xpath: null, 
+        frame: null, 
+        source_url: null,
+        top_frame_source_url: null
+      };
+    }
+
     this.postReplayProcessing = function _postReplayProcessing(trace, temporaryStatementIdentifier){
       // we've 'executed' an output statement.  better send a new row to our output
       var cells = [];
@@ -1892,14 +1907,18 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       for (var i = 0; i < this.relations.length; i++){
         var relation = this.relations[i];
         var newCells = relation.getCurrentCellsText();
+        newCells = _.map(newCells, textToMainpanelNodeRepresentation);
+        _.each(newCells, function(cell){cell.scraped_attribute = "TEXT";})
         cells = cells.concat(newCells);
       }
       // get all the cells that we'll get from the scrape statements
       _.each(this.scrapeStatements, function(scrapeStatment){
         cells.push(scrapeStatment.currentNodeCurrentValue);
       });
-      cells.push(new Date().getTime()); // might be useful to know the current time.  although not sure if this is how we want to handle it.  todo: better way?
-      RecorderUI.addNewRowToOutput(cells);
+      // maybe start saving this per-row info with the other per-row info instead of treating it as a cell?
+      // cells.push(new Date().getTime()); // might be useful to know the current time.  although not sure if this is how we want to handle it.  todo: better way?
+      var displayTextCells = _.map(cells, function(cell){if (cell.scraped_attribute === "LINK"){return cell.link;} else {return cell.text;}});
+      RecorderUI.addNewRowToOutput(displayTextCells);
       ReplayScript.prog.currentDataset.addRow(cells); // todo: is replayscript.prog really the best way to access the prog object so that we can get the current dataset object, save data to server?
       ReplayScript.prog.mostRecentRow = cells;
     };
@@ -2412,7 +2431,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         currentRowsCounter += 1;
         callback(true);
       }
-    }
+    };
+
 
     this.getCurrentCellsText = function _getCurrentCellsText(pageVar){
       var cells = [];
@@ -2423,17 +2443,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
       }
       return cells;
-    }
+    };
 
     this.getCurrentText = function _getCurrentText(pageVar, columnObject){
       WALconsole.log(currentRowsCounter, "currentRowsCounter");
       return this.relation[currentRowsCounter][columnObject.index];
-    }
+    };
 
     this.getCurrentLink = function _getCurrentLink(pageVar, columnObject){
       WALconsole.log("yo, why are you trying to get a link from a text relation???");
       return "";
-    }
+    };
 
     this.getCurrentMappingFromVarNamesToValues = function _getCurrentMappingFromVarNamesToValues(pageVar){
       var map = {};
@@ -2987,6 +3007,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index].link; // in the current row, value at the index associated with nodeName
     }
 
+    this.getCurrentNode = function _getCurrentNode(pageVar, columnObject){
+      var prinfo = pageVar.pageRelations[this.name+"_"+this.id]
+      if (prinfo === undefined){ WALconsole.log("Bad!  Shouldn't be calling getCurrentLink on a pageVar for which we haven't yet called getNextRow."); return null; }
+      if (prinfo.currentRows === undefined) {WALconsole.log("Bad!  Shouldn't be calling getCurrentLink on a prinfo with no currentRows.", prinfo); return null;}
+      if (prinfo.currentRows[prinfo.currentRowsCounter] === undefined) {WALconsole.log("Bad!  Shouldn't be calling getCurrentLink on a prinfo with a currentRowsCounter that doesn't correspond to a row in currentRows.", prinfo); return null;}
+      return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index]; // in the current row, value at the index associated with nodeName
+    }
+
     this.getCurrentMappingFromVarNamesToValues = function _getCurrentMappingFromVarNamesToValues(pageVar){
       var map = {};
       for (var i = 0; i < this.columns.length; i++){
@@ -3063,6 +3091,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.currentLink = function _currentLink(){
       return this.relation.getCurrentLink(this.pageVar, this.columnObject);
     };
+
+    this.currentNode = function _currentNode(){
+      return this.relation.getCurrentNode(this.pageVar, this.columnObject);
+    }
 
     this.currentRelation = function _currentRelation(){
       return this.relation;

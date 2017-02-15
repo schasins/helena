@@ -61,8 +61,8 @@ var NodeRep = (function _NodeRep() { var pub = {};
 	    	link: "", 
 	    	xpath: "", 
 	    	frame: SimpleRecord.getFrameId(), 
-	    	url: window.location.href,
-	    	topUrl: tabTopUrl
+	    	source_url: window.location.href,
+	    	top_frame_source_url: tabTopUrl
 	    };
 	  }
 	  return {
@@ -70,8 +70,8 @@ var NodeRep = (function _NodeRep() { var pub = {};
 	  	link: NodeRep.nodeToLink(node), 
 	  	xpath: nodeToXPath(node), 
 	  	frame: SimpleRecord.getFrameId(),
-    	url: window.location.href,
-    	topUrl: tabTopUrl
+    	source_url: window.location.href,
+    	top_frame_source_url: tabTopUrl
 	  };
 	};
 

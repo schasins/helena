@@ -333,7 +333,14 @@ var ServerTranslationUtilities = (function _ServerTranslationUtilities() { var p
 
   pub.JSONifyProgram = function _JSONifyProgram(origProgram){
     // let's start by deep copying so that we can delete stuff and mess around without messing up the real object
-    programAttributes = JSOG.parse(JSOG.stringify(origProgram)); // deepcopy
+    function replacer(key, value) {
+      // filtering out the blockly block, which we can recreate from the rest of the state
+      if (key === "block") {
+        return undefined;
+      }
+      return value;
+    }
+    programAttributes = JSOG.parse(JSOG.stringify(origProgram, replacer)); // deepcopy
     var program = Revival.revive(programAttributes); // copy all those fields back into a proper Program object
     // relations aren't part of a JSONified program, because this is just the string part that will be going into a single db column
     // we want interesting info like what relations it uses to be stored in a structured way so we can reason about it, do interesting stuff with it

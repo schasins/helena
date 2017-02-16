@@ -1718,6 +1718,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      console.log("workspace", workspace);
       this.block = workspace.newBlock(this.blocklyLabel);
       this.block.setFieldValue(this.stringRep(), "text");
       this.block.setFieldValue(this.pageVar.toString(), "page");
@@ -2308,7 +2309,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // handle the body statements
       var foundFirstNonNull = false;
       var lastBlock = null;
-      for (var i = 1; i < this.bodyStatements.length; i++){
+      for (var i = 0; i < this.bodyStatements.length; i++){
         var newBlock = this.bodyStatements[i].genBlocklyNode(lastBlock);
         if (newBlock !== null){ // handle the fact that there could be null-producing nodes in the middle, and need to connect around those
           lastBlock = newBlock;

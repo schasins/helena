@@ -280,7 +280,7 @@ var RecorderUI = (function () {
         var relation = relationObjects[i];
         var textRelation = relation.demonstrationTimeRelationText();
         if (textRelation.length > 2){
-          textRelation = textRelation.slice(0,2);
+          textRelation = textRelation.slice(0,3);
           textRelation.push(_.map(Array.apply(null, Array(textRelation[0].length)), function(){return "...";}));
         }
         var table = DOMCreationUtilities.arrayOfArraysToTable(textRelation);
@@ -2128,6 +2128,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       newChildStatements.push(childStatement);
       this.updateChildStatements(newChildStatements);
     };
+    this.insertChild = function _appendChild(childStatement, index){
+      var newChildStatements = this.bodyStatements;
+      newChildStatements.splice(index, 0, childStatement);
+      this.updateChildStatements(newChildStatements);
+    };
 
     this.clearRunningState = function _clearRunningState(){
       return;
@@ -2246,6 +2251,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.appendChild = function _appendChild(childStatement){
       var newChildStatements = this.bodyStatements;
       newChildStatements.push(childStatement);
+      this.updateChildStatements(newChildStatements);
+    };
+    this.insertChild = function _appendChild(childStatement, index){
+      var newChildStatements = this.bodyStatements;
+      newChildStatements.splice(index, 0, childStatement);
       this.updateChildStatements(newChildStatements);
     };
 
@@ -2616,7 +2626,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             if (statement.relation === relation){
               var varUse = new WebAutomationLanguage.VariableUse(colObject, relation, statement.pageVar, false);
               newScrapeStatement = WebAutomationLanguage.ScrapeStatementFromVarUse(varUse);
-              statement.bodyStatements.push(newScrapeStatement);
+              statement.insertChild(newScrapeStatement,0);
             }
           }
           // ok, now we have the new scrape statement, which is great, but we also need to actually add it to output
@@ -3288,6 +3298,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.appendChild = function _appendChild(childStatement){
       var newChildStatements = this.loopyStatements;
       newChildStatements.push(childStatement);
+      this.updateChildStatements(newChildStatements);
+    };
+    this.insertChild = function _appendChild(childStatement, index){
+      var newChildStatements = this.loopyStatements;
+      newChildStatements.splice(index, 0, childStatement);
       this.updateChildStatements(newChildStatements);
     };
 

@@ -1434,6 +1434,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.alternativeBlocklyLabel = "scrape_ringer"
+    var defaultVarNameText = "pick_a_name";
     this.updateAlternativeBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.alternativeBlocklyLabel] = {
@@ -1448,6 +1449,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(280);
+        },
+        onchange: function(ev) {
+            var newName = this.getFieldValue("name");
+            if (newName !== defaultVarNameText){
+              this.WALStatement.varName = newName;
+            }
         }
       };
     };
@@ -1464,12 +1471,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.block.setFieldValue(this.varName, "name")
         }
         else{
-          this.block.setFieldValue("pick_a_name", "name");
+          this.block.setFieldValue(defaultVarNameText, "name");
         }
       }
       this.block.setFieldValue(nodeRepresentation(this), "node");
       this.block.setFieldValue(this.pageVar.toString(), "page");
       attachToPrevBlock(this.block, prevBlock);
+      this.block.WALStatement = this;
       return this.block;
     };
 

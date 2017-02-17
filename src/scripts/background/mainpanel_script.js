@@ -111,7 +111,6 @@ var RecorderUI = (function () {
       $toolboxDiv.append($("<block type=\"" + blocklyLabels[i] + "\"></block>"));
     }
 
-    console.log("toolboxDiv", $toolboxDiv);
     workspace.updateToolbox($toolboxDiv.get(0));
   }
 
@@ -969,7 +968,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   }
 
   function makeRelationsDropdown(relations){
-    console.log("rel", relations);
     var relationsDropDown = [];
     for (var i = 0; i < relations.length; i++){
       var relationStr = relations[i].name;
@@ -1188,7 +1186,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setColour(280);
         }
       };
-      console.log("Blockly.Blocks", Blockly.Blocks);
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock){
@@ -1762,7 +1759,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock){
-      console.log("workspace", workspace);
       this.block = workspace.newBlock(this.blocklyLabel);
       this.block.setFieldValue(this.stringRep(), "text");
       this.block.setFieldValue(this.pageVar.toString(), "page");
@@ -3384,11 +3380,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       WALconsole.log("Running updateBlocklyBlocks", this, this.loopyStatements);
       var updateFunc = function(statement){statement.updateBlocklyBlock(program.pageVars, program.relations);};
       if (this.loopyStatements.length > 0){
-        console.log("updateBlocklyBlocks traverse");
         this.traverse(updateFunc); // so let's call updateBlocklyBlock on all statements
       }
       else{
-        console.log("updateBlocklyBlocks statements");
         _.each(this.statements, updateFunc);
       }
     };

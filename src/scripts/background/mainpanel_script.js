@@ -1193,6 +1193,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block.setFieldValue(encodeURIComponent(this.cUrl()), "url");
       this.block.setFieldValue(this.outputPageVar.toString(), "page");
       attachToPrevBlock(this.block, prevBlock);
+      this.block.WALStatement = this;
       return this.block;
     };
 
@@ -1308,6 +1309,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block.setFieldValue(nodeRepresentation(this), "node");
       this.block.setFieldValue(this.pageVar.toString(), "page");
       attachToPrevBlock(this.block, prevBlock);
+      this.block.WALStatement = this;
       return this.block;
     };
 
@@ -1355,9 +1357,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     statement.pageVar = varUse.pageVar;
     return statement;
   }
+  var scrapeStatementCounter = 0;
   pub.ScrapeStatement = function _ScrapeStatement(trace){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "scrape");
+
     this.associatedOutputStatements = [];
     if (trace){ // we will sometimes initialize with undefined, as when reviving a saved program
       this.trace = trace;
@@ -1431,8 +1435,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.alternativeBlocklyLabel = "scrape_ringer"
-    var defaultVarNameText = "pick_a_name";
     this.updateAlternativeBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.alternativeBlocklyLabel] = {
         init: function() {
@@ -1449,7 +1453,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         },
         onchange: function(ev) {
             var newName = this.getFieldValue("name");
-            if (newName !== defaultVarNameText){
+            if (newName !== this.WALStatement.defaultVarNameText){
               this.WALStatement.varName = newName;
             }
         }
@@ -1468,7 +1472,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.block.setFieldValue(this.varName, "name")
         }
         else{
-          this.block.setFieldValue(defaultVarNameText, "name");
+          if (!this.defaultVarNameText){
+            scrapeStatementCounter += 1;
+            this.defaultVarNameText = "thing_" + scrapeStatementCounter;
+          }
+          this.block.setFieldValue(this.defaultVarNameText, "name");
         }
       }
       this.block.setFieldValue(nodeRepresentation(this), "node");
@@ -1763,6 +1771,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block.setFieldValue(this.stringRep(), "text");
       this.block.setFieldValue(this.pageVar.toString(), "page");
       attachToPrevBlock(this.block, prevBlock);
+      this.block.WALStatement = this;
       return this.block;
     };
 
@@ -1902,6 +1911,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
+      this.block.WALStatement = this;
       return this.block;
     };
 
@@ -2128,6 +2138,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
+      this.block.WALStatement = this;
       return this.block;
     };
 
@@ -2198,6 +2209,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
+      this.block.WALStatement = this;
       return this.block;
     };
 
@@ -2374,6 +2386,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
       }
 
+      this.block.WALStatement = this;
       return this.block;
     };
 

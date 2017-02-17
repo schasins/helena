@@ -1427,10 +1427,46 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setColour(280);
         }
       };
+
+      // now any blockly blocks we'll need but don't want to have in the toolbox for whatever reason
+      // (usually because we can only get the statement from ringer)
+      this.updateAlternativeBlocklyBlock(pageVars, relations);
+    };
+
+    this.alternativeBlocklyLabel = "scrape_ringer"
+    this.updateAlternativeBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      var pageVarsDropDown = makePageVarsDropdown(pageVars);
+      Blockly.Blocks[this.alternativeBlocklyLabel] = {
+        init: function() {
+          this.appendDummyInput()
+              .appendField("scrape")
+              .appendField(new Blockly.FieldTextInput("node"), "node") // switch to pulldown
+              .appendField("in")
+              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page")
+              .appendField("and call it")
+              .appendField(new Blockly.FieldTextInput("name"), "name");
+          this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(280);
+        }
+      };
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock){
-      this.block = workspace.newBlock(this.blocklyLabel);
+      if (this.currentNode instanceof WebAutomationLanguage.VariableUse && !this.varName){
+        // scrapes a relation node
+        this.block = workspace.newBlock(this.blocklyLabel);
+      }
+      else{
+        // ah, a ringer-scraped node
+        this.block = workspace.newBlock(this.alternativeBlocklyLabel);
+        if (this.varName){
+          this.block.setFieldValue(this.varName, "name")
+        }
+        else{
+          this.block.setFieldValue("pick_a_name", "name");
+        }
+      }
       this.block.setFieldValue(nodeRepresentation(this), "node");
       this.block.setFieldValue(this.pageVar.toString(), "page");
       attachToPrevBlock(this.block, prevBlock);

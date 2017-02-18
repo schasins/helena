@@ -357,12 +357,54 @@ var RecorderUI = (function() {
     var scriptString = program.toString();
     var scriptPreviewDiv = $("#new_script_content").find("#program_representation");
     DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
+
+    // first make sure we have all the up to date blocks.  for instance, if we have relations available, we'll add loops to toolbox
+    pub.updateBlocklyToolbox();
+    program.displayBlockly();
+
+    // we also want to update the section that lets the user say what loop iterations are duplicates
+    // used for data that changes alignment during scraping and for recovering from failures
+    pub.updateDuplicateDetection();
+
     if (program.name){
       $("#new_script_content").find("#program_name").get(0).value = program.name;
     }
   };
 
-  pub.addNewRowToOutput = function(listOfCellTexts){
+  pub.updateDuplicateDetection = function _updateDuplicateDetection(){
+    var duplicateDetectionData = ReplayScript.prog.getDuplicateDetectionData();
+
+    $div = $("#new_script_content").find("#duplicates_container_content");
+    $div.html("");
+    for (var i = 0; i < duplicateDetectionData.length; i++){
+      var oneLoopData = duplicateDetectionData[i];
+      var table = DOMCreationUtilities.arrayOfArraysToTable(oneLoopData.displayData);
+      var nodeVariables = oneLoopData.nodeVariables;
+      var tr = $("<tr></tr>");
+      for (var j = 0; j < nodeVariables.length; j++){
+        
+          var attributes = ["text", "link"];
+          for (var k = 0; k < attributes.length; k++){
+            (function(){
+              var nodeVariable = nodeVariables[j];
+              var attr = attributes[k];
+              var atributeRequired = $("<input type='checkbox'>");
+              atributeRequired.change(function(){
+                console.log("toggling attribute required for", nodeVariable, attr);
+                RecorderUI.updateDisplayedScript();});
+
+              var td = $("<td></td>");
+              td.append(atributeRequired);
+              tr.append(td);
+            })();
+          }
+      }
+      table.prepend(tr);
+      div.append(table);
+    }
+  };
+
+  pub.addNewRowToOutput = function _addNewRowToOutput(listOfCellTexts){
     var div = $("#new_script_content").find("#output_preview").find("table").find("tbody");
     var l = div.children().length;
     var limit = 100;
@@ -2543,8 +2585,54 @@ var WebAutomationLanguage = (function() {
       }
     };
 
+    this.getDuplicateDetectionData = function _getDuplicateDetectionData(){
+      var loopData = [];
+      this.traverse(function(statement){
+        if (statement instanceof WebAutomationLanguage.LoopStatement){
+          var newLoopItem = {};
+          var nodeVars = statement.relationNodeVars();
+          var childStatements = statement.getChildren();
+          var scrapeChildren = [];
+          for (var i = 0; i < childStatements.length; i++){
+            var s = childStatements[i];
+            if (s instanceof WebAutomationLanguage.ScrapeStatement && s.node instanceof WebAutomationLanguage.NodeVariable){
+              scrapeChildren.push(s);
+            }
+            else if (s instanceof WebAutomationLanguage.LoopStatement){
+              // convention right now, since duplicate detection is for avoiding repeat
+              // of unnecessary work, is that we make the judgment based on variables available
+              // before any nested loops
+              break;
+            }
+          }
+          var scrapeChildrenNodeVars = _.map(scrapeChildren, function(scrapeS){return scrapeS.node;});
+          nodeVars.concat(scrapeChildrenNodeVars); // ok, nodeVars now has all our nodes
+          newLoopItem.nodeVariables = nodeVars;
+          // in addition to just sending along the nodeVar objects, we also want to make the table of values
+          var displayData = [[], []];
+          for (var i = 0; i < nodeVars.length; i++){
+            var nv = nodeVars[i];
+            displayData[0].push(nv.name() + " text");
+            displayData[1].push(nv.recordTimeText());
+            displayData[0].push(nv.name() + " link");
+            displayData[1].push(nv.recordTimeLink());
+          }
+          newLoopItem.displayData = displayData;
+          loopData.push(newLoopItem);
+        }
+      });
+      return loopData;
+    };
+
+    this.updateChildStatements = function _updateChildStatements(newChildStatements){
+      this.loopyStatements = newChildStatements;
+      for (var i = 0; i < this.loopyStatements.length; i++){
+        this.loopyStatements[i].parent = this;
+      }
+    }
+
     // just for replaying the straight-line recording, primarily for debugging
-    this.replayOriginal = function(){
+    this.replayOriginal = function _replayOriginal(){
       var trace = [];
       _.each(this.statements, function(statement){trace = trace.concat(statement.cleanTrace);});
       _.each(trace, function(ev){EventM.clearDisplayInfo(ev);}); // strip the display info back out from the event objects

@@ -4,8 +4,8 @@
 	<script type="text/javascript" src="../scripts/lib/jquery.js"></script>
 	<script type="text/javascript" src="../scripts/lib/jquery_csv.js"></script>
 	<script type="text/javascript" src="../scripts/lib/jquery-ui.js"></script>
+	<script type="text/javascript" src="../scripts/lib/misc-utilities.js"></script>
 	<script type="text/javascript" src="../scripts/lib/stableStringify.js"></script>
-	<script type="text/javascript" src="../scripts/lib/utilities.js"></script>
 	<script type="text/javascript" src="../scripts/lib/underscore-min.js"></script>
 	<script type="text/javascript" src="../scripts/lib/json2.js"></script>
 	<script type="text/javascript" src="../scripts/lib/JSOG.js"></script>
@@ -24,6 +24,12 @@
 	<script type="text/javascript" src="../scripts/background/output_handling.js"></script>
 	<script type="text/javascript" src="../scripts/background/errors.js"></script>
 	<script type="text/javascript" src="../scripts/background/environment.js"></script>
+
+	<script src="../scripts/lib/blockly/blockly_compressed.js"></script>
+	<script src="../scripts/lib/blockly/blocks_compressed.js"></script>
+	<script src="../scripts/lib/blockly/msg/js/en.js"></script>
+	<script type="text/javascript" src="../scripts/background/blockly_custom_blocks.js"></script>
+	
 	<script type="text/javascript" src="../scripts/background/mainpanel_script.js"></script>
 	
 	<link href='https://fonts.googleapis.com/css?family=Montserrat' rel='stylesheet' type='text/css'>
@@ -79,6 +85,18 @@
 
 			<div id="script_preview" class="new_script_message_stage">
 
+				<div id="program_representation"></div>
+				
+				<div id="blockly_area"></div>
+				<div id="blockly_div" style="position: absolute"></div>
+				<xml id="toolbox" style="display: none"></xml>
+
+				<div id="relations_container">
+					<div class="title">Relevant Tables</div>
+					<div id="status_message"></div>
+					<div id="relations"></div>
+					<button id="relation_upload" class="top_margin">Upload an Additional Table</button>
+				</div>
 				<button id="run">Run Script</button> 
 				<button id="replay">Replay Original Recorded Script</button> (for testing)
 				<div>
@@ -115,6 +133,7 @@
 				<div>
 					<button id="download">Download Data</button> 
 					Note that the downloaded dataset may be slightly out of date if we haven't saved all the data yet.
+					<div>Rows so far: <span id=rows_so_far>0</span></div>
 				</div>
 				<div id="output_preview"><table><tbody></tbody></table></div>
 			</div>

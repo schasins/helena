@@ -18,11 +18,11 @@ function ParameterizedTrace(trace){
 				xpath = trace[i].target.xpath.orig_value;
 			}
 			else{
-				console.log(trace[i].target.xpath);
+				WALconsole.log(trace[i].target.xpath);
 				xpath = trace[i].target.xpath.toUpperCase();
 			}
 			if (xpath === original_value){
-				console.log("putting a hole in for an xpath", original_value);
+				WALconsole.log("putting a hole in for an xpath", original_value);
 				trace[i].target.xpath = {"name": parameter_name, "value": null, "orig_value": original_value};
 			}
 		}
@@ -33,7 +33,7 @@ function ParameterizedTrace(trace){
 			if (trace[i].type !== "dom"){ continue;}
 			var xpath = trace[i].target.xpath;
 			if (xpath.name === parameter_name){
-				console.log("use xpath", value);
+				WALconsole.log("use xpath", value);
 				trace[i].target.xpath = {"name": parameter_name, "value": value, "orig_value": xpath.orig_value};
 			}
 		}
@@ -46,7 +46,7 @@ function ParameterizedTrace(trace){
 	var data_carrier_type = "textInput";
 	
 	this.parameterizeTypedString = function(parameter_name, original_string){
-		console.log("parameterizing string ",parameter_name, original_string);
+		WALconsole.log("parameterizing string ",parameter_name, original_string);
 		var curr_node_xpath = null;
 		var curr_string = "";
 		var char_indexes = [];
@@ -59,7 +59,7 @@ function ParameterizedTrace(trace){
 					(trace[i].target.xpath !== curr_node_xpath && curr_node_xpath !== null)){ // event now targeting a different node (and not just bc it's the first node we've seen)
 				// if the next thing isn't a key event or if we've switched nodes, we're done with the current string!  (assuming we have a current string right now)
 				if (curr_string.length > 0){
-					console.log("processString", curr_string);
+					WALconsole.log("processString", curr_string);
 					processString(parameter_name, original_string, curr_string, char_indexes, i - 1);
 					curr_string = "";
 					char_indexes = [];
@@ -121,7 +121,7 @@ function ParameterizedTrace(trace){
 
 			// what's the last place where we see everything that appears left of our target string, but none of the target string?
 			var left = typed_value_lower.slice(0, target_string_index);
-			console.log("left", left);
+			WALconsole.log("left", left);
 			var first_key_event_index = char_indexes[0];
 
 			var start_target_typing_index = first_key_event_index;
@@ -139,7 +139,7 @@ function ParameterizedTrace(trace){
 					}
 				}
 			}
-			console.log("start_typing_index", start_target_typing_index);
+			WALconsole.log("start_typing_index", start_target_typing_index);
 			// what's the first place where we see the whole target string?
 			var stop_target_typing_index = last_key_index; // we know it's there by the last key, so that's a safe bet
 			for (var i = start_target_typing_index; i < last_key_index; i++){
@@ -152,7 +152,7 @@ function ParameterizedTrace(trace){
 					}
 				}
 			}
-			console.log("stop_target_typing_index", stop_target_typing_index);
+			WALconsole.log("stop_target_typing_index", stop_target_typing_index);
 
 			// ok, so we type our target from start_target_typing_index to stop_target_typing_index
 			for (var i = stop_target_typing_index; i > start_target_typing_index; i--){
@@ -163,7 +163,7 @@ function ParameterizedTrace(trace){
 				}
 			}
 			if (text_input_event === null){
-				console.log("uh oh, one of our assumptions broken. no textinput event.");
+				WALconsole.log("uh oh, one of our assumptions broken. no textinput event.");
 			}
 			//now make our param event
 			var param_event = {"type": "string_parameterize", 
@@ -177,14 +177,14 @@ function ParameterizedTrace(trace){
 			trace = trace.slice(0,start_target_typing_index)
 			.concat([param_event])
 			.concat(trace.slice(stop_target_typing_index, trace.length));
-			console.log("putting a hole in for a string", original_string_initial_case);
+			WALconsole.log("putting a hole in for a string", original_string_initial_case);
 		}
 	}
 	this.useTypedString = function(parameter_name, string){
 		for (var i=0; i< trace.length; i++){
 			var event = trace[i];
 			if (event.type === "string_parameterize" && event.parameter_name === parameter_name){
-				console.log("use string", string);
+				WALconsole.log("use string", string);
 				event.value = string;
 			}
 		}
@@ -194,18 +194,18 @@ function ParameterizedTrace(trace){
 	/* tab parameterization if we want to say which page to go to but leave frame mapping to lower level r+r code */
 
 	this.parameterizeTab = function(parameter_name, original_value) {
-		console.log("parameterizing tab ",parameter_name, original_value);
+		WALconsole.log("parameterizing tab ",parameter_name, original_value);
 		tabs[parameter_name] = {original_value: original_value};
 	};
 
 	this.useTab = function(parameter_name, value) {
 		if(value === null){
-			console.log("Freak out: tabs.");
+			WALconsole.log("Freak out: tabs.");
 		}
 		if (!tabs[parameter_name]){
-			console.log("warning, may be trying to give argument for something that hasn't been parameterized: !tabs[parameter_name]");
-			console.log(parameter_name, value);
-			console.log(this);
+			WALconsole.log("warning, may be trying to give argument for something that hasn't been parameterized: !tabs[parameter_name]");
+			WALconsole.log(parameter_name, value);
+			WALconsole.log(this);
 			return;
 		}
 		tabs[parameter_name].value = value;
@@ -214,18 +214,18 @@ function ParameterizedTrace(trace){
 	/* frame parameterization */
 	
 	this.parameterizeFrame = function(parameter_name, original_value) {
-		console.log("parameterizing frame ",parameter_name, original_value);
+		WALconsole.log("parameterizing frame ",parameter_name, original_value);
 		frames[parameter_name] = {original_value: original_value};
 	};
 
 	this.useFrame = function(parameter_name, value) {
 		if(value === null){
-			console.log("Freak out.");
+			WALconsole.log("Freak out.");
 		}
 		if (!frames[parameter_name]){
-			console.log("warning, may be trying to give argument for something that hasn't been parameterized: !frames[parameter_name]");
-			console.log(parameter_name, value);
-			console.log(this);
+			WALconsole.log("warning, may be trying to give argument for something that hasn't been parameterized: !frames[parameter_name]");
+			WALconsole.log(parameter_name, value);
+			WALconsole.log(this);
 			return;
 		}
 		frames[parameter_name].value = value;
@@ -248,7 +248,7 @@ function ParameterizedTrace(trace){
 			}
 			var url = trace[i].frame.topURL.toUpperCase();
 			if (url === original_value){
-				console.log("putting a hole in for a URL", original_value);
+				WALconsole.log("putting a hole in for a URL", original_value);
 				trace[i].frame.topURL = {"name": parameter_name, "value": null};
 			}
 		}
@@ -262,7 +262,7 @@ function ParameterizedTrace(trace){
 			}
 			var url = trace[i].data.url.toUpperCase();
 			if (url === original_value){
-				console.log("putting a hole in for a URL", original_value);
+				WALconsole.log("putting a hole in for a URL", original_value);
 				trace[i].data.url = {"name": parameter_name, "value": null};
 			}
 		}
@@ -274,7 +274,7 @@ function ParameterizedTrace(trace){
 			if (trace[i].type !== "dom"){ continue;}
 			var url = trace[i].frame.topURL;
 			if (url.name === parameter_name){
-				console.log("use url", url);
+				WALconsole.log("use url", url);
 				trace[i].frame.topURL = {"name": parameter_name, "value": value};
 			}
 		}
@@ -283,7 +283,7 @@ function ParameterizedTrace(trace){
 			if (trace[i].type !== "completed"){ continue;}
 			var url = trace[i].data.url;
 			if (url.name === parameter_name){
-				console.log("use url", url);
+				WALconsole.log("use url", url);
 				trace[i].data.url = {"name": parameter_name, "value": value};
 			}
 		}
@@ -304,16 +304,16 @@ function ParameterizedTrace(trace){
 	}
 	
 	this.getStandardTrace = function(){
-		console.log("about to clone trace ", trace);
+		WALconsole.log("about to clone trace ", trace);
 		var cloned_trace = clone(trace);
-		console.log("successfully cloned trace");
+		WALconsole.log("successfully cloned trace");
 		var prop_corrections = {};
 		for (var i = 0; i< cloned_trace.length; i++){
 			if (cloned_trace[i].type === "completed"){
 				// correct url if it's a parameterized url
 				var url = cloned_trace[i].data.url;
 				if (url.name){
-					console.log("Correcting url to ", url.value);
+					WALconsole.log("Correcting url to ", url.value);
 					cloned_trace[i].data.url = url.value;
 				}
 			}
@@ -331,26 +331,26 @@ function ParameterizedTrace(trace){
 				// correct xpath if it's a parameterized xpath
 				var xpath = cloned_trace[i].target.xpath;
 				if (xpath.name){
-					console.log("Correcting xpath to ", xpath.value);
+					WALconsole.log("Correcting xpath to ", xpath.value);
 					cloned_trace[i].target.xpath = xpath.value;
 					cloned_trace[i].target.useXpathOnly = true;
 				}
 				// correct url if it's a parameterized url
 				var url = cloned_trace[i].frame.topURL;
 				if (url.name){
-					console.log("Correcting url to ", url.value);
+					WALconsole.log("Correcting url to ", url.value);
 					cloned_trace[i].frame.topURL = url.value;
 				}
 				// correct tab if it's a parameterized tab
 				var tab = cloned_trace[i].frame.tab;
 				if (tab.name){
-					console.log("Correcting url to ", tab.value);
+					WALconsole.log("Correcting url to ", tab.value);
 					cloned_trace[i].frame.tab = tab.value;
 				}
 			}
 			else if (cloned_trace[i].type === "string_parameterize"){
-				console.log("Correcting string to ", cloned_trace[i].value);
-				console.log(cloned_trace[i]);
+				WALconsole.log("Correcting string to ", cloned_trace[i].value);
+				WALconsole.log(cloned_trace[i]);
 				var new_event = cloned_trace[i].text_input_event;
 				new_event.data.data = cloned_trace[i].value;
 				deltaReplace(new_event.meta.deltas, "value", cloned_trace[i].orig_value, cloned_trace[i].value);
@@ -368,7 +368,7 @@ function ParameterizedTrace(trace){
 	};
 	
 	this.getConfig = function(){
-		console.log("frames", frames);
+		WALconsole.log("frames", frames);
 		var config = {};
 		config.frameMapping = {};
 		for (var param in frames){
@@ -378,7 +378,7 @@ function ParameterizedTrace(trace){
 		for (var param in tabs){
 			config.tabMapping[tabs[param].original_value] = tabs[param].value;
 		}
-		console.log("config", config);
+		WALconsole.log("config", config);
 		return config;
 	};
 }

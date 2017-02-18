@@ -2,7 +2,7 @@
  * Author: S. Chasins
  **********************************************************************/
 
-var RelationFinder = (function() { var pub = {};
+var RelationFinder = (function _RelationFinder() { var pub = {};
 
   /**********************************************************************
    * Web-specific relation-finder code -- how to get features, how to tell when features match, how to combine features to get a more general feature, all candidates
@@ -120,8 +120,8 @@ var RelationFinder = (function() { var pub = {};
   // feature_dict is the primary part of our selector
   // exclude_first tells us whether to skip the first row, as we often do when we have headers
   // suffixes tell us how to find subcomponents of a row in the relation
-  pub.interpretRelationSelectorHelper = function(feature_dict, exclude_first, subcomponents_function){
-    // console.log("interpretRelationSelectorHelper", feature_dict, exclude_first, subcomponents_function);
+  pub.interpretRelationSelectorHelper = function _interpretRelationSelectorHelper(feature_dict, exclude_first, subcomponents_function){
+    // WALconsole.log("interpretRelationSelectorHelper", feature_dict, exclude_first, subcomponents_function);
     var candidates = getAllCandidates();
     var list = [];
     for (i=0;i<candidates.length;i++){
@@ -147,21 +147,21 @@ var RelationFinder = (function() { var pub = {};
     if (exclude_first > 0 && list.length > exclude_first){
       return list.slice(exclude_first,list.length);
     }
-    console.log(list);
+    WALconsole.log(list);
     return list;
   };
 
-  pub.interpretRelationSelector = function(selector){
+  pub.interpretRelationSelector = function _interpretRelationSelector(selector){
     if (selector.selector.table === true){
       // let's go ahead and sidetrack off to the table extraction routine
       return pub.interpretTableSelector(selector.selector, selector.exclude_first, selector.columns);
     }
     var suffixes = _.pluck(selector.columns, "suffix");
-    console.log("interpretRelationSelector", selector);
+    WALconsole.log("interpretRelationSelector", selector);
     return pub.interpretRelationSelectorHelper(selector.selector, selector.exclude_first, makeSubcomponentFunction(suffixes));
   };
 
-  pub.interpretTableSelector = function(featureDict, excludeFirst, columns){
+  pub.interpretTableSelector = function _interpretTableSelector(featureDict, excludeFirst, columns){
     // we don't use this for nested tables!  this is just for very simple tables, otherwise we'd graduate to the standard approach
     var nodes = xPathToNodes(featureDict.xpath);
     var table = null;
@@ -208,7 +208,7 @@ var RelationFinder = (function() { var pub = {};
     nodes = _.filter(nodes, function(node){return node !== null && node !== undefined;});
     var xpath_lists = _.map(nodes, function(node){ return XPathList.xPathToXPathList(nodeToXPath(node)); });
     if (xpath_lists.length === 0){
-      console.log("Why are you trying to get the common ancestor of 0 nodes?");
+      WALconsole.log("Why are you trying to get the common ancestor of 0 nodes?");
       return;
     }
     var first_xpath_list = xpath_lists[0];
@@ -309,12 +309,12 @@ var RelationFinder = (function() { var pub = {};
           }
           else if (features !== almost_all_features) {
             //xpaths weren't enough to exclude nodes we need to exclude
-            console.log("need to try more features.");
+            WALconsole.log("need to try more features.");
             return synthesizeSelector(positive_nodes, negative_nodes, columns, almost_all_features);
           }
           else {
-            console.log("using all our features and still not working.  freak out.");
-            console.log(feature_dict);
+            WALconsole.log("using all our features and still not working.  freak out.");
+            WALconsole.log(feature_dict);
             //we're using all our features, and still haven't excluded
             //the ones we want to exclude.  what do we do?  TODO
           }
@@ -340,21 +340,21 @@ var RelationFinder = (function() { var pub = {};
       }
     }
 
-    console.log("featureDict feature_dict", feature_dict);
+    WALconsole.log("featureDict feature_dict", feature_dict);
     
     //where a feature has more then 3 values, it's too much
     //also need to handle xpath differently, merging to xpaths with *s
     var filtered_feature_dict = {};
     for (var feature in feature_dict){
       var values = collapseValues(feature, feature_dict[feature]["values"]);
-      console.log(feature, values.length, positive_nodes.length);
+      WALconsole.log(feature, values.length, positive_nodes.length);
       if (feature === "xpath" || (values.length <= 3 && values.length !== positive_nodes.length)){
-        console.log("accept feature: ", feature);
+        WALconsole.log("accept feature: ", feature);
         filtered_feature_dict[feature] = {"values":values,"pos":true};
       }
     }
 
-    console.log("returning featureDict filtered_feature_dict", filtered_feature_dict);
+    WALconsole.log("returning featureDict filtered_feature_dict", filtered_feature_dict);
     return filtered_feature_dict;
   }
 
@@ -370,7 +370,7 @@ var RelationFinder = (function() { var pub = {};
   }
     
 
-  pub.synthesizeFromSingleRow = function(rowNodes){
+  pub.synthesizeFromSingleRow = function _synthesizeFromSingleRow(rowNodes){
     var ancestor = findCommonAncestor(rowNodes);
     var positive_nodes = [ancestor];
     var columns = columnsFromNodeAndSubnodes(ancestor, rowNodes);
@@ -406,14 +406,14 @@ var RelationFinder = (function() { var pub = {};
       var combo = combos[i];
       if (combo.length < 1){ continue; }
       var selector = pub.synthesizeFromSingleRow(combo);
-      console.log("selector", selector);
+      WALconsole.log("selector", selector);
       var relation = pub.interpretRelationSelector(selector);
       var numCells = combo.length * relation.length;
       if (numCells > maxNumCells){
         maxNumCells = numCells;
         maxSelector = selector;
-        console.log("maxselector", maxSelector);
-        console.log("relation", relation);
+        WALconsole.log("maxselector", maxSelector);
+        WALconsole.log("relation", relation);
       }
     }
     if (!maxSelector){
@@ -437,7 +437,7 @@ var RelationFinder = (function() { var pub = {};
   }
 
   function synthesizeSelectorForWholeSetTable(rowNodes){
-    console.log(rowNodes);
+    WALconsole.log(rowNodes);
     var parents = $(rowNodes[0]).parents();
     var trs = [];
     for (var i = 0; i < parents.length; i++){
@@ -449,7 +449,7 @@ var RelationFinder = (function() { var pub = {};
     }
 
     if (trs.length === 0){
-      console.log("No tr parents.");
+      WALconsole.log("No tr parents.");
       return null;
     }
 
@@ -463,7 +463,7 @@ var RelationFinder = (function() { var pub = {};
     });
 
     if (acceptedTrs.length === 0){
-      console.log("No shared tr parents.");
+      WALconsole.log("No shared tr parents.");
       return null;
     }
 
@@ -561,7 +561,7 @@ var RelationFinder = (function() { var pub = {};
 
   var processedCount = 0;
   var processedLikelyRelationRequest = false;
-  pub.likelyRelation = function(msg){
+  pub.likelyRelation = function _likelyRelation(msg){
     if (processedLikelyRelationRequest){
       // should only even send a likely relation once from one page, since it gets closed after we get the answer we wanted
       // may end up sending multiples if we're sent the inciting message multiple times because the page loads slowly
@@ -586,7 +586,7 @@ var RelationFinder = (function() { var pub = {};
       }
       var columns = rel.columns;
       var relXpaths = _.pluck(columns, "xpath");
-      console.log(relXpaths);
+      WALconsole.log(relXpaths);
       var matched = 0;
       for (var j = 0; j < xpaths.length; j++){
         if (relXpaths.indexOf(xpaths[j]) > -1){
@@ -597,7 +597,7 @@ var RelationFinder = (function() { var pub = {};
         maxNodesCoveredByServerRelations = matched;
       }
     }
-    console.log("maxNodesCoveredByServerRelations", maxNodesCoveredByServerRelations);
+    WALconsole.log("maxNodesCoveredByServerRelations", maxNodesCoveredByServerRelations);
 
     // if this is actually in an html table, let's take a shortcut, since some sites use massive tables and trying to run the other approach would take forever
     var selectorData = synthesizeSelectorForWholeSetTable(nodes);
@@ -660,7 +660,7 @@ var RelationFinder = (function() { var pub = {};
       newMsg.next_type = currBestSelector.next_type;
       newMsg.next_button_selector = currBestSelector.next_button_selector;
     }
-    console.log("currBestSelector", currBestSelector);
+    WALconsole.log("currBestSelector", currBestSelector);
     newMsg.exclude_first = currBestSelector.exclude_first;
     newMsg.num_rows_in_demonstration = currBestSelector.relation.length;
     newMsg.selector = currBestSelector.selector;
@@ -683,7 +683,7 @@ var RelationFinder = (function() { var pub = {};
     return newMsg; // return rather than sendmessage because it's a builtin response handler one
   }
 
-  pub.getRelationItems = function(msg, sendMsg){
+  pub.getRelationItems = function _getRelationItems(msg, sendMsg){
     if (sendMsg === undefined){ sendMsg = true; }
     var relation = pub.interpretRelationSelector(msg);
     var relationData = pub.relationNodesToMainpanelNodeRepresentation(relation);
@@ -693,7 +693,7 @@ var RelationFinder = (function() { var pub = {};
     return relationData;
   };
 
-  pub.relationNodesToMainpanelNodeRepresentation = function(relationNodes){
+  pub.relationNodesToMainpanelNodeRepresentation = function _relationNodesToMainpanelNodeRepresentation(relationNodes){
     var relationData = _.map(relationNodes, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
     return relationData;
   }
@@ -707,7 +707,7 @@ var RelationFinder = (function() { var pub = {};
  **********************************************************************/
 
   var colors = ["#9EE4FF","#9EB3FF", "#BA9EFF", "#9EFFEA", "#E4FF9E", "#FFBA9E", "#FF8E61"];
-  pub.highlightRelation = function(arrayOfArrays, display, pointerEvents){
+  pub.highlightRelation = function _highlightRelation(arrayOfArrays, display, pointerEvents){
     var nodes = [];
     for (var i = 0; i < arrayOfArrays.length ; i++){
       for (var j = 0; j < arrayOfArrays[i].length; j++){
@@ -729,7 +729,7 @@ var RelationFinder = (function() { var pub = {};
  **********************************************************************/
 
   var currentSelectorToEdit = null;
-  pub.editRelation = function(msg){
+  pub.editRelation = function _editRelation(msg){
     if (currentSelectorToEdit !== null){
       // we've already set up to edit a selector, and we should never use the same tab to edit multiples
       // always close tab and reload.  so don't run setup again
@@ -768,7 +768,7 @@ var RelationFinder = (function() { var pub = {};
         if ( didScroll ) {
           didScroll = false;
           // Ok, we're ready to redo the relation highlighting with new page situation
-          console.log("scroll updating");
+          WALconsole.log("scroll updating");
           pub.newSelectorGuess(currentSelectorToEdit);
         }
         }, 250);
@@ -777,7 +777,7 @@ var RelationFinder = (function() { var pub = {};
     $(editingSetup);
   };
 
-  pub.setEditRelationIndex = function(i){
+  pub.setEditRelationIndex = function _setEditRelationIndex(i){
     currentSelectorToEdit.editingClickColumnIndex = i;
   }
 
@@ -792,16 +792,16 @@ var RelationFinder = (function() { var pub = {};
     currentHoverHighlight = Highlight.highlightNode(event.target, color);
   }
 
-  pub.setRelation = function(selectorObj){
+  pub.setRelation = function _setRelation(selectorObj){
     selectorObj.relation = pub.interpretRelationSelector(selectorObj);
     selectorObj.num_rows_in_demo = selectorObj.relation.length;
   };
 
-  pub.highlightSelector = function(selectorObj){
+  pub.highlightSelector = function _highlightSelector(selectorObj){
     return pub.highlightRelation(selectorObj.relation, true, true); // we want to allow clicks on the highlights (see editingClick)
   };
 
-  pub.sendSelector = function(selectorObj){
+  pub.sendSelector = function _sendSelector(selectorObj){
     var relation = selectorObj.relation;
     var relationData = _.map(relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});}); // mainpanel rep version
     selectorObj.demonstration_time_relation = relationData;
@@ -812,7 +812,7 @@ var RelationFinder = (function() { var pub = {};
   };
 
   var currentSelectorHighlightNodes = [];
-  pub.newSelectorGuess = function(selectorObj){
+  pub.newSelectorGuess = function _newSelectorGuess(selectorObj){
     pub.setRelation(selectorObj);
     for (var i = 0; i < currentSelectorHighlightNodes.length; i++){
       Highlight.clearHighlight(currentSelectorHighlightNodes[i]);
@@ -823,7 +823,7 @@ var RelationFinder = (function() { var pub = {};
 
   function findAncestorLikeSpec(spec_ancestor, node){
     //will return exactly the same node if there's only one item in first_row_items
-    console.log("findAncestorLikeSpec", spec_ancestor, node);
+    WALconsole.log("findAncestorLikeSpec", spec_ancestor, node);
     var spec_xpath_list = XPathList.xPathToXPathList(nodeToXPath(spec_ancestor));
     var xpath_list = XPathList.xPathToXPathList(nodeToXPath(node));
     var ancestor_xpath_list = xpath_list.slice(0,spec_xpath_list.length);
@@ -973,13 +973,13 @@ var RelationFinder = (function() { var pub = {};
  **********************************************************************/
 
   var listeningForNextButtonClick = false;
-  pub.nextButtonSelector = function(){
+  pub.nextButtonSelector = function _nextButtonSelector(){
     // ok, now we're listening for a next button click
     listeningForNextButtonClick = true;
     pub.clearNextButtonSelector(); // remove an old one if there is one
   };
 
-  pub.clearNextButtonSelector = function(){
+  pub.clearNextButtonSelector = function _clearNextButtonSelector(){
     // we just want to unhighlight it if there is one...
     unHighlightNextOrMoreButton();
   };
@@ -1003,7 +1003,7 @@ var RelationFinder = (function() { var pub = {};
   }
 
   function findNextButton(next_button_data){
-    console.log(next_button_data);
+    WALconsole.log(next_button_data);
     var next_or_more_button_tag = next_button_data.tag;
     var next_or_more_button_text = next_button_data.text;
     var next_or_more_button_id = next_button_data.id;
@@ -1032,18 +1032,19 @@ var RelationFinder = (function() { var pub = {};
           }
         }
         if (min_candidate === null){
-          console.log("couldn't find an appropriate 'more' button");
-          console.log(next_or_more_button_tag, next_or_more_button_id, next_or_more_button_text, next_or_more_button_xpath);
+          WALconsole.log("couldn't find an appropriate 'more' button");
+          WALconsole.log(next_or_more_button_tag, next_or_more_button_id, next_or_more_button_text, next_or_more_button_xpath);
         }
         button = min_candidate;
       }
     }
+    console.log("button", button);
     return button;
   }
 
   var nextOrMoreButtonHighlight = null;
   function highlightNextOrMoreButton(selector){
-    console.log(selector);
+    WALconsole.log(selector);
     var button = findNextButton(selector);
     nextOrMoreButtonHighlight = Highlight.highlightNode(button, "#E04343", true);
   }
@@ -1065,7 +1066,8 @@ var RelationFinder = (function() { var pub = {};
 
   // below the methods for actually using the next button when we need the next page of results
   // this also identifies if there are no more items to retrieve, in which case that info is stored in case someone tries to run getFreshRelationItems on us
-  pub.runNextInteraction = function(msg){
+  pub.runNextInteraction = function _runNextInteraction(msg){
+
     utilities.sendMessage("content", "mainpanel", "runningNextInteraction", {}); // todo: will this always reach the page?  if not, big trouble
     var sid = selectorId(msg);
     nextInteractionSinceLastGetFreshRelationItems[sid] = true; // note that we're assuming that the next interaction for a given relation only affects that relation
@@ -1073,6 +1075,7 @@ var RelationFinder = (function() { var pub = {};
     var next_button_type = msg.next_type;
 
     if (next_button_type === NextTypes.SCROLLFORMORE){
+      WALconsole.namedLog("nextInteraction", "scrolling for more");
       var crd = currentRelationData[sid];
       var knowTheLastElement = false;
       // let's try scrolling to last element if we know it
@@ -1093,12 +1096,22 @@ var RelationFinder = (function() { var pub = {};
       }
     }
     else if (next_button_type === NextTypes.MOREBUTTON || next_button_type === NextTypes.NEXTBUTTON){
-      console.log("msg.next_button_selector", msg.next_button_selector);
+      WALconsole.namedLog("nextInteraction", "msg.next_button_selector", msg.next_button_selector);
       var button = findNextButton(msg.next_button_selector);
       if (button !== null){
+        WALconsole.namedLog("nextInteraction", "clicked next or more button");
         button.click();
+        /*
+        $button = $(button);
+        $button.trigger("mousedown");
+        //$button.trigger("focus");
+        $button.trigger("mouseup");
+        $button.trigger("click");
+        //$button.trigger("blur");
+        */
       }
       else{
+        WALconsole.namedLog("nextInteraction", "next or more button was null");
         noMoreItemsAvailable[sid] = true;
       }
     }
@@ -1106,22 +1119,23 @@ var RelationFinder = (function() { var pub = {};
       noMoreItemsAvailable[sid] = true;
     }
     else{
-      console.log("Failure.  Don't know how to produce items because don't know next button type.  Guessing we just want the current page items.");
+      WALconsole.namedLog("nextInteraction", "Failure.  Don't know how to produce items because don't know next button type.  Guessing we just want the current page items.");
       noMoreItemsAvailable[sid] = true;
     }
   }
 
-  pub.getFreshRelationItems = function(msg){
-    var respMsg = getFreshRelationItemsHelper(msg);
+  pub.getFreshRelationItems = function _getFreshRelationItems(msg){
+    var respMsg = pub.getFreshRelationItemsHelper(msg);
     utilities.sendMessage("content", "mainpanel", "freshRelationItems", respMsg);
   }
 
   relationFinderIdCounter = 0;
-  pub.getFreshRelationItemsHelper = function(msg){
+  pub.getFreshRelationItemsHelper = function _getFreshRelationItemsHelper(msg){
     var strMsg = selectorId(msg);
-    console.log("noMoreItemsAvailable", noMoreItemsAvailable[strMsg], noMoreItemsAvailable);
+    WALconsole.log("noMoreItemsAvailable", noMoreItemsAvailable[strMsg], noMoreItemsAvailable);
     if (noMoreItemsAvailable[strMsg]){
       // that's it, we're done.  last use of the next interaction revealed there's nothing left
+      console.log("no more items at all, because noMoreItemsAvailable was set.");
       return {type: RelationItemsOutputs.NOMOREITEMS, relation: null};
     }
     // below is commented out in case there are cases where after first load, it may take a while for the data to all get there (get empty list first, that kind of deal)  Does that happen or is this a wasted opportunity to cache?
@@ -1135,7 +1149,7 @@ var RelationFinder = (function() { var pub = {};
     // ok, don't have a cached version, either because never collected before, or bc done a next interaction since then.  better grab the data afresh
 
     var relationNodes = pub.interpretRelationSelector(msg);
-    console.log("relationNodes", relationNodes);
+    WALconsole.log("relationNodes", relationNodes);
 
     // ok, let's go through these nodes and give them ids if they've never been scraped for a node before
     // then we want to figure out whether we're in a next interaction or a more interaction, so we now how to deal with info about whether we've scraped already
@@ -1184,6 +1198,10 @@ var RelationFinder = (function() { var pub = {};
       if (msg.next_type === NextTypes.NEXTBUTTON){
         // this is a next interaction, so we should never have overlap.  wait until everything is new
         if (relationNodes.length !== newRows.length){
+	  console.log("sending no new items yet because we found some repeated items and it's a next button.  is that bad?");
+	  console.log("alreadySeenRelationNodeIds", alreadySeenRelationNodeIds.length, alreadySeenRelationNodeIds);
+	  console.log("relationNodes", relationNodes.length, relationNodes);
+	  console.log("newRows", newRows.length, newRows);
           // looks like some of our rows weren't new, so next button hasn't happened yet
           return {type: RelationItemsOutputs.NONEWITEMSYET, relation: null};
         }
@@ -1202,6 +1220,7 @@ var RelationFinder = (function() { var pub = {};
     if (crd && crd.length === relationData.length && _.isEqual(crd, relationData)){
       // this check should now be unnecessary.  todo: clean it up!
       // data still looks the same as it looked before.  no new items yet.
+      console.log("No new items yet because the data is actualy equal");
       return {type: RelationItemsOutputs.NONEWITEMSYET, relation: null};
     }
     // whee, we have some new stuff.  we can update the state

@@ -121,6 +121,11 @@ h4 {
 	margin-top: 8px;
 }
 
+#blockly_area{
+	margin-top: 8px;
+	height: 400px;
+}
+
 .relation_preview{
 	margin-top: 20px;
 }

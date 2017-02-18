@@ -6,11 +6,16 @@
  * Listeners and general set up
  **********************************************************************/
 
-var tabID = "setme";
+var tabId = "setme";
 var windowId = "setme";
+var tabTopUrl = "setme";
 var currentRecordingWindow = null;
 
-utilities.listenForMessage("background", "content", "tabID", function(msg){tabID = msg.tab_id; windowId = msg.window_id; console.log("tab id: ", msg);});
+utilities.listenForMessage("background", "content", "tabID", function(msg){
+	tabId = msg.tab_id; 
+	windowId = msg.window_id;
+	tabTopUrl = msg.top_frame_url;
+});
 utilities.listenForMessage("mainpanel", "content", "getRelationItems", function(msg){RelationFinder.getRelationItems(msg);});
 utilities.listenForMessage("mainpanel", "content", "getFreshRelationItems", function(msg){RelationFinder.getFreshRelationItems(msg);});
 utilities.listenForMessage("mainpanel", "content", "editRelation", function(msg){RelationFinder.editRelation(msg);});
@@ -22,13 +27,21 @@ utilities.listenForMessage("mainpanel", "content", "pageStats", function(){ util
 utilities.listenForMessage("mainpanel", "content", "runNextInteraction", function(msg){RelationFinder.runNextInteraction(msg);});
 utilities.listenForMessage("mainpanel", "content", "currentColumnIndex", function(msg){RelationFinder.setEditRelationIndex(msg.index);});
 
-utilities.listenForFrameSpecificMessage("mainpanel", "content", "likelyRelation", function(msg){return RelationFinder.likelyRelation(msg);});
-utilities.listenForFrameSpecificMessage("mainpanel", "content", "getFreshRelationItems", function(msg){return RelationFinder.getFreshRelationItemsHelper(msg);});
+utilities.listenForFrameSpecificMessage("mainpanel", "content", "likelyRelation", function(msg, sendResponse){sendResponse(RelationFinder.likelyRelation(msg));});
+utilities.listenForFrameSpecificMessage("mainpanel", "content", "getFreshRelationItems", 
+	function(msg, sendResponse){
+		MiscUtilities.registerCurrentResponseRequested(msg, 
+			function(m){
+				var freshRelationItems = RelationFinder.getFreshRelationItemsHelper(m);
+				sendResponse(freshRelationItems);
+			});
+	}
+);
 
 // keep requesting this tab's tab id until we get it
 MiscUtilities.repeatUntil(
 		function(){utilities.sendMessage("content", "background", "requestTabID", {});},
-		function(){return (tabID !== "setme" && windowId !== "setme");},
+		function(){return (tabId !== "setme" && windowId !== "setme");},
 		1000);
 // keep trying to figure out which window is currently being recorded until we find out
 MiscUtilities.repeatUntil(
@@ -40,15 +53,29 @@ MiscUtilities.repeatUntil(
  * The various node representations we may need
  **********************************************************************/
 
-var NodeRep = (function() { var pub = {};
-	pub.nodeToMainpanelNodeRepresentation = function(node){
+var NodeRep = (function _NodeRep() { var pub = {};
+	pub.nodeToMainpanelNodeRepresentation = function _nodeToMainpanelNodeRepresentation(node){
 	  if (node === null){
-	    return {text: "", link: "", xpath: "", frame: SimpleRecord.getFrameId()};
+	    return {
+	    	text: "", 
+	    	link: "", 
+	    	xpath: "", 
+	    	frame: SimpleRecord.getFrameId(), 
+	    	source_url: window.location.href,
+	    	top_frame_source_url: tabTopUrl
+	    };
 	  }
-	  return {text: NodeRep.nodeToText(node), link: NodeRep.nodeToLink(node), xpath: nodeToXPath(node), frame: SimpleRecord.getFrameId()};
+	  return {
+	  	text: NodeRep.nodeToText(node), 
+	  	link: NodeRep.nodeToLink(node), 
+	  	xpath: nodeToXPath(node), 
+	  	frame: SimpleRecord.getFrameId(),
+    	source_url: window.location.href,
+    	top_frame_source_url: tabTopUrl
+	  };
 	};
 
-	pub.nodeToLink = function(node){
+	pub.nodeToLink = function _nodeToLink(node){
 	  if (node.href){
 	    return node.href;
 	  }
@@ -60,7 +87,7 @@ var NodeRep = (function() { var pub = {};
 	  return pars[0].href;
 	}
 
-	pub.nodeToText = function(node){
+	pub.nodeToText = function _nodeToText(node){
 	  //var text = node.innerText;
 	  return getElementText(node);
 	}

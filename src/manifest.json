@@ -27,7 +27,7 @@
       "matches": ["http://*/*", "https://*/*"],
       "match_about_blank": true,
       "all_frames": true,
-      "js": [		"scripts/lib/utilities.js", 
+      "js": [		"scripts/lib/misc-utilities.js", 
 			"scripts/lib/jquery.js", 
       "scripts/content/setup.js",
 			"scripts/lib/record-replay/common_common.js",
@@ -51,7 +51,7 @@
     }
   ],
   "web_accessible_resources": [					
-                "scripts/lib/utilities.js", 
+                "scripts/lib/misc-utilities.js", 
 								"scripts/lib/jquery.js", 
                 "scripts/lib/stableStringify.js", 
                 "scripts/lib/JSOG.js",

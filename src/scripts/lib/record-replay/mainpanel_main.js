@@ -80,9 +80,8 @@ var PortManager = (function PortManagerClosure() {
     getNewId: function _getNewId(value, sender) {
       /* for some reason, the start page loads the content script but doesn't
        * have a tab id. in this case, don't assign an id */
-      console.log("getNewId", value, sender);
+      //console.log("getNewId", value, sender);
       if (!sender.tab) {
-        console.log('request for new id without a tab id');
         portLog.warn('request for new id without a tab id');
         return;
       }
@@ -124,9 +123,9 @@ var PortManager = (function PortManagerClosure() {
       }
       if (value.top) {
         tabInfo.top.push(value);
-        console.log("this.tabIdToTabInfo, added top frame: ", this.tabIdToTabInfo);
+        //console.log("this.tabIdToTabInfo, added top frame: ", this.tabIdToTabInfo);
       } else {
-        console.log("this.tabIdToTabInfo, added non-top frame: ", this.tabIdToTabInfo);
+        //console.log("this.tabIdToTabInfo, added non-top frame: ", this.tabIdToTabInfo);
         tabInfo.frames.push(value);
       }
       return portId;
@@ -291,7 +290,7 @@ var Record = (function RecordClosure() {
       if (lastTime == 0) {
         var waitTime = 0;
       } else {
-        var waitTime = time - lastTime;
+        var waitTime = time - lastTime; // the time to wait between running the last event and running this one.
       }
       if (!('timing' in e))
         e.timing = {};
@@ -646,11 +645,16 @@ var Replay = (function ReplayClosure() {
       if (nextIndex >= events.length)
         return 0;
       if (curIndex == 0)
-        return 1000;
+        return 0; // note: this used to be 1,000.  not sure why.  may need to look into this at some point.
 
       var defaultTime = 0;
-      for (var i = curIndex; i <= nextIndex; ++i)
-        defaultTime += events[i].timing.waitTime;
+      for (var i = curIndex; i <= nextIndex; ++i){
+        var timeToAdd = events[i].timing.waitTime;
+        if (events[i].timing.ignoreWait && timeToAdd > 5){
+          timeToAdd = timeToAdd / 5;
+        }
+        defaultTime += timeToAdd; 
+      }
 
       if (defaultTime > 10000)
         defaultTime = 10000;
@@ -774,7 +778,8 @@ var Replay = (function ReplayClosure() {
     },
     /* Given an event, find the corresponding port */
     getMatchingPort: function _getMatchingPort(v) {
-      console.log("gpm: _getMatchingPort: ",v);
+      var gpmdebug = false;
+      if (gpmdebug) {console.log("gpm: _getMatchingPort: ",v);}
       var portMapping = this.portMapping;
       var tabMapping = this.tabMapping;
 
@@ -787,21 +792,21 @@ var Replay = (function ReplayClosure() {
       /* we have already seen this port, reuse existing mapping */
       if (port in portMapping) {
         replayPort = portMapping[port];
-        console.log("gpm: port in portMapping", portMapping);
+        if (gpmdebug) {console.log("gpm: port in portMapping", portMapping);}
         replayLog.log('port already seen', replayPort);
 
       /* we have already seen this tab, find equivalent port for tab
        * for now we will just choose the last port added from this tab */
       } else if (tab in tabMapping) {
         var replayPort = this.findPortInTab(tabMapping[tab], frame); // todo: woah, just grabbing the last port from the tab doesn't seem ok
-        console.log("gpm: tab in tabMapping", tabMapping);
+        if (gpmdebug) {console.log("gpm: tab in tabMapping", tabMapping);}
 
         if (replayPort) {
           portMapping[port] = replayPort;
-          console.log('gpm: tab already seen, found port:', replayPort);
+          if (gpmdebug) {console.log('gpm: tab already seen, found port:', replayPort);}
         } else {
           this.setNextTimeout(params.replay.defaultWait);
-          console.log('gpm: tab already seen, no port found');
+          if (gpmdebug) {console.log('gpm: tab already seen, no port found');}
         }
       /* nothing matched, so we need to open new tab */
       } else {
@@ -825,9 +830,9 @@ var Replay = (function ReplayClosure() {
          * tab, then lets assume this new tab should match */
         if (this.firstEventReplayed && unusedTabs.length == 1) {
           tabMapping[frame.tab] = unusedTabs[0];
-          console.log("gpm: adding one unmatched tab mapping update");
+          if (gpmdebug) {console.log("gpm: adding one unmatched tab mapping update");}
           this.setNextTimeout(0);
-          console.log("Exactly one unmapped.");
+          if (gpmdebug) {console.log("Exactly one unmapped.");}
           return;
         }
 
@@ -873,8 +878,8 @@ var Replay = (function ReplayClosure() {
 
         var recordTimeCompletedEvents = _.filter(recordTimeEvents, function(ev){return ev.type === "completed";});
         var replayTimeCompletedEvents = _.filter(replayTimeEventsSoFar, function(ev){return ev.type === "completed";});
-        console.log("recordTimeCompletedEvents", recordTimeCompletedEvents);
-        console.log("replayTimeCompletedEvents", replayTimeCompletedEvents);
+        //console.log("recordTimeCompletedEvents", recordTimeCompletedEvents);
+        //console.log("replayTimeCompletedEvents", replayTimeCompletedEvents);
 
         // todo: sometimes it seems like doing this loading time thing gives us the wrong answer.  when that happens, may want to revisit it after a while, clear the tabMapping mappings that were made with this, if we keep looking for a port and failing...
 
@@ -903,10 +908,10 @@ var Replay = (function ReplayClosure() {
                     //return replayPort;
 
                     tabMapping[currEventTabID] = e2.data.tabId;
-                    console.log("gpm: tabMapping updated for completed event alignment");
+                    if (gpmdebug) {console.log("gpm: tabMapping updated for completed event alignment");}
                     this.setNextTimeout(0);
-                    console.log("Using loading time data to make tab mapping.");
-                    console.log("gpm: not returning real port (refreshed tab mapping)");
+                    if (gpmdebug) {console.log("Using loading time data to make tab mapping.");}
+                    if (gpmdebug) {console.log("gpm: not returning real port (refreshed tab mapping)");}
                     return; // so that simulateDom event will be called again, and we'll get back here now with good mappings
                   }
                 }
@@ -917,8 +922,8 @@ var Replay = (function ReplayClosure() {
       } // end the kind of top-level else
 
       if (!replayPort){
-        console.log(v, portMapping, tabMapping);
-        console.log("Freak out.  We don't know what port to use to replay this event.");
+        if (gpmdebug) {console.log(v, portMapping, tabMapping);}
+        if (gpmdebug) {console.log("Freak out.  We don't know what port to use to replay this event.");}
         // it may be the tab just isn't ready yet, not added to our mappings yet.  try again in a few.
         this.setNextTimeout(1000);
         // unless...we've been seeing this a lot, in which case this looks like a real failure
@@ -938,12 +943,12 @@ var Replay = (function ReplayClosure() {
             this.errorConts.portFailure(continuation);
           }
         }
-        console.log("gpm: not returning real port");
+        if (gpmdebug) {console.log("gpm: not returning real port");}
         return null;
       }
-      console.log(replayPort);
+      if (gpmdebug) {console.log(replayPort);}
       this.currentPortMappingFailures = 0;
-      console.log("gpm: returning real port");
+      if (gpmdebug) {console.log("gpm: returning real port");}
       return replayPort;
     },
     /* Given the frame information from the recorded trace, find a 
@@ -961,7 +966,7 @@ var Replay = (function ReplayClosure() {
         replayLog.log('assume port is top level page');
         var topFrame = portInfo.top;
         if (topFrame) {
-          console.log("top level page for findportintab");
+          // console.log("top level page for findportintab");
           if (matchUrls(frame.URL, topFrame.URL))
             return ports.getPort(topFrame.portId);
         }
@@ -1063,7 +1068,7 @@ var Replay = (function ReplayClosure() {
       // console.log(events[index]);
       if (index >= events.length) {
         //no more events to actively replay, but may need to wait for some
-        console.log(index, "done with script");
+        //console.log(index, "done with script");
         this.finish();
         return;
       }
@@ -1085,13 +1090,13 @@ var Replay = (function ReplayClosure() {
     },
     openTabSequenceFromTrace: function _openTabSequenceFromTrace(trace){
       var completed_events = _.filter(trace, function(event){return event.type === "completed" && event.data.type === "main_frame";});
-      console.log(completed_events);
+      //console.log(completed_events);
       var eventIds = _.map(completed_events, function(event){return event.meta.id});
       return eventIds;
     },
     simulateCompletedEvent: function _simulateCompletedEvent(e){
       if (e.forceReplay && (!e.reset || !(e.reset.alreadyForced))){
-        console.log("forcing replay");
+        //console.log("forcing replay");
         if (!e.reset){e.reset = {};}
         e.reset.alreadyForced = true;  // enforce that we don't do the forceReplay a second time, but instead wait to see the completed event?
         var that = this;
@@ -1099,8 +1104,8 @@ var Replay = (function ReplayClosure() {
         if (this.targetWindowId){
           options.windowId = this.targetWindowId;
         }
-        console.log("options", options);
-        console.log("event", e);
+        //console.log("options", options);
+        //console.log("event", e);
         chrome.tabs.create(options, function(){
           // not sufficient to treat tab creation as getting an ack.  must wait for it to appear in the replay-time trace
           // that.index ++; // advance to next event
@@ -1134,7 +1139,7 @@ var Replay = (function ReplayClosure() {
         for (var i = replayTimeEvents.length - 1; i >= 0; i--){
           // debug todo: remove next two lines
           var ev = replayTimeEvents[i];
-          console.log(i, domIndex, ev.type, ev.data);
+          // console.log(i, domIndex, ev.type, ev.data);
 
           // for now, commenting out the below, deciding to be willing to go all the way back to the last top-level completed event that we've already matched
           /*
@@ -1236,7 +1241,7 @@ var Replay = (function ReplayClosure() {
         /* we hopefully found a matching port, lets dispatch to that port */
         var type = v.data.type;
 
-        console.log("this.getStatus()", this.getStatus());
+        // console.log("this.getStatus()", this.getStatus());
 
         try {
           if (this.getStatus() == ReplayState.REPLAYING) {
@@ -1277,7 +1282,7 @@ var Replay = (function ReplayClosure() {
            * navigated away from */
           if (err.message == 'Attempting to use a disconnected port object') {
             var strategy = params.replay.brokenPortStrategy;
-            console.log("using broken port strategy: ", strategy);
+            //console.log("using broken port strategy: ", strategy);
             if (strategy == BrokenPortStrategy.RETRY) {
               if (v.data.cascading) {
                 /* skip the rest of the events */

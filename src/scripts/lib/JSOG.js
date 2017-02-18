@@ -16,7 +16,12 @@
 
   JSOG_OBJECT_ID = '__jsogObjectId';
 
-  JSOG.encode = function(original, idProperty, refProperty) {
+  JSOG.encode = function(original, replacer, idProperty, refProperty) {
+    if (replacer === undefined){
+      replacer = function(key, value){
+        return value;
+      }
+    }
     var doEncode, idOf, sofar;
     if (idProperty == null) {
       idProperty = '@id';
@@ -31,9 +36,9 @@
       }
       return obj[JSOG_OBJECT_ID];
     };
-    doEncode = function(original) {
+    doEncode = function(original, replacer) {
       var encodeArray, encodeObject;
-      encodeObject = function(original) {
+      encodeObject = function(original, replacer) {
         var id, key, obj1, obj2, result, value;
         id = idOf(original);
         if (sofar[id]) {
@@ -49,21 +54,21 @@
           obj2
         );
         for (key in original) {
-          value = original[key];
+          value = replacer(key, original[key]);
           if (key !== JSOG_OBJECT_ID) {
-            result[key] = doEncode(value);
+            result[key] = doEncode(value, replacer);
           }
         }
         return result;
       };
-      encodeArray = function(original) {
+      encodeArray = function(original, replacer) {
         var val;
         return (function() {
           var i, len, results;
           results = [];
           for (i = 0, len = original.length; i < len; i++) {
             val = original[i];
-            results.push(doEncode(val));
+            results.push(doEncode(val, replacer));
           }
           return results;
         })();
@@ -73,14 +78,14 @@
       } else if (hasCustomJsonificaiton(original)) {
         return original;
       } else if (isArray(original)) {
-        return encodeArray(original);
+        return encodeArray(original, replacer);
       } else if (typeof original === 'object') {
-        return encodeObject(original);
+        return encodeObject(original, replacer);
       } else {
         return original;
       }
     };
-    return doEncode(original);
+    return doEncode(original, replacer);
   };
 
   JSOG.decode = function(encoded, idProperty, refProperty) {
@@ -144,8 +149,8 @@
     return doDecode(encoded);
   };
 
-  JSOG.stringify = function(obj) {
-    return JSON.stringify(JSOG.encode(obj));
+  JSOG.stringify = function(obj, replacer) {
+    return JSON.stringify(JSOG.encode(obj, replacer));
   };
 
   JSOG.parse = function(str) {

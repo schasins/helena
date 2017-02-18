@@ -25,8 +25,16 @@ utilities.listenForMessage("mainpanel", "content", "currentColumnIndex", functio
 utilities.listenForFrameSpecificMessage("mainpanel", "content", "likelyRelation", function(msg){return RelationFinder.likelyRelation(msg);});
 utilities.listenForFrameSpecificMessage("mainpanel", "content", "getFreshRelationItems", function(msg){return RelationFinder.getFreshRelationItemsHelper(msg);});
 
-utilities.sendMessage("content", "background", "requestTabID", {});
-utilities.sendMessage("content", "mainpanel", "requestCurrentRecordingWindow", {});
+// keep requesting this tab's tab id until we get it
+MiscUtilities.repeatUntil(
+		function(){utilities.sendMessage("content", "background", "requestTabID", {});},
+		function(){return (tabID !== "setme" && windowId !== "setme");},
+		1000);
+// keep trying to figure out which window is currently being recorded until we find out
+MiscUtilities.repeatUntil(
+		function(){utilities.sendMessage("content", "mainpanel", "requestCurrentRecordingWindow", {});},
+		function(){return (currentRecordingWindow !== null);},
+		1000);
 
 /**********************************************************************
  * The various node representations we may need

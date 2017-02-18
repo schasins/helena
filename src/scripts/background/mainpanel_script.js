@@ -1422,7 +1422,7 @@ var WebAutomationLanguage = (function() {
     }
 
     this.toStringLines = function(){
-      if (!onlyKeyups && !onlyKeydowns){
+      if (!this.onlyKeyups && !this.onlyKeydowns){
         // normal processing, for when there's actually a typed string
         var stringRep = "";
         if (this.currentTypedString instanceof WebAutomationLanguage.Concatenate){
@@ -1434,7 +1434,7 @@ var WebAutomationLanguage = (function() {
         return [outputPagesRepresentation(this)+"type("+this.pageVar.toString()+", "+stringRep+")"];
       }
       else{
-        var charsDict = {16: "SHIFT", 17: "CTRL", 18: "ALT"};
+        var charsDict = {16: "SHIFT", 17: "CTRL", 18: "ALT", 91: "CMD"}; // note that 91 is the command key in Mac; on Windows, I think it's the Windows key; probably ok to use cmd for both
         var chars = [];
         _.each(this.keyEvents, function(ev){
           if (ev.data.keyCode in charsDict){
@@ -1443,7 +1443,7 @@ var WebAutomationLanguage = (function() {
         });
         var charsString = chars.join(", ");
         var act = "press"
-        if (onlyKeyups){
+        if (this.onlyKeyups){
           act = "let up"
         }
         return [act + " " + charsString + " on " + this.pageVar.toString()];
@@ -2083,14 +2083,6 @@ var WebAutomationLanguage = (function() {
       return {id: this.id, name: this.name, selector: this.selector, selector_version: this.selectorVersion, exclude_first: this.excludeFirst, columns: this.columns, next_type: this.nextType, next_button_selector: this.nextButtonSelector, url: this.url, num_rows_in_demonstration: this.numRowsInDemo};
     };
 
-    function repeatUntil(repeatFunction, untilFunction, interval){
-      if (untilFunction()){
-        return;
-      }
-      repeatFunction();
-      setTimeout(function(){repeatUntil(repeatFunction, untilFunction, interval);}, interval);
-    }
-
     this.noMoreRows = function(prinfo, callback){
       // no more rows -- let the callback know we're done
       // clear the stored relation data also
@@ -2238,7 +2230,7 @@ var WebAutomationLanguage = (function() {
                                                   function(response) { if (response !== null) {handleNewRelationItemsFromFrame(response, frame.frameId);}}); // when get response, call handleNewRelationItemsFromFrame (defined above) to pick from the frames' answers
             };
             // here's the function for sending the message until we get the answer
-            repeatUntil(sendGetRelationItems, function(){return relationItemsRetrieved[frame.frameId];}, 1000);
+            MiscUtilities.repeatUntil(sendGetRelationItems, function(){return relationItemsRetrieved[frame.frameId];}, 1000);
           });
       });
 
@@ -2279,7 +2271,7 @@ var WebAutomationLanguage = (function() {
         if (!pageVar.currentTabId()){ console.log("Hey!  How'd you end up trying to click next button on a page for which you don't have a current tab id??  That doesn't make sense.", pageVar); }
         var sendRunNextInteraction = function(){
           utilities.sendMessage("mainpanel", "content", "runNextInteraction", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);};
-        repeatUntil(sendRunNextInteraction, function(){return runningNextInteraction;}, 1000);
+        MiscUtilities.repeatUntil(sendRunNextInteraction, function(){return runningNextInteraction;}, 1000);
       }
       else {
         // we still have local rows that we haven't used yet.  just advance the counter to change which is our current row

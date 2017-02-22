@@ -1695,7 +1695,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // and now get the answer in a way that works both for relation-scraped and ringer-scraped, because of using NodeVariable
       this.currentNodeCurrentValue = this.currentNode.currentNodeRep();
       if (!this.currentNodeCurrentValue){
-        return this.currentNodeCurrentValue;
+        this.currentNodeCurrentValue = {}; // todo: is it ok to just use an empty entry as a cell when we find none?
       }
 
       if (this.scrapeLink){

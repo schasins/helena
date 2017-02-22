@@ -845,11 +845,10 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     var target = event.target;
     var removalClick = false;
     // it's only a removal click if the clicked item is a highlight
-    var id = $(target).attr("id");
-    if (id !== null && id !== undefined && id.indexOf("vpbd-hightlight") > -1){
+    if (Highlight.isHighlight(target)){
       removalClick = true;
       // actual target is the one associated with the highlight
-      target = highlights[id];
+      target = Highlight.getHighligthedNodeFromHighlightNode(target);
       var nodeToRemove = target; // recall the target itself may be the positive example, as when there's only one column
       if (currentSelectorToEdit.positive_nodes.indexOf(target) < 0){
         // ok it's not the actual node, better check the parents

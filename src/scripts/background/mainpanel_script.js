@@ -3243,7 +3243,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.setCurrentNodeRep = function _setCurrentNodeRep(nodeRep){
       // todo: should be a better way to get env
-      console.log("ReplayScript.prog.environment", ReplayScript.prog.environment);
       ReplayScript.prog.environment.envBind(this.name, nodeRep);
     };
 

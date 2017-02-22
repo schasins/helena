@@ -560,9 +560,18 @@ var Highlight = (function _Highlight() { var pub = {};
       newDiv.css('pointer-events', 'none');
     }
     $(document.body).append(newDiv);
-    var html = $target.html();
-    highlights.push(target);
+    highlights.push(newDiv);
+    newDiv.highlightedNode = target;
     return newDiv;
+  };
+
+  pub.isHighlight = function _isHighlight(node){
+    var id = $(node).attr("id");
+    return (id !== null && id !== undefined && id.indexOf("vpbd-hightlight") > -1);
+  };
+
+  pub.getHighligthedNodeFromHighlightNode = function _getHighligthedNodeFromHighlightNode(highlightNode){
+    return highlightNode.highlightedNode;
   }
 
   pub.clearHighlight = function _clearHighlight(highlightNode){

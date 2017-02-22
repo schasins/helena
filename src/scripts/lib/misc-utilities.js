@@ -6,9 +6,20 @@ var WALconsole = (function _WALconsole() { var pub = {};
   pub.namedDebugging = [];//["getRelationItems", "nextInteraction"];
   pub.styleMinimal = true;
 
-  function loggingGuts(callerName, args){
+  function callerName(origArgs){
+    console.log("origArgs", origArgs);
+    try {
+      return origArgs.callee.caller.name;
+    }
+    catch(e){
+      return "unknown caller";
+    }
+  }
+
+  function loggingGuts(args, origArgs){
     var prefix = [];
     if (!pub.styleMinimal){
+      var caller = callerName(origArgs);
       prefix = ["["+caller+"]"];
     }
     var newArgs = prefix.concat(Array.prototype.slice.call(args));
@@ -17,7 +28,7 @@ var WALconsole = (function _WALconsole() { var pub = {};
 
   pub.log = function _log(){
     if (pub.debugging){
-      loggingGuts(arguments.callee.caller.name, arguments);
+      loggingGuts(arguments, arguments);
     }
   };
 
@@ -25,7 +36,7 @@ var WALconsole = (function _WALconsole() { var pub = {};
     var name = arguments[0];
     if (pub.debugging || pub.namedDebugging.indexOf(name) > -1) {
       var args = Array.prototype.slice.call(arguments);
-      loggingGuts(arguments.callee.caller.name, args.slice(1, arguments.length));
+      loggingGuts(args.slice(1, arguments.length), arguments);
     }
   };
 
@@ -33,7 +44,7 @@ var WALconsole = (function _WALconsole() { var pub = {};
     if (pub.showWarnings){
       var args = Array.prototype.slice.call(arguments);
       var newArgs = ["Warning: "].concat(args);
-      loggingGuts(arguments.callee.caller.name, newArgs);
+      loggingGuts(newArgs, arguments);
     }
   };
 

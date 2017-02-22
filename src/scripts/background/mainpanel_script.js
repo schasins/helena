@@ -1553,7 +1553,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.scrapingRelationItem = function _scrapingRelationItem(){
-      return this.node !== this.currentNode;
+      return this.relation !== null && this.relation !== undefined;
     };
 
     this.pbvs = function _pbvs(){
@@ -1563,7 +1563,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // do we actually know the target tab already?  if yes, go ahead and paremterize that
           pbvs.push({type:"tab", value: originalTab(this)});
         }
-        if (this.node !== this.currentNode){
+        if (this.scrapingRelationItem()){
           pbvs.push({type:"node", value: this.node});
         }
         if (this.preferredXpath){
@@ -1625,7 +1625,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.args = function _args(){
       var args = [];
       if (this.trace.length > 0){ // no need to make pbvs based on this statement's parameterization if it doesn't have any events to parameterize anyway...
-        args.push({type:"node", value: currentNodeXpath(this)});
+        if (this.scrapingRelationItem()){
+          args.push({type:"node", value: currentNodeXpath(this)});
+        }
         args.push({type:"tab", value: currentTab(this)});
         if (this.preferredXpath){
           args.push({type:"node", value: this.preferredXpath});
@@ -1637,7 +1639,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.xpaths = [];
     this.postReplayProcessing = function _postReplayProcessing(trace, temporaryStatementIdentifier){
 
-      if (!this.relation){
+      if (!this.scrapingRelationItem()){
         // ok, this was a ringer-run scrape statement, so we have to grab the right node out of the trace
 
         // it's not just a relation item, so relation extraction hasn't extracted it, so we have to actually look at the trace
@@ -3241,6 +3243,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.setCurrentNodeRep = function _setCurrentNodeRep(nodeRep){
       // todo: should be a better way to get env
+      console.log("ReplayScript.prog.environment", ReplayScript.prog.environment);
       ReplayScript.prog.environment.envBind(this.name, nodeRep);
     };
 
@@ -3540,7 +3543,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           var scrapeChildren = [];
           for (var i = 0; i < childStatements.length; i++){
             var s = childStatements[i];
-            if (s instanceof WebAutomationLanguage.ScrapeStatement && s.node instanceof WebAutomationLanguage.NodeVariable){
+            if (s instanceof WebAutomationLanguage.ScrapeStatement && !s.scrapingRelationItem()){
               scrapeChildren.push(s);
             }
             else if (s instanceof WebAutomationLanguage.LoopStatement){
@@ -3551,7 +3554,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             }
           }
           var scrapeChildrenNodeVars = _.map(scrapeChildren, function(scrapeS){return scrapeS.currentNode;});
-          nodeVars.concat(scrapeChildrenNodeVars); // ok, nodeVars now has all our nodes
+          nodeVars = nodeVars.concat(scrapeChildrenNodeVars); // ok, nodeVars now has all our nodes
           newLoopItem.nodeVariables = nodeVars;
           // in addition to just sending along the nodeVar objects, we also want to make the table of values
           var displayData = [[], []];
@@ -3853,6 +3856,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         WALconsole.log("parameterizedTrace", parameterizedTrace);
         var runnableTrace = passArguments(parameterizedTrace, basicBlockStatements);
         var config = parameterizedTrace.getConfig();
+        WALconsole.log("runnableTrace", runnableTrace);
 
         // the above works because we've already put in VariableUses for statement arguments that use relation items, for all statements within a loop, so currNode for those statements will be a variableuse that uses the relation
         // however, because we're only running these basic blocks, any uses of relation items (in invisible events) that happen before the for loop will not get parameterized, 

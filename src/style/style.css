@@ -106,11 +106,14 @@ h4 {
 	text-align: center;
 }
 
-#relations_container{
+.container{
 	background-color: #E3E3E3;
 	padding: 10px;
 	margin-top: 20px;
 	margin-bottom: 20px;
+}
+
+#relations_container{
 }
 
 #new_script_content table{

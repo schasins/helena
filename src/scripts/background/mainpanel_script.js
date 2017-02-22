@@ -62,6 +62,7 @@ var RecorderUI = (function () {
             var top = currWindowInfo.top - 40; // - 40 because it doesn't seem to count the menu bar and I'm not looking for a more accurate solution at the moment
             var left = right; // let's have it adjacent to the control panel
             chrome.windows.create({url: "pages/newRecordingWindow.html", focused: true, left: left, top: top, width: (bounds.right - right), height: (bounds.top + bounds.height - top)}, function(win){
+              WALconsole.log("new record/replay window created.");
               recordingWindowId = win.id;
               pub.sendCurrentRecordingWindow();
               WALconsole.log("Only recording in window: ", recordingWindowId);
@@ -432,8 +433,45 @@ var RecorderUI = (function () {
     pub.updateBlocklyToolbox();
     program.displayBlockly();
 
+    // we also want to update the section that lets the user say what loop iterations are duplicates
+    // used for data that changes alignment during scraping and for recovering from failures
+    pub.updateDuplicateDetection();
+
     if (program.name){
       $("#new_script_content").find("#program_name").get(0).value = program.name;
+    }
+  };
+
+  pub.updateDuplicateDetection = function _updateDuplicateDetection(){
+    var duplicateDetectionData = ReplayScript.prog.getDuplicateDetectionData();
+
+    $div = $("#new_script_content").find("#duplicates_container_content");
+    $div.html("");
+    for (var i = 0; i < duplicateDetectionData.length; i++){
+      var oneLoopData = duplicateDetectionData[i];
+      var table = DOMCreationUtilities.arrayOfArraysToTable(oneLoopData.displayData);
+      var nodeVariables = oneLoopData.nodeVariables;
+      var tr = $("<tr></tr>");
+      for (var j = 0; j < nodeVariables.length; j++){
+        
+          var attributes = ["text", "link"];
+          for (var k = 0; k < attributes.length; k++){
+            (function(){
+              var nodeVariable = nodeVariables[j];
+              var attr = attributes[k];
+              var atributeRequired = $("<input type='checkbox'>");
+              atributeRequired.change(function(){
+                console.log("toggling attribute required for", nodeVariable, attr);
+                RecorderUI.updateDisplayedScript();});
+
+              var td = $("<td></td>");
+              td.append(atributeRequired);
+              tr.append(td);
+            })();
+          }
+      }
+      table.prepend(tr);
+      $div.append(table);
     }
   };
 
@@ -978,8 +1016,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   function nodeRepresentation(statement, linkScraping){
     if (linkScraping === undefined){ linkScraping = false; }
-    if (statement.currentNode instanceof WebAutomationLanguage.VariableUse){
-      return statement.currentNode.toString(linkScraping);
+    if (statement.currentNode instanceof WebAutomationLanguage.NodeVariable){
+      var nodeRep = statement.currentNode.toString();
+      if (linkScraping){
+        nodeRep += ".link";
+      }
+      return nodeRep;
     }
     if (statement.trace[0].additional.visualization === "whole page"){
       return "whole page";
@@ -1011,11 +1053,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         return null;
       }
 
+      // hey, this better be in the same order as relation.columns and relation.firstRowXpaths!
+      // todo: maybe add some helper functions to get rid of this necessity? since it may not be clear in there...
+      var nodeRepresentations = relation.firstRowNodeRepresentations();
+
       for (var i = 0; i < relation.firstRowXPaths.length; i++){
         var firstRowXpath = relation.firstRowXPaths[i];
-        if (firstRowXpath === statement.currentNode){
+        if (firstRowXpath === statement.origNode){
           statement.relation = relation;
-          statement.currentNode = new WebAutomationLanguage.VariableUse(relation.columns[i], relation, pageVar, link); // note that this means the elements in the firstRowXPaths and the elements in columns must be aligned!
+          var name = relation.columns[i].name;
+          var nodeRep = nodeRepresentations[i];
+          statement.currentNode = new WebAutomationLanguage.NodeVariable(name, nodeRep); // note that this means the elements in the firstRowXPaths and the elements in columns must be aligned!
           return relation.columns[i]; 
         }
       }
@@ -1033,7 +1081,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   }
 
   function currentNodeXpath(statement){
-    if (statement.currentNode instanceof WebAutomationLanguage.VariableUse){
+    if (statement.currentNode instanceof WebAutomationLanguage.NodeVariable){
       return statement.currentNode.currentXPath();
     }
     return statement.currentNode; // this means currentNode better be an xpath if it's not a variable use!
@@ -1147,7 +1195,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.cUrl = function _cUrl(){
-      if (this.currentUrl instanceof WebAutomationLanguage.VariableUse){
+      if (this.currentUrl instanceof WebAutomationLanguage.NodeVariable){
         return this.currentUrl.currentText();
       }
       else {
@@ -1157,7 +1205,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.cUrlString = function _cUrlString(){
-      if (this.currentUrl instanceof WebAutomationLanguage.VariableUse){
+      if (this.currentUrl instanceof WebAutomationLanguage.NodeVariable){
         return this.currentUrl.toString();
       }
       else {
@@ -1213,6 +1261,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // ok!  loads can now get changed based on relations!
       // what we want to do is load a different url if we have a relation that includes the url
       var columns = relation.columns;
+      var firstRowNodeRepresentations = relation.firstRowNodeRepresentations();
+      // again, must have columns and firstRowNodeRepresentations aligned.  should be a better way
       for (var i = 0; i < columns.length; i++){
         var text = columns[i].firstRowText;
         if (text === null || text === undefined){
@@ -1222,7 +1272,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         if (text === this.url){
           // ok, we want to parameterize
           this.relation = relation;
-          this.currentUrl = new WebAutomationLanguage.VariableUse(relation.columns[i], relation, null, false);
+          var name = relation.columns[i].name;
+          this.currentUrl = new WebAutomationLanguage.NodeVariable(name, firstRowNodeRepresentations[i]);
           return relation.columns[i];
         }
       }
@@ -1237,7 +1288,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.args = function _args(){
       var args = [];
-      if (this.currentUrl instanceof WebAutomationLanguage.VariableUse){
+      if (this.currentUrl instanceof WebAutomationLanguage.NodeVariable){
         args.push({type:"url", value: this.currentUrl.currentText()});
       }
       else{
@@ -1351,10 +1402,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       requireFeature(this, featureName); // todo: put this method in all the other statements that have orig xpath in this.node
     };
   };
-  pub.ScrapeStatementFromVarUse = function _ScrapeStatementFromVarUse(varUse){
+  pub.ScrapeStatementFromRelationCol = function _ScrapeStatementFromRelationCol(relation, colObj, pageVar){
     var statement = new pub.ScrapeStatement([]);
-    statement.currentNode = varUse;
-    statement.pageVar = varUse.pageVar;
+    statement.currentNode = new WebAutomationLanguage.NodeVariable(colObj.name, relation.firstRowNodeRepresentation(colObj));
+    statement.pageVar = pageVar;
+    statement.relation = relation;
+    statement.columnObj = colObj;
     return statement;
   }
   var scrapeStatementCounter = 0;
@@ -1363,6 +1416,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     setBlocklyLabel(this, "scrape");
 
     this.associatedOutputStatements = [];
+
     if (trace){ // we will sometimes initialize with undefined, as when reviving a saved program
       this.trace = trace;
       this.cleanTrace = cleanTrace(this.trace);
@@ -1379,8 +1433,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
         // are we scraping a link or just the text?
         this.scrapeLink = false;
+        this.recordTimeNode = null;
         for (var i = 0; i <  trace.length; i++){
           if (trace[i].additional && trace[i].additional.scrape){
+            if (trace[i].additional.scrape){
+              this.recordTimeNode = trace[i].additional.scrape;
+            }
             if (trace[i].additional.scrape.linkScraping){
               this.scrapeLink = true;
               break;
@@ -1388,7 +1446,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }
         }
       }
-      
+
+      scrapeStatementCounter += 1;
+      this.defaultVarNameText = "thing_" + scrapeStatementCounter;
+
+      var name = this.defaultVarNameText;
+      if (this.varName){ name = this.varName;}
+      // actually we want the currentNode to be a nodeVariable so we have a name for the scraped node
+      this.currentNode = new WebAutomationLanguage.NodeVariable(name, this.recordTimeNode);
     }
 
     this.remove = function _remove(){
@@ -1455,14 +1520,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             var newName = this.getFieldValue("name");
             if (newName !== this.WALStatement.defaultVarNameText){
               this.WALStatement.varName = newName;
+              this.WALStatement.currentNode.setName(newName);
             }
         }
       };
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock){
-      if (this.currentNode instanceof WebAutomationLanguage.VariableUse && !this.varName){
-        // scrapes a relation node
+      if (this.relation){
+        // scrapes a relation node, so don't let the user name the node here probably?
         this.block = workspace.newBlock(this.blocklyLabel);
       }
       else{
@@ -1472,10 +1538,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.block.setFieldValue(this.varName, "name")
         }
         else{
-          if (!this.defaultVarNameText){
-            scrapeStatementCounter += 1;
-            this.defaultVarNameText = "thing_" + scrapeStatementCounter;
-          }
           this.block.setFieldValue(this.defaultVarNameText, "name");
         }
       }
@@ -1491,7 +1553,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.scrapingRelationItem = function _scrapingRelationItem(){
-      return this.node !== this.currentNode;
+      return this.relation !== null && this.relation !== undefined;
     };
 
     this.pbvs = function _pbvs(){
@@ -1501,7 +1563,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // do we actually know the target tab already?  if yes, go ahead and paremterize that
           pbvs.push({type:"tab", value: originalTab(this)});
         }
-        if (this.node !== this.currentNode){
+        if (this.scrapingRelationItem()){
           pbvs.push({type:"node", value: this.node});
         }
         if (this.preferredXpath){
@@ -1533,6 +1595,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
         WALconsole.log("shortened cleantrace", this.cleanTrace);
         */
+        // we do a little extra tracking for scrape statements, so record the relation and relationColumnUsed with the statement
+        this.relation = relation;
+        this.columnObj = relationColumnUsed;
         return [relationColumnUsed];
       }
       else {
@@ -1547,6 +1612,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (removedVarUse){ // will be null if we're not actually unparameterizing anything
         var colObject = removedVarUse.currentColumnObj();
         colObject.scraped = false;
+        this.relation = null;
+        this.columnObj = null;
       }
 
       // have to go back to actually running the scraping interactions...
@@ -1558,7 +1625,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.args = function _args(){
       var args = [];
       if (this.trace.length > 0){ // no need to make pbvs based on this statement's parameterization if it doesn't have any events to parameterize anyway...
-        args.push({type:"node", value: currentNodeXpath(this)});
+        if (this.scrapingRelationItem()){
+          args.push({type:"node", value: currentNodeXpath(this)});
+        }
         args.push({type:"tab", value: currentTab(this)});
         if (this.preferredXpath){
           args.push({type:"node", value: this.preferredXpath});
@@ -1569,36 +1638,24 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.xpaths = [];
     this.postReplayProcessing = function _postReplayProcessing(trace, temporaryStatementIdentifier){
-      if (this.currentNode instanceof WebAutomationLanguage.VariableUse){
-        // this scrape statement is parameterized, so we can just grab the current value from the node...
-        this.currentNodeCurrentValue = this.currentNode.currentNode();
-        if (this.scrapeLink){
-          this.currentNodeCurrentValue.scraped_attribute = "LINK";
-        }
-        else{
-          this.currentNodeCurrentValue.scraped_attribute = "TEXT";
-        }
-      }
-      else{
+
+      if (!this.scrapingRelationItem()){
+        // ok, this was a ringer-run scrape statement, so we have to grab the right node out of the trace
+
         // it's not just a relation item, so relation extraction hasn't extracted it, so we have to actually look at the trace
         // find the scrape that corresponds to this scrape statement based on temporarystatementidentifier
         var ourStatementTraceSegment = _.filter(trace, function(ev){return EventM.getTemporaryStatementIdentifier(ev) === temporaryStatementIdentifier;});
         var matchI = null;
         for (var i = 0; i < ourStatementTraceSegment.length; i++){
           if (ourStatementTraceSegment[i].additional && ourStatementTraceSegment[i].additional.scrape && ourStatementTraceSegment[i].additional.scrape.text){
-            this.currentNodeCurrentValue = ourStatementTraceSegment[i].additional.scrape;
-            if (this.scrapeLink){
-              this.currentNodeCurrentValue.scraped_attribute = "LINK";
-            }
-            else{
-              this.currentNodeCurrentValue.scraped_attribute = "TEXT";
-            }
+            // for now, all scrape statements have a NodeVariable as currentNode, so can call setCurrentNodeRep to bind name in current environment
+            this.currentNode.setCurrentNodeRep(ourStatementTraceSegment[i].additional.scrape);
             matchI = i;
             break;
           }
         }
         if (matchI === null){
-          this.currentNodeCurrentValue = null;
+          this.currentNode.setCurrentNodeRep(null);
         }
 
         // it's not a relation item, so let's start keeping track of the xpaths of the nodes we actually find, so we can figure out if we want to stop running full similarity
@@ -1634,6 +1691,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
         }
       }
+
+      // and now get the answer in a way that works both for relation-scraped and ringer-scraped, because of using NodeVariable
+      this.currentNodeCurrentValue = this.currentNode.currentNodeRep();
+      if (!this.currentNodeCurrentValue){
+        return this.currentNodeCurrentValue;
+      }
+
+      if (this.scrapeLink){
+        this.currentNodeCurrentValue.scraped_attribute = "LINK";
+      }
+      else{
+        this.currentNodeCurrentValue.scraped_attribute = "TEXT";
+      }
+
     };
 
     this.addAssociatedOutputStatement = function _addAssociatedOutputStatement(outputStatement){
@@ -1645,17 +1716,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.currentRelation = function _currentRelation(){
-      if (this.currentNode instanceof pub.VariableUse){
-        return this.currentNode.currentRelation();
-      }
-      return null;
+      return this.relation;
     };
 
     this.currentColumnObj = function _currentColumnObj(){
-      if (this.currentNode instanceof pub.VariableUse){
-        return this.currentNode.currentColumnObj();
-      }
-      return null;
+      return this.columnObj;
     };    
   };
 
@@ -1800,6 +1865,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (!this.onlyKeydowns && !this.onlyKeyups){
         // now let's also parameterize the text
         var columns = relation.columns;
+        var firstRowNodeRepresentations = relation.firstRowNodeRepresentations();
         for (var i = 0; i < columns.length; i++){
           var text = columns[i].firstRowText;
           if (text === null || text === undefined){
@@ -1815,7 +1881,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             if (left.length > 0){
               components.push(left)
             }
-            components.push(new WebAutomationLanguage.VariableUse(columns[i], relation, this.pageVar));
+            components.push(new WebAutomationLanguage.NodeVariable(columns[i].name, firstRowNodeRepresentations[i]));
             var right = text.slice(startIndex + this.typedString.length, text.length);
             if (right.length > 0){
               components.push(right)
@@ -2296,7 +2362,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.remove = function _remove(){
       this.parent.removeChild(this);
     }
-    
+    this.getChildren = function _getChildren(){
+      return this.bodyStatements;
+    }
     this.removeChild = function _removeChild(childStatement){
       this.bodyStatements = _.without(this.bodyStatements, childStatement);
     };
@@ -2396,6 +2464,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         this.bodyStatements[i].traverse(fn);
       }
     };
+
+    this.relationNodeVariables = function _relationNodeVariables(){
+      return this.relation.nodeVariables();
+    }
+    this.updateRelationNodeVariables = function _updateRelationNodeVariables(){
+      this.relation.updateNodeVariables(this.pageVar);
+    }
 
     this.updateChildStatements = function _updateChildStatements(newChildStatements){
       this.bodyStatements = newChildStatements;
@@ -2583,6 +2658,47 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.demonstrationTimeRelationText = function _demonstrationTimeRelationText(){
       return _.map(this.demonstrationTimeRelation, function(row){return _.map(row, function(cell){return cell.text;});});
+    };
+
+    this.firstRowNodeRepresentations = function _firstRowNodeRepresentations(){
+      return this.demonstrationTimeRelation[0];
+    };
+
+    this.firstRowNodeRepresentation = function _firstRowNodeRepresentation(colObj){
+      var allNodeReps = this.firstRowNodeRepresentations();
+      var index = colObj.index; // must be agreement between demosntrationtimerelation indexes and actual colobject indexes
+      return allNodeReps[index];
+    };
+
+    this.nodeVariables = function _NodeVariables(){
+      if (!this.nodeVars){
+        this.nodeVars = [];
+        var nodeReps = this.firstRowNodeRepresentations();
+        for (var i = 0; i < nodeReps.length; i++){
+          var name = this.columns[i].name;
+          this.nodeVars.push(new WebAutomationLanguage.NodeVariable(name, nodeReps[i]));
+        }
+      }
+      return this.nodeVars;
+    }
+
+        this.getCurrentMappingFromVarNamesToValues = function _getCurrentMappingFromVarNamesToValues(pageVar){
+      var map = {};
+      for (var i = 0; i < this.columns.length; i++){
+        var name = this.name+"."+this.columns[i].name;
+        var value = this.getCurrentText(pageVar, this.columns[i]);
+        map[name] = value;
+      }
+      return map;
+    }
+
+    this.updateNodeVariables = function _updateNodeVariables(pageVar){
+      var nodeVariables = this.nodeVariables();
+      var columns = this.columns; // again, nodeVariables and columns must be aligned
+      for (var i = 0; i < columns.length; i++){
+        var currNodeRep = this.getCurrentNodeRep(pageVar, columns[i]);
+        nodeVariables[i].setCurrentNodeRep(currNodeRep);
+      }
     }
 
     this.scrapedColumnNames = function _scrapedColumnNames(){
@@ -2677,8 +2793,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         ReplayScript.prog.traverse(function(statement){
           if (statement instanceof WebAutomationLanguage.LoopStatement){
             if (statement.relation === relation){
-              var varUse = new WebAutomationLanguage.VariableUse(colObject, relation, statement.pageVar, false);
-              newScrapeStatement = WebAutomationLanguage.ScrapeStatementFromVarUse(varUse);
+              newScrapeStatement = WebAutomationLanguage.ScrapeStatementFromRelationCol(relation, colObject, statement.pageVar);
               statement.insertChild(newScrapeStatement,0);
             }
           }
@@ -3055,38 +3170,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index].xpath; // in the current row, xpath at the index associated with nodeName
     }
 
-    this.getCurrentText = function _getCurrentText(pageVar, columnObject){
-      var prinfo = pageVar.pageRelations[this.name+"_"+this.id]
-      if (prinfo === undefined){ WALconsole.log("Bad!  Shouldn't be calling getCurrentText on a pageVar for which we haven't yet called getNextRow."); return null; }
-      if (prinfo.currentRows === undefined) {WALconsole.log("Bad!  Shouldn't be calling getCurrentText on a prinfo with no currentRows.", prinfo); return null;}
-      if (prinfo.currentRows[prinfo.currentRowsCounter] === undefined) {WALconsole.log("Bad!  Shouldn't be calling getCurrentText on a prinfo with a currentRowsCounter that doesn't correspond to a row in currentRows.", prinfo); return null;}
-      return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index].text; // in the current row, value at the index associated with nodeName
-    }
-
-    this.getCurrentLink = function _getCurrentLink(pageVar, columnObject){
-      var prinfo = pageVar.pageRelations[this.name+"_"+this.id]
-      if (prinfo === undefined){ WALconsole.log("Bad!  Shouldn't be calling getCurrentLink on a pageVar for which we haven't yet called getNextRow."); return null; }
-      if (prinfo.currentRows === undefined) {WALconsole.log("Bad!  Shouldn't be calling getCurrentLink on a prinfo with no currentRows.", prinfo); return null;}
-      if (prinfo.currentRows[prinfo.currentRowsCounter] === undefined) {WALconsole.log("Bad!  Shouldn't be calling getCurrentLink on a prinfo with a currentRowsCounter that doesn't correspond to a row in currentRows.", prinfo); return null;}
-      return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index].link; // in the current row, value at the index associated with nodeName
-    }
-
-    this.getCurrentNode = function _getCurrentNode(pageVar, columnObject){
+    this.getCurrentNodeRep = function _getCurrentNodeRep(pageVar, columnObject){
       var prinfo = pageVar.pageRelations[this.name+"_"+this.id]
       if (prinfo === undefined){ WALconsole.log("Bad!  Shouldn't be calling getCurrentLink on a pageVar for which we haven't yet called getNextRow."); return null; }
       if (prinfo.currentRows === undefined) {WALconsole.log("Bad!  Shouldn't be calling getCurrentLink on a prinfo with no currentRows.", prinfo); return null;}
       if (prinfo.currentRows[prinfo.currentRowsCounter] === undefined) {WALconsole.log("Bad!  Shouldn't be calling getCurrentLink on a prinfo with a currentRowsCounter that doesn't correspond to a row in currentRows.", prinfo); return null;}
       return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index]; // in the current row, value at the index associated with nodeName
-    }
-
-    this.getCurrentMappingFromVarNamesToValues = function _getCurrentMappingFromVarNamesToValues(pageVar){
-      var map = {};
-      for (var i = 0; i < this.columns.length; i++){
-        var name = this.name+"."+this.columns[i].name;
-        var value = this.getCurrentText(pageVar, this.columns[i]);
-        map[name] = value;
-      }
-      return map;
     }
 
     this.saveToServer = function _saveToServer(){
@@ -3125,49 +3214,54 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
   }
 
-  // todo: for now all variable uses are uses of relation cells, but eventually will probably want to have scraped from outside of relations too
-  pub.VariableUse = function _VariableUse(columnObject, relation, pageVar, link){
+  pub.NodeVariable = function _NodeVariable(name, recordedNodeRep){
     Revival.addRevivalLabel(this);
-    if (link === undefined){ link = false; }
 
-    if (columnObject){ // will sometimes call with undefined, as for revival
-      this.columnObject = columnObject;
-      this.relation = relation;
-      this.pageVar = pageVar;
-      this.link = link; // is this variable use actually using the link of the node rather than just the node or the text
-    }
+    this.name = name;
+    this.recordedNodeRep = recordedNodeRep;
 
     this.toString = function _toString(){
-      if (this.link){
-        return this.columnObject.name + ".link";
-      }
-      return this.columnObject.name;
+      return this.name;
     };
 
-    this.currentXPath = function _currentXPath(){
-      return this.relation.getCurrentXPath(this.pageVar, this.columnObject);
+    this.getName = function _getName(){
+      return this.name;
+    }
+    this.setName = function _setName(name){
+      this.name = name;
+    };
+
+    this.recordTimeText = function _recordTimeText(){
+      return this.recordedNodeRep.text;
+    };
+    this.recordTimeLink = function _recordTimeLink(){
+      return this.recordedNodeRep.link;
+    };
+    this.recordTimeXPath = function _recordTimeXPath(){
+      return this.recordedNodeRep.xpath;
+    };
+
+    this.setCurrentNodeRep = function _setCurrentNodeRep(nodeRep){
+      // todo: should be a better way to get env
+      console.log("ReplayScript.prog.environment", ReplayScript.prog.environment);
+      ReplayScript.prog.environment.envBind(this.name, nodeRep);
+    };
+
+    this.currentNodeRep = function _currentNodeRep(){
+      // todo: should be a better way to get env
+      return ReplayScript.prog.environment.envLookup(this.name);
     };
 
     this.currentText = function _currentText(){
-      return this.relation.getCurrentText(this.pageVar, this.columnObject);
+      return this.currentNodeRep().text;
     };
-
     this.currentLink = function _currentLink(){
-      return this.relation.getCurrentLink(this.pageVar, this.columnObject);
+      return this.currentNodeRep().link;
     };
-
-    this.currentNode = function _currentNode(){
-      return this.relation.getCurrentNode(this.pageVar, this.columnObject);
-    }
-
-    this.currentRelation = function _currentRelation(){
-      return this.relation;
+    this.currentXPath = function _currentXPath(){
+      return this.currentNodeRep().xpath;
     };
-
-    this.currentColumnObj = function _currentColumnObj(){
-      return this.columnObject;
-    }; 
-  }
+  };
 
   function outlier(sortedList, potentialItem){ // note that first arg should be SortedArray not just sorted array
     // for now, difficult to deal with...
@@ -3301,7 +3395,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.currentText = function _currentText(){
       var output = "";
       _.each(this.components, function(component){
-        if (component instanceof pub.VariableUse){
+        if (component instanceof pub.NodeVariable){
           output += component.currentText();
         }
         else{
@@ -3315,7 +3409,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.toString = function _toString(){
       var outputComponents = [];
       _.each(this.components, function(component){
-        if (component instanceof pub.VariableUse){
+        if (component instanceof pub.NodeVariable){
           outputComponents.push(component.toString());
         }
         else{
@@ -3437,6 +3531,45 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       for (var i = 0; i < this.loopyStatements.length; i++){
         this.loopyStatements[i].traverse(fn);
       }
+    };
+
+    this.getDuplicateDetectionData = function _getDuplicateDetectionData(){
+      var loopData = [];
+      this.traverse(function(statement){
+        if (statement instanceof WebAutomationLanguage.LoopStatement){
+          var newLoopItem = {};
+          var nodeVars = statement.relationNodeVariables();
+          var childStatements = statement.getChildren();
+          var scrapeChildren = [];
+          for (var i = 0; i < childStatements.length; i++){
+            var s = childStatements[i];
+            if (s instanceof WebAutomationLanguage.ScrapeStatement && !s.scrapingRelationItem()){
+              scrapeChildren.push(s);
+            }
+            else if (s instanceof WebAutomationLanguage.LoopStatement){
+              // convention right now, since duplicate detection is for avoiding repeat
+              // of unnecessary work, is that we make the judgment based on variables available
+              // before any nested loops
+              break;
+            }
+          }
+          var scrapeChildrenNodeVars = _.map(scrapeChildren, function(scrapeS){return scrapeS.currentNode;});
+          nodeVars = nodeVars.concat(scrapeChildrenNodeVars); // ok, nodeVars now has all our nodes
+          newLoopItem.nodeVariables = nodeVars;
+          // in addition to just sending along the nodeVar objects, we also want to make the table of values
+          var displayData = [[], []];
+          for (var i = 0; i < nodeVars.length; i++){
+            var nv = nodeVars[i];
+            displayData[0].push(nv.getName() + " text");
+            displayData[1].push(nv.recordTimeText());
+            displayData[0].push(nv.getName() + " link");
+            displayData[1].push(nv.recordTimeLink());
+          }
+          newLoopItem.displayData = displayData;
+          loopData.push(newLoopItem);
+        }
+      });
+      return loopData;
     };
 
     this.updateChildStatements = function _updateChildStatements(newChildStatements){
@@ -3597,11 +3730,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // block scope.  let's add a new frame
           program.environment = program.environment.envExtend(); // add a new frame on there
           // and let's give us access to all the loop variables
-          var loopVarsMap = loopStatement.relation.getCurrentMappingFromVarNamesToValues(loopStatement.pageVar);
           // note that for now loopVarsMap includes all columns of the relation.  may some day want to limit it to only the ones used...
-          for (var key in loopVarsMap){
-            program.environment.envBind(key, loopVarsMap[key]);
-          }
+          loopStatement.updateRelationNodeVariables();
           WALconsole.log("loopyStatements", loopyStatements);
           program.runBasicBlock(loopStatement.bodyStatements, function(){ // running extra iterations of the for loop is the only time we change the callback
             // and once we've run the body, we should do the next iteration of the loop
@@ -3726,6 +3856,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         WALconsole.log("parameterizedTrace", parameterizedTrace);
         var runnableTrace = passArguments(parameterizedTrace, basicBlockStatements);
         var config = parameterizedTrace.getConfig();
+        WALconsole.log("runnableTrace", runnableTrace);
 
         // the above works because we've already put in VariableUses for statement arguments that use relation items, for all statements within a loop, so currNode for those statements will be a variableuse that uses the relation
         // however, because we're only running these basic blocks, any uses of relation items (in invisible events) that happen before the for loop will not get parameterized, 

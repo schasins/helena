@@ -2359,6 +2359,62 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   Loop statements not executed by run method, although may ultimately want to refactor to that
   */
 
+  pub.DuplicateAnnotation = function _DuplicateAnnotation(annotationItems){
+    Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "duplicate_annotation");
+
+    console.log("annotationItems in DuplicateAnnotation", annotationItems);
+
+    this.remove = function _remove(){
+      this.parent.removeChild(this);
+    };
+
+    this.clearRunningState = function _clearRunningState(){
+      return;
+    }
+
+    this.toStringLines = function _toStringLines(){
+      return ["annotation"];
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      addToolboxLabel(this.blocklyLabel);
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          this.appendDummyInput()
+              .appendField("annotation");
+          this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(20);
+        }
+      };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      attachToPrevBlock(this.block, prevBlock);
+      this.block.WALStatement = this;
+      return this.block;
+    };
+
+    this.traverse = function _traverse(fn){
+      fn(this);
+    };
+
+    this.run = function _run(programObj, rbbcontinuation){
+      // just keep going for now.  later do actual stuff
+      rbbcontinuation();
+    };
+
+    this.parameterizeForRelation = function _parameterizeForRelation(relation){
+      return [];
+    };
+    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
+      return;
+    };
+
+  }
+
   pub.LoopStatement = function _LoopStatement(relation, relationColumnsUsed, bodyStatements, pageVar){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "loop");
@@ -2482,6 +2538,25 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.addAnnotation = function _addAnnotation(annotationItems){
       console.log("annotationItems", annotationItems);
+      var notYetDefinedAnnotationItems = annotationItems.slice();
+      var alreadyDefinedAnnotationItems = _.map(this.relationNodeVariables(), function(relationNodeVar){ return _.findWhere(notYetDefinedAnnotationItems, {nodeVar:relationNodeVar});});
+      notYetDefinedAnnotationItems = _.difference(notYetDefinedAnnotationItems, alreadyDefinedAnnotationItems);
+      if (notYetDefinedAnnotationItems.length <= 0){
+        this.insertChild(new WebAutomationLanguage.DuplicateAnnotation(annotationItems), 0);
+        RecorderUI.updateDisplayedScript();
+        return;
+      }
+      for (var i = 0; i < this.bodyStatements.length; i++){
+        var bStatement = this.bodyStatements[i];
+        if (bStatement instanceof WebAutomationLanguage.ScrapeStatement){
+          notYetDefinedAnnotationItems = _.without(notYetDefinedAnnotationItems, _.findWhere(notYetDefinedAnnotationItems, {nodeVar:bStatement.currentNode}));
+        }
+        if (notYetDefinedAnnotationItems.length <= 0){
+          this.insertChild(new WebAutomationLanguage.DuplicateAnnotation(annotationItems), i + 1);
+          RecorderUI.updateDisplayedScript();
+          return;
+        }
+      }
     };
 
     this.relationNodeVariables = function _relationNodeVariables(){

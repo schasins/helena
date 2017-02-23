@@ -449,9 +449,11 @@ var RecorderUI = (function () {
     $div.html("");
     for (var i = 0; i < duplicateDetectionData.length; i++){
       var oneLoopData = duplicateDetectionData[i];
+      var loopStatement = oneLoopData.loopStatement;
       var table = DOMCreationUtilities.arrayOfArraysToTable(oneLoopData.displayData);
       var nodeVariables = oneLoopData.nodeVariables;
       var tr = $("<tr></tr>");
+      var annotationItems = [];
       for (var j = 0; j < nodeVariables.length; j++){
         
           var attributes = ["text", "link"];
@@ -462,7 +464,15 @@ var RecorderUI = (function () {
               var atributeRequired = $("<input type='checkbox'>");
               atributeRequired.change(function(){
                 console.log("toggling attribute required for", nodeVariable, attr);
-                RecorderUI.updateDisplayedScript();});
+                var element = {nodeVar: nodeVariable, attr: attr};
+                if (atributeRequired.prop("checked")){
+                  annotationItems.push(element);
+                }
+                else{
+                  // can't just use without bc element won't be exactly the same as the other object, so use findWhere to find the first element with the same properties
+                  annotationItems = _.without(annotationItems, _.findWhere(annotationItems, element));
+                }
+                console.log("annotationItems", annotationItems)});
 
               var td = $("<td></td>");
               td.append(atributeRequired);
@@ -472,6 +482,11 @@ var RecorderUI = (function () {
       }
       table.prepend(tr);
       $div.append(table);
+
+      var addAnnotationButton = $("<div>Add Annotation</div>");
+      addAnnotationButton.button();
+      addAnnotationButton.click(function(){loopStatement.addAnnotation(annotationItems);});
+      $div.append(addAnnotationButton);
     }
   };
 
@@ -2465,6 +2480,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     };
 
+    this.addAnnotation = function _addAnnotation(annotationItems){
+      console.log("annotationItems", annotationItems);
+    };
+
     this.relationNodeVariables = function _relationNodeVariables(){
       return this.relation.nodeVariables();
     }
@@ -3536,7 +3555,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var loopData = [];
       this.traverse(function(statement){
         if (statement instanceof WebAutomationLanguage.LoopStatement){
-          var newLoopItem = {};
+          var newLoopItem = {}; // the data we're building up
+          newLoopItem.loopStatement = statement;
           var nodeVars = statement.relationNodeVariables();
           var childStatements = statement.getChildren();
           var scrapeChildren = [];

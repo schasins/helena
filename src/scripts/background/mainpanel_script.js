@@ -2421,7 +2421,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         rep.push({val:val, attr: item.attr});
       }
       // todo: find better way to get prog or get dataset
-      return {dataset: ReplayScript.prog.currentDataset.getId(), transaction: rep};
+      return encodeURIComponent(JSON.stringify({dataset: ReplayScript.prog.currentDataset.getId(), transaction: rep}));
     };
 
     this.parameterizeForRelation = function _parameterizeForRelation(relation){

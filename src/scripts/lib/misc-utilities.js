@@ -398,6 +398,19 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
     $(selectorstring).html($(selectorstring).html().replace(new RegExp(linkScrapeStringToReplace,"g"), pub.scrapeConditionLinkString));
   }
 
+  pub.postAndRePostOnFailure = function _postAndRePostOnFailure(url, msg, successHandler){
+    var currentWait = 5000;
+    var sendHelper = function _sendHelper(message){
+      $.post(url, 
+        message, 
+        successHandler).fail(function(){
+          setTimeout(function(){sendHelper(message);}, currentWait); // if we failed, need to be sure to send again...
+          currentWait = currentWait * 2; // doing a little bit of backoff, but should probably do this in a cleaner way
+        });
+    };
+    sendHelper(msg);
+  }
+
   pub.levenshteinDistance = function _levenshteinDistance(a, b) {
     if(a.length === 0) return b.length; 
     if(b.length === 0) return a.length; 

@@ -74,8 +74,7 @@ var OutputHandler = (function _OutputHandler() {
         $.post('http://kaofang.cs.berkeley.edu:8080/datasetslice', 
           message, 
           function(resp){/* todo: add better error handling eventually*/ return;}).fail(function(){
-            // todo: put wait below back to a normal number, not the debugging used to avoid throttling
-            setTimeout(function(){sendHelper(message);}, 500000000); // if we failed, need to be sure to send the slice again...
+            setTimeout(function(){sendHelper(message);}, 5000); // if we failed, need to be sure to send the slice again...
           });
       };
       sendHelper(msg);

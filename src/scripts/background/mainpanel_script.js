@@ -2460,7 +2460,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.run = function _run(programObj, rbbcontinuation){
       // just keep going for now.  later do actual stuff
-      console.log("transaction server rep:", this.serverTransactionRepresentation());
+      console.log("transaction server rep:", this.duplicateAnnotation.serverTransactionRepresentation());
       rbbcontinuation();
     };
 

@@ -70,11 +70,13 @@ var OutputHandler = (function _OutputHandler() {
     	this.currentDatasetNodes = [];
       this.currentDatasetPositionLists = [];
       this.currentDatasetSliceLength = 0;
+      var currentWait = 5000;
       var sendHelper = function _sendHelper(message){
         $.post('http://kaofang.cs.berkeley.edu:8080/datasetslice', 
           message, 
           function(resp){/* todo: add better error handling eventually*/ return;}).fail(function(){
-            setTimeout(function(){sendHelper(message);}, 5000); // if we failed, need to be sure to send the slice again...
+            setTimeout(function(){sendHelper(message);}, currentWait); // if we failed, need to be sure to send the slice again...
+            currentWait = currentWait * 2; // doing a little bit of backoff, but should probably do this in a cleaner way
           });
       };
       sendHelper(msg);

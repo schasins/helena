@@ -88,6 +88,10 @@ var OutputHandler = (function _OutputHandler() {
     this.downloadDataset = function _downloadDataset(){
     	window.location = 'http://kaofang.cs.berkeley.edu:8080/datasets/'+this.id;
     };
+
+    this.getId = function _getId(){
+      return this.id;
+    };
   };
 
 

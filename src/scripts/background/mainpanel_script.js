@@ -456,7 +456,7 @@ var RecorderUI = (function () {
       var annotationItems = [];
       for (var j = 0; j < nodeVariables.length; j++){
         
-          var attributes = ["text", "link"];
+          var attributes = ["TEXT", "LINK"];
           for (var k = 0; k < attributes.length; k++){
             (function(){
               var nodeVariable = nodeVariables[j];
@@ -2355,15 +2355,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
   };
 
-  /*
-  Loop statements not executed by run method, although may ultimately want to refactor to that
-  */
-
   pub.DuplicateAnnotation = function _DuplicateAnnotation(annotationItems){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "duplicate_annotation");
 
-    console.log("annotationItems in DuplicateAnnotation", annotationItems);
+    this.annotationItems = annotationItems;
 
     this.remove = function _remove(){
       this.parent.removeChild(this);
@@ -2403,6 +2399,68 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.run = function _run(programObj, rbbcontinuation){
       // just keep going for now.  later do actual stuff
+      console.log("transaction server rep:", this.serverTransactionRepresentation());
+      rbbcontinuation();
+    };
+
+    this.serverTransactionRepresentation = function _serverRepresentation(){
+      var rep = [];
+      for (var i = 0; i < this.annotationItems.length; i++){
+        var item = this.annotationItems[i];
+        var nodeVar = item.nodeVar;
+        var val = null;
+        if (item.attr === "TEXT"){
+          val = nodeVar.currentText();
+        }
+        else if (item.attr === "LINK") {
+          val = nodeVar.currentLink();
+        }
+        else { 
+          WALconsole.warn("yo, we don't know what kind of attr we're looking for: ", item.attr);
+        }
+        rep.push({val:val, attr: item.attr});
+      }
+      // todo: find better way to get prog or get dataset
+      return {dataset: ReplayScript.prog.currentDataset.getId(), transaction: rep};
+    };
+
+    this.parameterizeForRelation = function _parameterizeForRelation(relation){
+      return [];
+    };
+    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
+      return;
+    };
+
+  };
+
+  pub.CommitTransaction = function _CommitTransaction(duplicateAnnotation){
+    Revival.addRevivalLabel(this);
+
+    this.duplicateAnnotation = duplicateAnnotation;
+
+    this.remove = function _remove(){
+      this.parent.removeChild(this);
+    };
+    this.clearRunningState = function _clearRunningState(){
+      return;
+    }
+    this.toStringLines = function _toStringLines(){
+      return ["commitTransaction"];
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+    };
+
+    this.traverse = function _traverse(fn){
+      fn(this);
+    };
+
+    this.run = function _run(programObj, rbbcontinuation){
+      // just keep going for now.  later do actual stuff
+      console.log("transaction server rep:", this.serverTransactionRepresentation());
       rbbcontinuation();
     };
 
@@ -2413,13 +2471,19 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return;
     };
 
-  }
+  };
+
+
+  /*
+  Loop statements not executed by run method, although may ultimately want to refactor to that
+  */
 
   pub.LoopStatement = function _LoopStatement(relation, relationColumnsUsed, bodyStatements, pageVar){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "loop");
 
     var doInitialization = bodyStatements;
+    var loopStatement = this;
 
     this.initialize = function _initialize(){
       this.relation = relation;
@@ -2444,7 +2508,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       newChildStatements.push(childStatement);
       this.updateChildStatements(newChildStatements);
     };
-    this.insertChild = function _appendChild(childStatement, index){
+    this.insertChild = function _insertChild(childStatement, index){
       var newChildStatements = this.bodyStatements;
       newChildStatements.splice(index, 0, childStatement);
       this.updateChildStatements(newChildStatements);
@@ -2536,14 +2600,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     };
 
+    function insertAnnotation(annotationItems, index){
+      var annotation = new WebAutomationLanguage.DuplicateAnnotation(annotationItems);
+      loopStatement.insertChild(annotation, index);
+      loopStatement.appendChild(new WebAutomationLanguage.CommitTransaction(annotation)); // stick the commit in at the end of the loop
+      RecorderUI.updateDisplayedScript();
+    }
+
     this.addAnnotation = function _addAnnotation(annotationItems){
       console.log("annotationItems", annotationItems);
       var notYetDefinedAnnotationItems = annotationItems.slice();
       var alreadyDefinedAnnotationItems = _.map(this.relationNodeVariables(), function(relationNodeVar){ return _.findWhere(notYetDefinedAnnotationItems, {nodeVar:relationNodeVar});});
       notYetDefinedAnnotationItems = _.difference(notYetDefinedAnnotationItems, alreadyDefinedAnnotationItems);
       if (notYetDefinedAnnotationItems.length <= 0){
-        this.insertChild(new WebAutomationLanguage.DuplicateAnnotation(annotationItems), 0);
-        RecorderUI.updateDisplayedScript();
+        insertAnnotation(annotationItems, 0);
         return;
       }
       for (var i = 0; i < this.bodyStatements.length; i++){
@@ -2552,8 +2622,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           notYetDefinedAnnotationItems = _.without(notYetDefinedAnnotationItems, _.findWhere(notYetDefinedAnnotationItems, {nodeVar:bStatement.currentNode}));
         }
         if (notYetDefinedAnnotationItems.length <= 0){
-          this.insertChild(new WebAutomationLanguage.DuplicateAnnotation(annotationItems), i + 1);
-          RecorderUI.updateDisplayedScript();
+          insertAnnotation(annotationItems, i + 1);
           return;
         }
       }
@@ -3843,7 +3912,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
         if (skipAllExceptBackAndClose){
           // in this case, when we're basically 'continue'ing, we should do nothing unless this is actually a back or close
-          if (!(loopyStatements[0] instanceof WebAutomationLanguage.BackStatement || loopyStatements[0] instanceof WebAutomationLanguage.ClosePageStatement)){
+          if (!(loopyStatements[0] instanceof WebAutomationLanguage.BackStatement || loopyStatements[0] instanceof WebAutomationLanguage.ClosePageStatement || loopyStatements[0] instanceof WebAutomationLanguage.CommitTransaction)){
+            // for now, back, close, and commit are treated as end of loop cleanup that user can't control.  may want to just make that explicit...
             program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, skipAllExceptBackAndClose);
             return;
           }

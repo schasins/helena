@@ -153,6 +153,7 @@ var RecorderUI = (function () {
     activateButton(div, "#save", RecorderUI.save);
     activateButton(div, "#replay", RecorderUI.replayOriginal);
     activateButton(div, '#relation_upload', RecorderUI.uploadRelation);
+    activateButton(div, '#relation_demonstration', RecorderUI.demonstrateRelation);
 
     var readjustFunc = handleBlocklyEditorResizing();
 
@@ -514,6 +515,15 @@ var RecorderUI = (function () {
     activateButton(div, "#upload_done", function(){if (currentUploadRelation !== null){ ReplayScript.prog.tryAddingRelation(currentUploadRelation);} RecorderUI.showProgramPreview();}); // ok, we're actually using this relation.  the program better get parameterized
     activateButton(div, "#upload_cancel", RecorderUI.showProgramPreview); // don't really need to do anything here
   };
+
+  pub.demonstrateRelation = function _demonstrateRelation(){
+    // for now we'll just assume we want to introduce a new relation on first page.  in future fix.  todo: fix
+    WALconsole.log("going to demo a relaiton.");
+    var targetUrl = ReplayScript.prog.statements[0].url; // fix!
+    var newRelation = new WebAutomationLanguage.Relation();
+    newRelation.url = targetUrl;
+    newRelation.editSelector();
+  }
 
   pub.handleNewUploadedRelation = function _handleNewUploadedRelation(event){
     WALconsole.log("New list uploaded.");
@@ -2460,7 +2470,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.run = function _run(programObj, rbbcontinuation){
       // just keep going for now.  later do actual stuff
-      console.log("transaction server rep:", this.duplicateAnnotation.serverTransactionRepresentation());
+      var msg = this.duplicateAnnotation.serverTransactionRepresentation();
+      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newtransaction', msg, function(){});
       rbbcontinuation();
     };
 
@@ -2691,6 +2702,40 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.demonstrationTimeRelationText = function _demonstrationTimeRelationText(){
       return this.relation;
+    }
+
+    this.firstRowNodeRepresentations = function _firstRowNodeRepresentations(){
+      var toNodeRep = function(text){
+        return {text: text};
+      }
+      var firstRowTexts = this.relation[0];
+      return _.map(firstRowTexts, toNodeRep);
+    };
+
+    this.firstRowNodeRepresentation = function _firstRowNodeRepresentation(colObj){
+      var firstRow = this.firstRowNodeRepresentations();
+      return firstRow[colObj.index];
+    };
+
+    this.nodeVariables = function _nodeVariables(){
+      var firstRowNodeReps = this.firstRowNodeRepresentations();
+      if (!this.nodeVars){
+        this.nodeVars = [];
+        for (var i = 0; i < this.columns.length; i++){
+          this.nodeVars.push(new WebAutomationLanguage.NodeVariable(this.columns[i].name, firstRowNodeReps[i]));
+        }
+      }
+      return this.nodeVars;
+    }
+
+    this.updateNodeVariables = function _updateNodeVariables(pageVar){
+      var nodeVariables = this.nodeVariables();
+      var columns = this.columns; // again, nodeVariables and columns must be aligned
+      for (var i = 0; i < columns.length; i++){
+        var text = this.relation[currentRowsCounter][columns[i].index];
+        var currNodeRep = {text: text};
+        nodeVariables[i].setCurrentNodeRep(currNodeRep);
+      }
     }
 
     this.columns = [];
@@ -3358,8 +3403,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var sendSelectorInfoUntilAnswer = function(){
           if (tabReached){ return; } 
           sendSelectorInfo(); 
-          setTimeout(sendSelectorInfoUntilAnswer, 1000);}
-        setTimeout(sendSelectorInfoUntilAnswer, 500); // give it a while to attach the listener
+          setTimeout(sendSelectorInfoUntilAnswer, 1000);
+        }
+        var div = $("#new_script_content");
+        var button = $("#page_looks_right");
+        button.button();
+        button.click(sendSelectorInfoUntilAnswer);
       });
       // now we've sent over the current selector info.  let's set up the listener that will update the preview (and the object)
       utilities.listenForMessageWithKey("content", "mainpanel", "editRelation", "editRelation", function(data){relation.selectorFromContentScript(data)}); // remember this will overwrite previous editRelation listeners, since we're providing a key
@@ -4477,7 +4526,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             // we'll do a bunch of stuff to pick a relation, then we'll call this function
             var handleSelectedRelation = function(data){
               // handle the actual data the page sent us
-              program.processLikelyRelation(data);
+              if (data){
+                program.processLikelyRelation(data);
+              }
               // update the control panel display
               RecorderUI.updateDisplayedRelations(true); // true because we're still unearthing interesting relations, so should indicate we're in progress
               // now let's go through this process all over again for the next page, if there is one
@@ -4546,7 +4597,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                                                           {xpaths: pagesToNodes[targetPageVar.name], pageVarName: targetPageVar.name, serverSuggestedRelations: suggestedRelations}, 
                                                           lastCompletedEventTabId, frame.frameId, 
                                                           // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?  maybe accept once we have at least one good response from one of the frames?
-                                                          function(response) { if (response !== null) {framesHandled[frame.frameId] = response; pickLikelyRelation();}}); // when get response, call pickLikelyRelation (defined above) to pick from the frames' answers
+                                                          function(response) { framesHandled[frame.frameId] = response; pickLikelyRelation();}); // when get response, call pickLikelyRelation (defined above) to pick from the frames' answers
                     };
 
                     // here's the function for sending the message until we get the answer

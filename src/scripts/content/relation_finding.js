@@ -559,6 +559,28 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     return alternativeRel;
   }
 
+  var timesToTry = 5;
+  var timesTried = 0;
+  // todo: does it make any sense to have this here when we have the mainpanel asking multiple times anyway?
+  pub.likelyRelationWrapper = function _likelyRelationWrapper(msg){
+    var msg = pub.likelyRelation(msg);
+    WALconsole.log("msg", msg);
+    if (msg){ // a casual way to check if maybe this isn't a serious enough relation.  should probably do better
+      timesTried = 0;
+      WALconsole.log("msg", msg);
+      return msg;
+    }
+    else if (timesTried <= timesToTry) {
+      // you never know...we may need to just wait a little while...
+      timesTried += 1;
+      return null;
+    }
+    else{
+      // ok, time to give up
+      return msg;
+    }
+  }
+
   var processedCount = 0;
   var processedLikelyRelationRequest = false;
   pub.likelyRelation = function _likelyRelation(msg){
@@ -843,6 +865,15 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     event.preventDefault();
 
     var target = event.target;
+
+    if (!currentSelectorToEdit.selector){
+      // ok, it's empty right now, need to make a new one
+      currentSelectorToEdit.selector = pub.synthesizeFromSingleRow([target]);
+      currentSelectorToEdit = newSelector;
+      pub.newSelectorGuess(currentSelectorToEdit);
+      return;
+    }
+
     var removalClick = false;
     // it's only a removal click if the clicked item is a highlight
     if (Highlight.isHighlight(target)){

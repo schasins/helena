@@ -27,7 +27,18 @@ utilities.listenForMessage("mainpanel", "content", "pageStats", function(){ util
 utilities.listenForMessage("mainpanel", "content", "runNextInteraction", function(msg){RelationFinder.runNextInteraction(msg);});
 utilities.listenForMessage("mainpanel", "content", "currentColumnIndex", function(msg){RelationFinder.setEditRelationIndex(msg.index);});
 
-utilities.listenForFrameSpecificMessage("mainpanel", "content", "likelyRelation", function(msg, sendResponse){sendResponse(RelationFinder.likelyRelation(msg));});
+utilities.listenForFrameSpecificMessage("mainpanel", "content", "likelyRelation",
+	function (msg, sendResponse){
+		MiscUtilities.registerCurrentResponseRequested(msg,
+			function(m){
+				var likelyRel = RelationFinder.likelyRelationWrapper(m);
+				if (likelyRel !== null){
+					sendResponse(likelyRel);
+				}
+			});
+	}
+);
+
 utilities.listenForFrameSpecificMessage("mainpanel", "content", "getFreshRelationItems", 
 	function(msg, sendResponse){
 		MiscUtilities.registerCurrentResponseRequested(msg, 

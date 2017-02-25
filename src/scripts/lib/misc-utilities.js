@@ -1,7 +1,7 @@
 
 var WALconsole = (function _WALconsole() { var pub = {};
 
-  pub.debugging = false;
+  pub.debugging = true;
   pub.showWarnings = true;
   pub.namedDebugging = [];//["getRelationItems", "nextInteraction"];
   pub.styleMinimal = true;

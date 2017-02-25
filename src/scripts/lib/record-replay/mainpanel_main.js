@@ -778,7 +778,7 @@ var Replay = (function ReplayClosure() {
     },
     /* Given an event, find the corresponding port */
     getMatchingPort: function _getMatchingPort(v) {
-      var gpmdebug = false;
+      var gpmdebug = true;
       if (gpmdebug) {console.log("gpm: _getMatchingPort: ",v);}
       var portMapping = this.portMapping;
       var tabMapping = this.tabMapping;
@@ -825,11 +825,12 @@ var Replay = (function ReplayClosure() {
           if (!revMapping[tabId])
             unusedTabs.push(tabId);
         }
+        if (gpmdebug) {console.log("gpm: unusedTabs", unusedTabs, unusedTabs.lengths);}
 
         /* if this is not the first event, and there is exactly one unmapped
          * tab, then lets assume this new tab should match */
-        if (this.firstEventReplayed && unusedTabs.length == 1) {
-          tabMapping[frame.tab] = unusedTabs[0];
+        if (unusedTabs.length <= 2) { // if 2, one is our initial tab that explains the recording process, and the other must be the tab we want
+          tabMapping[frame.tab] = _.max(unusedTabs);
           if (gpmdebug) {console.log("gpm: adding one unmatched tab mapping update");}
           this.setNextTimeout(0);
           if (gpmdebug) {console.log("Exactly one unmapped.");}

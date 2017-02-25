@@ -829,8 +829,8 @@ var Replay = (function ReplayClosure() {
 
         /* if this is not the first event, and there is exactly one unmapped
          * tab, then lets assume this new tab should match */
-        if (unusedTabs.length <= 2) { // if 2, one is our initial tab that explains the recording process, and the other must be the tab we want
-          tabMapping[frame.tab] = _.max(unusedTabs);
+        if (unusedTabs.length == 1) { // if 2, one is our initial tab that explains the recording process, and the other must be the tab we want
+          tabMapping[frame.tab] = unusedTabs[0];
           if (gpmdebug) {console.log("gpm: adding one unmatched tab mapping update");}
           this.setNextTimeout(0);
           if (gpmdebug) {console.log("Exactly one unmapped.");}

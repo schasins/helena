@@ -449,45 +449,47 @@ var RecorderUI = (function () {
     $div = $("#new_script_content").find("#duplicates_container_content");
     $div.html("");
     for (var i = 0; i < duplicateDetectionData.length; i++){
-      var oneLoopData = duplicateDetectionData[i];
-      var loopStatement = oneLoopData.loopStatement;
-      var table = DOMCreationUtilities.arrayOfArraysToTable(oneLoopData.displayData);
-      var nodeVariables = oneLoopData.nodeVariables;
-      var tr = $("<tr></tr>");
-      var annotationItems = [];
-      for (var j = 0; j < nodeVariables.length; j++){
-        
-          var attributes = ["TEXT", "LINK"];
-          for (var k = 0; k < attributes.length; k++){
-            (function(){
-              var nodeVariable = nodeVariables[j];
-              var attr = attributes[k];
-              var atributeRequired = $("<input type='checkbox'>");
-              atributeRequired.change(function(){
-                console.log("toggling attribute required for", nodeVariable, attr);
-                var element = {nodeVar: nodeVariable, attr: attr};
-                if (atributeRequired.prop("checked")){
-                  annotationItems.push(element);
-                }
-                else{
-                  // can't just use without bc element won't be exactly the same as the other object, so use findWhere to find the first element with the same properties
-                  annotationItems = _.without(annotationItems, _.findWhere(annotationItems, element));
-                }
-                console.log("annotationItems", annotationItems)});
+      (function(){
+        var oneLoopData = duplicateDetectionData[i];
+        var loopStatement = oneLoopData.loopStatement;
+        var table = DOMCreationUtilities.arrayOfArraysToTable(oneLoopData.displayData);
+        var nodeVariables = oneLoopData.nodeVariables;
+        var tr = $("<tr></tr>");
+        var annotationItems = [];
+        for (var j = 0; j < nodeVariables.length; j++){
+          
+            var attributes = ["TEXT", "LINK"];
+            for (var k = 0; k < attributes.length; k++){
+              (function(){
+                var nodeVariable = nodeVariables[j];
+                var attr = attributes[k];
+                var atributeRequired = $("<input type='checkbox'>");
+                atributeRequired.change(function(){
+                  console.log("toggling attribute required for", nodeVariable, attr);
+                  var element = {nodeVar: nodeVariable, attr: attr};
+                  if (atributeRequired.prop("checked")){
+                    annotationItems.push(element);
+                  }
+                  else{
+                    // can't just use without bc element won't be exactly the same as the other object, so use findWhere to find the first element with the same properties
+                    annotationItems = _.without(annotationItems, _.findWhere(annotationItems, element));
+                  }
+                  console.log("annotationItems", annotationItems)});
 
-              var td = $("<td></td>");
-              td.append(atributeRequired);
-              tr.append(td);
-            })();
-          }
-      }
-      table.prepend(tr);
-      $div.append(table);
+                var td = $("<td></td>");
+                td.append(atributeRequired);
+                tr.append(td);
+              })();
+            }
+        }
+        table.prepend(tr);
+        $div.append(table);
 
-      var addAnnotationButton = $("<div>Add Annotation</div>");
-      addAnnotationButton.button();
-      addAnnotationButton.click(function(){loopStatement.addAnnotation(annotationItems);});
-      $div.append(addAnnotationButton);
+        var addAnnotationButton = $("<div>Add Annotation</div>");
+        addAnnotationButton.button();
+        addAnnotationButton.click(function(){loopStatement.addAnnotation(annotationItems);});
+        $div.append(addAnnotationButton);
+      })();
     }
   };
 
@@ -2407,8 +2409,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       fn(this);
     };
 
+    this.currentTransaction = null;
     this.run = function _run(programObj, rbbcontinuation){
-
+      this.currentTransaction = singleAnnotationItems();
       var msg = this.serverTransactionRepresentation();
       MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/transactionexists', msg, function(resp){
         console.log("resp", resp);
@@ -2424,7 +2427,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       });
     };
 
-    this.serverTransactionRepresentation = function _serverRepresentation(){
+    this.singleAnnotationItems = function _singleAnnotationItems(){
       var rep = [];
       for (var i = 0; i < this.annotationItems.length; i++){
         var item = this.annotationItems[i];
@@ -2441,6 +2444,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
         rep.push({val:val, attr: item.attr});
       }
+      return rep;
+    }
+
+    this.serverTransactionRepresentation = function _serverRepresentation(){
+      var rep = this.singleAnnotationItems();
       // todo: find better way to get prog or get dataset
       return {dataset: ReplayScript.prog.currentDataset.getId(), transaction: encodeURIComponent(JSON.stringify(rep))};
     };
@@ -2621,11 +2629,29 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     };
 
+    function adjustAnnotationParents(){
+      // go through the whole tree and make sure any nested annotations know the parent annotation
+      var lastSeenAnnotation = null;
+      ReplayScript.prog.traverse(function(statement){
+        if (statement instanceof WebAutomationLanguage.DuplicateAnnotation){
+          statement.parentAnnotation = lastSeenAnnotation;
+          lastSeenAnnotation = statement;
+        }
+        if (statement instanceof WebAutomationLanguage.CommitTransaction){
+          if (statement.duplicateAnnotation === lastSeenAnnotation){
+            // traverse is depth first, so just nulling it out when we see the corresponding commit should be enough to keep the scoping stuff ok, right?
+            lastSeenAnnotation = null;
+          }
+        }
+      });
+    }
+
     function insertAnnotation(annotationItems, index){
       var annotation = new WebAutomationLanguage.DuplicateAnnotation(annotationItems);
       loopStatement.insertChild(annotation, index);
       loopStatement.appendChild(new WebAutomationLanguage.CommitTransaction(annotation)); // stick the commit in at the end of the loop
       RecorderUI.updateDisplayedScript();
+      adjustAnnotationParents();
     }
 
     this.addAnnotation = function _addAnnotation(annotationItems){

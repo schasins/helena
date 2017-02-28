@@ -16,6 +16,7 @@ var PortManager = (function PortManagerClosure() {
     this.tabIdToPortIds = {};
     this.tabIdToTabInfo = {};
     this.tabIdToTab = {};
+    this.tabIdToWindowId = {};
   }
 
   PortManager.prototype = {
@@ -86,6 +87,8 @@ var PortManager = (function PortManagerClosure() {
         return;
       }
 
+      var windowId = sender.tab.windowId;
+
       /* bug with listening to removed tabs, so lets actually check which
        * tabs are open and then update our list appropriately */
       var ports = this;
@@ -101,8 +104,8 @@ var PortManager = (function PortManagerClosure() {
       /* Update various mappings */
       var tabId = sender.tab.id;
       this.tabIdToTab[tabId] = sender.tab;
+      this.tabIdToWindowId[tabId] = windowId;
       portLog.log('adding tab:', tabId, sender.tab);
-      var windowId = sender.tab.windowId;
 
       this.portIdToTabId[portId] = tabId;
       this.portIdToPortInfo[portId] = value;
@@ -818,12 +821,15 @@ var Replay = (function ReplayClosure() {
           revMapping[tabMapping[t]] = true;
         }
 
-        /* find all tabs that exist, but are not mapped to */
+        /* find all tabs that exist, are in the target window, but are not mapped to */
         var unusedTabs = [];
         for (var i = 0, ii = allTabs.length; i < ii; ++i) {
           var tabId = allTabs[i];
           if (!revMapping[tabId])
-            unusedTabs.push(tabId);
+            // now make sure it's actually in the target window, if there is one
+            if (!this.targetWindowId || this.targetWindowId === this.ports.tabIdToWindowId[tabId]){
+              unusedTabs.push(tabId);
+            }
         }
         if (gpmdebug) {console.log("gpm: unusedTabs", unusedTabs, unusedTabs.lengths);}
 

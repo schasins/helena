@@ -2408,9 +2408,19 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.run = function _run(programObj, rbbcontinuation){
-      // just keep going for now.  later do actual stuff
-      console.log("transaction server rep:", this.serverTransactionRepresentation());
-      rbbcontinuation();
+
+      var msg = this.serverTransactionRepresentation();
+      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/transactionexists', msg, function(resp){
+        if (resp.exists){
+          // this is a duplicate, current loop iteration already done, so we're ready to skip to the next
+          // so pass the skip flag in
+          rbbcontinuation(true);
+        }
+        else{
+          // no duplicate saved, so just carry on as usual
+          rbbcontinuation();
+        }
+      });
     };
 
     this.serverTransactionRepresentation = function _serverRepresentation(){
@@ -2469,7 +2479,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.run = function _run(programObj, rbbcontinuation){
-      // just keep going for now.  later do actual stuff
       var msg = this.duplicateAnnotation.serverTransactionRepresentation();
       MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newtransaction', msg, function(){});
       rbbcontinuation();

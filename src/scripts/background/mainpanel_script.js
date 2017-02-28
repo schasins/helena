@@ -2411,6 +2411,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       var msg = this.serverTransactionRepresentation();
       MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/transactionexists', msg, function(resp){
+        console.log("resp", resp);
         if (resp.exists){
           // this is a duplicate, current loop iteration already done, so we're ready to skip to the next
           // so pass the skip flag in
@@ -2629,8 +2630,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.addAnnotation = function _addAnnotation(annotationItems){
       console.log("annotationItems", annotationItems);
-      var notYetDefinedAnnotationItems = annotationItems.slice();
-      var alreadyDefinedAnnotationItems = _.map(this.relationNodeVariables(), function(relationNodeVar){ return _.findWhere(notYetDefinedAnnotationItems, {nodeVar:relationNodeVar});});
+      var notYetDefinedAnnotationItems = _.uniq(_.map(annotationItems.slice(), function(obj){return obj.nodeVar;})); // if have both text and link, may appear multiple times
+      var alreadyDefinedAnnotationItems = this.relationNodeVariables();
       notYetDefinedAnnotationItems = _.difference(notYetDefinedAnnotationItems, alreadyDefinedAnnotationItems);
       if (notYetDefinedAnnotationItems.length <= 0){
         insertAnnotation(annotationItems, 0);

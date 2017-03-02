@@ -2375,7 +2375,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     if (annotationItems){
       this.annotationItems = annotationItems;
       this.skipIfDuplicate = true; // by default, skip nested transactions if we find a duplicate
-      this.ancestorAnnotations = []; // we're also allowed to require that prior annotations match, as well as our own annotationItems
+      this.ancestorAnnotations = [];
+      this.requiredAncestorAnnotations = []; // we're also allowed to require that prior annotations match, as well as our own annotationItems
       duplicateAnnotationCounter += 1;
       this.name = "duplicate_annotation_" + duplicateAnnotationCounter;
       this.dataset_specific_id = duplicateAnnotationCounter;
@@ -2460,7 +2461,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.serverTransactionRepresentation = function _serverRepresentation(){
-      var rep = this.singleAnnotationItems();
+      var rep = [];
+      // build up the whole set of attributes that we use to find a duplicate
+      // some from this annotation, but some from any required ancestor annotations
+      for (var i = 0; i < this.requiredAncestorAnnotations.length; i++){
+        rep = rep.concat(this.requiredAncestorAnnotations[i].currentTransaction);
+      }
+      rep = rep.concat(this.currentTransaction);
+      console.log("rep", rep);
       // todo: find better way to get prog or get dataset
       return {dataset: ReplayScript.prog.currentDataset.getId(), transaction_attributes: encodeURIComponent(JSON.stringify(rep)), annotation_id: this.dataset_specific_id};
     };
@@ -2648,7 +2656,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var ancestorAnnotations = [];
       ReplayScript.prog.traverse(function(statement){
         if (statement instanceof WebAutomationLanguage.DuplicateAnnotation){
-          statement.ancestorAnnotations = ancestorAnnotations;
+          statement.ancestorAnnotations = ancestorAnnotations.slice();
+          statement.requiredAncestorAnnotations = ancestorAnnotations.slice();
           ancestorAnnotations.push(statement);
         }
         if (statement instanceof WebAutomationLanguage.CommitTransaction){

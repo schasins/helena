@@ -11,10 +11,14 @@ var Environment = (function _Environment() { var pub = {};
 
     /* Binds a new value to the top frame. */
     this.envBind = function _envBind(name, value) {
+      // unfortunately, can't rely on our users to give each col in a relation a diff name, and don't want it causing errors
+      // when we start scraping the first row
+      /*
       if (name in this.map) {
         // Don't bind names twice --- you should never be doing this.
         throw new ExecError(name + ' is already declared');
       }
+      */
       this.map[name] = value;
     };
 

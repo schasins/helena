@@ -1156,6 +1156,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
   pub.getFreshRelationItems = function _getFreshRelationItems(msg){
     var respMsg = pub.getFreshRelationItemsHelper(msg);
+    console.log('respMsg', respMsg);
     utilities.sendMessage("content", "mainpanel", "freshRelationItems", respMsg);
   }
 
@@ -1228,11 +1229,13 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       if (msg.next_type === NextTypes.NEXTBUTTON){
         // this is a next interaction, so we should never have overlap.  wait until everything is new
         if (relationNodes.length !== newRows.length){
-	  console.log("sending no new items yet because we found some repeated items and it's a next button.  is that bad?");
-	  console.log("alreadySeenRelationNodeIds", alreadySeenRelationNodeIds.length, alreadySeenRelationNodeIds);
-	  console.log("relationNodes", relationNodes.length, relationNodes);
-	  console.log("newRows", newRows.length, newRows);
+      	  console.log("sending no new items yet because we found some repeated items and it's a next button.  is that bad?");
+      	  console.log("alreadySeenRelationNodeIds", alreadySeenRelationNodeIds.length, alreadySeenRelationNodeIds);
+      	  console.log("relationNodes", relationNodes.length, relationNodes);
+      	  console.log("newRows", newRows.length, newRows);
           // looks like some of our rows weren't new, so next button hasn't happened yet
+
+          WALconsole.log("newRows", newRows);
           return {type: RelationItemsOutputs.NONEWITEMSYET, relation: null};
         }
         // otherwise we can just carry on, since the relationNodes has the right set
@@ -1264,6 +1267,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     }
     currentRelationData[strMsg] = relationData;
     currentRelationSeenNodes[strMsg] = _.without(currentRelationSeenNodes[strMsg].concat(_.flatten(relationNodesIds)), null);
+    WALconsole.log("actual new items", newItems);
     return {type: RelationItemsOutputs.NEWITEMS, relation: newItems};
   };
 

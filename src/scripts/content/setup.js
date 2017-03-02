@@ -32,6 +32,7 @@ utilities.listenForFrameSpecificMessage("mainpanel", "content", "likelyRelation"
 		MiscUtilities.registerCurrentResponseRequested(msg,
 			function(m){
 				var likelyRel = RelationFinder.likelyRelationWrapper(m);
+				console.log('likelyRel', likelyRel);
 				if (likelyRel !== null){
 					sendResponse(likelyRel);
 				}
@@ -44,6 +45,7 @@ utilities.listenForFrameSpecificMessage("mainpanel", "content", "getFreshRelatio
 		MiscUtilities.registerCurrentResponseRequested(msg, 
 			function(m){
 				var freshRelationItems = RelationFinder.getFreshRelationItemsHelper(m);
+				console.log('freshRelationItems', freshRelationItems);
 				sendResponse(freshRelationItems);
 			});
 	}

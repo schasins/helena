@@ -2367,11 +2367,19 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
   };
 
+  var duplicateAnnotationCounter = 0;
   pub.DuplicateAnnotation = function _DuplicateAnnotation(annotationItems){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "duplicate_annotation");
 
-    this.annotationItems = annotationItems;
+    if (annotationItems){
+      this.annotationItems = annotationItems;
+      this.skipIfDuplicate = true; // by default, skip nested transactions if we find a duplicate
+      this.ancestorAnnotations = []; // we're also allowed to require that prior annotations match, as well as our own annotationItems
+      duplicateAnnotationCounter += 1;
+      this.name = "duplicate_annotation_" + duplicateAnnotationCounter;
+      this.dataset_specific_id = duplicateAnnotationCounter;
+    }
 
     this.remove = function _remove(){
       this.parent.removeChild(this);
@@ -2411,20 +2419,24 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.currentTransaction = null;
     this.run = function _run(programObj, rbbcontinuation){
-      this.currentTransaction = singleAnnotationItems();
-      var msg = this.serverTransactionRepresentation();
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/transactionexists', msg, function(resp){
-        console.log("resp", resp);
-        if (resp.exists){
-          // this is a duplicate, current loop iteration already done, so we're ready to skip to the next
-          // so pass the skip flag in
-          rbbcontinuation(true);
-        }
-        else{
-          // no duplicate saved, so just carry on as usual
-          rbbcontinuation();
-        }
-      });
+      this.currentTransaction = this.singleAnnotationItems();
+      if (this.skipIfDuplicate){
+        // you only need to talk to the server if you're actually going to act (skip) now on the knowledge of the duplicate
+        var msg = this.serverTransactionRepresentation();
+        MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/transactionexists', msg, function(resp){
+          console.log("resp", resp);
+          if (resp.exists){
+            // this is a duplicate, current loop iteration already done, so we're ready to skip to the next
+            // so pass the skip flag in
+            rbbcontinuation(true);
+          }
+          else{
+            // no duplicate saved, so just carry on as usual
+            rbbcontinuation();
+          }
+        });
+
+      }
     };
 
     this.singleAnnotationItems = function _singleAnnotationItems(){
@@ -2450,7 +2462,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.serverTransactionRepresentation = function _serverRepresentation(){
       var rep = this.singleAnnotationItems();
       // todo: find better way to get prog or get dataset
-      return {dataset: ReplayScript.prog.currentDataset.getId(), transaction: encodeURIComponent(JSON.stringify(rep))};
+      return {dataset: ReplayScript.prog.currentDataset.getId(), transaction_attributes: encodeURIComponent(JSON.stringify(rep)), annotation_id: this.dataset_specific_id};
     };
 
     this.parameterizeForRelation = function _parameterizeForRelation(relation){
@@ -2630,18 +2642,18 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     function adjustAnnotationParents(){
-      // go through the whole tree and make sure any nested annotations know the parent annotation
-      var lastSeenAnnotation = null;
+      // go through the whole tree and make sure any nested annotations know all ancestor annotations
+      // note that by default we're making all of them required for matches, not just available for matches
+      // in future, if user has edited, we might want to let those edits stand...
+      var ancestorAnnotations = [];
       ReplayScript.prog.traverse(function(statement){
         if (statement instanceof WebAutomationLanguage.DuplicateAnnotation){
-          statement.parentAnnotation = lastSeenAnnotation;
-          lastSeenAnnotation = statement;
+          statement.ancestorAnnotations = ancestorAnnotations;
+          ancestorAnnotations.push(statement);
         }
         if (statement instanceof WebAutomationLanguage.CommitTransaction){
-          if (statement.duplicateAnnotation === lastSeenAnnotation){
-            // traverse is depth first, so just nulling it out when we see the corresponding commit should be enough to keep the scoping stuff ok, right?
-            lastSeenAnnotation = null;
-          }
+          // traverse is depth first, so just remove an annotation when we find the corresponding commit
+          ancestorAnnotations = _.without(ancestorAnnotations, statement.duplicateAnnotation);
         }
       });
     }
@@ -2679,6 +2691,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.relation.nodeVariables();
     }
     this.updateRelationNodeVariables = function _updateRelationNodeVariables(){
+      WALconsole.log("updateRelationNodeVariables");
       this.relation.updateNodeVariables(this.pageVar);
     }
 
@@ -2765,6 +2778,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.updateNodeVariables = function _updateNodeVariables(pageVar){
+      WALconsole.log("updateNodeVariables TextRelation");
       var nodeVariables = this.nodeVariables();
       var columns = this.columns; // again, nodeVariables and columns must be aligned
       for (var i = 0; i < columns.length; i++){
@@ -2937,12 +2951,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.updateNodeVariables = function _updateNodeVariables(pageVar){
+      WALconsole.log("updateNodeVariables Relation");
       var nodeVariables = this.nodeVariables();
       var columns = this.columns; // again, nodeVariables and columns must be aligned
       for (var i = 0; i < columns.length; i++){
         var currNodeRep = this.getCurrentNodeRep(pageVar, columns[i]);
         nodeVariables[i].setCurrentNodeRep(currNodeRep);
       }
+      WALconsole.log("updateNodeVariables Relation completed");
     }
 
     this.scrapedColumnNames = function _scrapedColumnNames(){
@@ -3328,12 +3344,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                                                   function _getRelationItemsHandler(response) { WALconsole.log("Receiving response: ", frame.frameId, response); if (response !== null && response !== undefined) {handleNewRelationItemsFromFrame(response, frame.frameId);}}); // when get response, call handleNewRelationItemsFromFrame (defined above) to pick from the frames' answers
             };
             // here's the function for sending the message until we decide we're done with the current attempt to get new rows, or until actually get the answer
-            MiscUtilities.repeatUntil(sendGetRelationItems, function(){return doneArray[currentGetRowsCounter] || relationItemsRetrieved[frame.frameId];}, 1000, true);
+            MiscUtilities.repeatUntil(sendGetRelationItems, function _checkDone(){return doneArray[currentGetRowsCounter] || relationItemsRetrieved[frame.frameId];}, 1000, true);
           });
           // and let's make sure that after our chosen timeout, we'll stop and just process whatever we have
           var desiredTimeout = 60000;
           setTimeout(
-            function(){
+            function _reachedTimeoutHandler(){
               WALconsole.namedLog("getRelationItems", "Reached timeout", currentGetRowsCounter);
               if (!doneArray[currentGetRowsCounter]){
                 doneArray[currentGetRowsCounter] = false;
@@ -3491,6 +3507,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.setCurrentNodeRep = function _setCurrentNodeRep(nodeRep){
       // todo: should be a better way to get env
+      WALconsole.log("setCurrentNodeRep", this.name, nodeRep);
       ReplayScript.prog.environment.envBind(this.name, nodeRep);
     };
 
@@ -3977,6 +3994,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           loopStatement.rowsSoFar += 1;
           // block scope.  let's add a new frame
           program.environment = program.environment.envExtend(); // add a new frame on there
+          WALconsole.log("envExtend done");
           // and let's give us access to all the loop variables
           // note that for now loopVarsMap includes all columns of the relation.  may some day want to limit it to only the ones used...
           loopStatement.updateRelationNodeVariables();

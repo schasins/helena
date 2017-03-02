@@ -1612,7 +1612,7 @@ chrome.runtime.onConnect.addListener(function(port) {
 
 chrome.tabs.getCurrent(function(curTab) {
   var tabId = curTab.id;
-  chrome.tabs.onActivated.addListener(function(activeInfo) {
+  chrome.tabs.onActivated.addListener(function _handleTabGetCurrent(activeInfo) {
     if (activeInfo.tabId != tabId)
       user.activatedTab(activeInfo);
   });

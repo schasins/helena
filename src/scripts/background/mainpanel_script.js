@@ -2394,7 +2394,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return ["annotation"];
     };
 
+    var color = 20;
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      /*
       addToolboxLabel(this.blocklyLabel);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -2402,13 +2404,38 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               .appendField("annotation");
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
-          this.setColour(20);
+          this.setColour(color);
         }
       };
+      */
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock){
-      this.block = workspace.newBlock(this.blocklyLabel);
+      var customBlocklyLabel = this.blocklyLabel + this.id;
+      var name = this.name;
+      var ancestorAnnotations = this.ancestorAnnotations;
+      var requiredAncestorAnnotations = this.requiredAncestorAnnotations;
+      console.log("in genBlocklyNode", this, this.name, ancestorAnnotations, requiredAncestorAnnotations);
+      Blockly.Blocks[customBlocklyLabel] = {
+        init: function() {
+          console.log("in init", ancestorAnnotations, requiredAncestorAnnotations);
+          var fieldsSoFar = this.appendDummyInput()
+              .appendField(name);
+          if (ancestorAnnotations.length > 0){
+            fieldsSoFar = this.appendDummyInput().appendField("require matches in");
+          }
+          for (var i = 0; i < ancestorAnnotations.length; i++){
+            var onNow = requiredAncestorAnnotations.indexOf(ancestorAnnotations[i]) > -1;
+            onNow = MiscUtilities.toBlocklyBoolString(onNow);
+            fieldsSoFar = fieldsSoFar.appendField(ancestorAnnotations[i].name + ":")
+            .appendField(new Blockly.FieldCheckbox(onNow), ancestorAnnotations[i].name);
+          }
+          this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(color);
+        }
+      };
+      this.block = workspace.newBlock(customBlocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
       return this.block;
@@ -2671,8 +2698,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var annotation = new WebAutomationLanguage.DuplicateAnnotation(annotationItems);
       loopStatement.insertChild(annotation, index);
       loopStatement.appendChild(new WebAutomationLanguage.CommitTransaction(annotation)); // stick the commit in at the end of the loop
-      RecorderUI.updateDisplayedScript();
       adjustAnnotationParents();
+      RecorderUI.updateDisplayedScript();
     }
 
     this.addAnnotation = function _addAnnotation(annotationItems){

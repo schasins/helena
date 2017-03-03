@@ -409,7 +409,14 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
         });
     };
     sendHelper(msg);
-  }
+  };
+
+  pub.toBlocklyBoolString = function _toBlocklyBoolString(bool){
+    if (bool){
+      return 'TRUE';
+    }
+    return 'FALSE';
+  };
 
   pub.levenshteinDistance = function _levenshteinDistance(a, b) {
     if(a.length === 0) return b.length; 

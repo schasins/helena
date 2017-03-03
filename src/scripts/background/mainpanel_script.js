@@ -456,6 +456,7 @@ var RecorderUI = (function () {
         var nodeVariables = oneLoopData.nodeVariables;
         var tr = $("<tr></tr>");
         var annotationItems = [];
+        var availableAnnotationItems = [];
         for (var j = 0; j < nodeVariables.length; j++){
           
             var attributes = ["TEXT", "LINK"];
@@ -463,10 +464,11 @@ var RecorderUI = (function () {
               (function(){
                 var nodeVariable = nodeVariables[j];
                 var attr = attributes[k];
+                var element = {nodeVar: nodeVariable, attr: attr};
+                availableAnnotationItems.push(element);
                 var atributeRequired = $("<input type='checkbox'>");
                 atributeRequired.change(function(){
                   console.log("toggling attribute required for", nodeVariable, attr);
-                  var element = {nodeVar: nodeVariable, attr: attr};
                   if (atributeRequired.prop("checked")){
                     annotationItems.push(element);
                   }
@@ -487,7 +489,7 @@ var RecorderUI = (function () {
 
         var addAnnotationButton = $("<div>Add Annotation</div>");
         addAnnotationButton.button();
-        addAnnotationButton.click(function(){loopStatement.addAnnotation(annotationItems);});
+        addAnnotationButton.click(function(){loopStatement.addAnnotation(annotationItems, availableAnnotationItems);});
         $div.append(addAnnotationButton);
       })();
     }
@@ -2368,12 +2370,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   };
 
   var duplicateAnnotationCounter = 0;
-  pub.DuplicateAnnotation = function _DuplicateAnnotation(annotationItems){
+  pub.DuplicateAnnotation = function _DuplicateAnnotation(annotationItems, availableAnnotationItems){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "duplicate_annotation");
 
     if (annotationItems){
       this.annotationItems = annotationItems;
+      this.availableAnnotationItems = availableAnnotationItems;
       this.skipIfDuplicate = true; // by default, skip nested transactions if we find a duplicate
       this.ancestorAnnotations = [];
       this.requiredAncestorAnnotations = []; // we're also allowed to require that prior annotations match, as well as our own annotationItems
@@ -2394,7 +2397,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return ["annotation"];
     };
 
-    var color = 20;
+    function annotationItemToString(item){
+      return item.nodeVar.toString() + "." + item.attr;
+    }
+
+    var color = 7;
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
       /*
       addToolboxLabel(this.blocklyLabel);
@@ -2415,6 +2422,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var name = this.name;
       var ancestorAnnotations = this.ancestorAnnotations;
       var requiredAncestorAnnotations = this.requiredAncestorAnnotations;
+      var availableAnnotationItems = this.availableAnnotationItems;
+      var annotationItems = this.annotationItems;
+      var skipIfDuplicate = this.skipIfDuplicate;
       console.log("in genBlocklyNode", this, this.name, ancestorAnnotations, requiredAncestorAnnotations);
       Blockly.Blocks[customBlocklyLabel] = {
         init: function() {
@@ -2422,7 +2432,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           var fieldsSoFar = this.appendDummyInput()
               .appendField(name);
           if (ancestorAnnotations.length > 0){
-            fieldsSoFar = this.appendDummyInput().appendField("require matches in");
+            fieldsSoFar = this.appendDummyInput().appendField("require other duplicate matches: ");
           }
           for (var i = 0; i < ancestorAnnotations.length; i++){
             var onNow = requiredAncestorAnnotations.indexOf(ancestorAnnotations[i]) > -1;
@@ -2430,6 +2440,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             fieldsSoFar = fieldsSoFar.appendField(ancestorAnnotations[i].name + ":")
             .appendField(new Blockly.FieldCheckbox(onNow), ancestorAnnotations[i].name);
           }
+          if (availableAnnotationItems.length > 0){
+            fieldsSoFar = this.appendDummyInput().appendField("require attribute matches: ");
+          }
+          for (var i = 0; i < availableAnnotationItems.length; i++){
+            var onNow = annotationItems.indexOf(availableAnnotationItems[i]) > -1;
+            onNow = MiscUtilities.toBlocklyBoolString(onNow);
+            fieldsSoFar = fieldsSoFar.appendField(annotationItemToString(availableAnnotationItems[i]) + ":")
+            .appendField(new Blockly.FieldCheckbox(onNow), annotationItemToString(availableAnnotationItems[i]));
+          }
+
+          var onNow = MiscUtilities.toBlocklyBoolString(skipIfDuplicate);
+          this.appendDummyInput().appendField("skip if match: ")
+          .appendField(new Blockly.FieldCheckbox(onNow), "skipIfDuplicate");
+          
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(color);
@@ -2694,21 +2718,21 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       });
     }
 
-    function insertAnnotation(annotationItems, index){
-      var annotation = new WebAutomationLanguage.DuplicateAnnotation(annotationItems);
+    function insertAnnotation(annotationItems, availableAnnotationItems, index){
+      var annotation = new WebAutomationLanguage.DuplicateAnnotation(annotationItems, availableAnnotationItems);
       loopStatement.insertChild(annotation, index);
       loopStatement.appendChild(new WebAutomationLanguage.CommitTransaction(annotation)); // stick the commit in at the end of the loop
       adjustAnnotationParents();
       RecorderUI.updateDisplayedScript();
     }
 
-    this.addAnnotation = function _addAnnotation(annotationItems){
+    this.addAnnotation = function _addAnnotation(annotationItems, availableAnnotationItems){
       console.log("annotationItems", annotationItems);
       var notYetDefinedAnnotationItems = _.uniq(_.map(annotationItems.slice(), function(obj){return obj.nodeVar;})); // if have both text and link, may appear multiple times
       var alreadyDefinedAnnotationItems = this.relationNodeVariables();
       notYetDefinedAnnotationItems = _.difference(notYetDefinedAnnotationItems, alreadyDefinedAnnotationItems);
       if (notYetDefinedAnnotationItems.length <= 0){
-        insertAnnotation(annotationItems, 0);
+        insertAnnotation(annotationItems, availableAnnotationItems, 0);
         return;
       }
       for (var i = 0; i < this.bodyStatements.length; i++){
@@ -2717,7 +2741,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           notYetDefinedAnnotationItems = _.without(notYetDefinedAnnotationItems, _.findWhere(notYetDefinedAnnotationItems, {nodeVar:bStatement.currentNode}));
         }
         if (notYetDefinedAnnotationItems.length <= 0){
-          insertAnnotation(annotationItems, i + 1);
+          insertAnnotation(annotationItems, availableAnnotationItems, i + 1);
           return;
         }
       }

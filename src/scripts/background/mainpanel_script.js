@@ -170,6 +170,7 @@ var RecorderUI = (function () {
 
     activateButton(div, "#pause", RecorderUI.pauseRun);
     activateButton(div, "#resume", RecorderUI.resumeRun);
+    activateButton(div, "#restart", RecorderUI.restartRun);
     div.find("#resume").button("option", "disabled", true); // shouldn't be able to resume before we even pause
 
     activateButton(div, "#download", function(){ReplayScript.prog.download();});
@@ -224,6 +225,14 @@ var RecorderUI = (function () {
     div.find("#pause").button("option", "disabled", false);
     div.find("#resume").button("option", "disabled", true);
     pub.resumeContinuation();
+  };
+
+  pub.restartRun = function _restartRun(){
+    WALconsole.log("Restarting.");
+    var div = $("#new_script_content");
+    div.find("#pause").button("option", "disabled", false);
+    div.find("#resume").button("option", "disabled", true);
+    ReplayScript.prog.restartFromBeginning();
   };
 
   // during recording, when user scrapes, show the text so user gets feedback on what's happening
@@ -4249,7 +4258,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       RecorderUI.userStopped = false;
       this.currentDataset = new OutputHandler.Dataset();
       this.clearRunningState();
-      this.environment = Environment.envRoot();
+      this.runBasicBlock(this.loopyStatements, function(){
+        program.currentDataset.closeDataset();
+        WALconsole.log("Done with script execution.");});
+    };
+
+    this.restartFromBeginning = function _restartFromBeginning(){
+      // basically same as above, but store to the same dataset (for now, dataset id also controlls which saved annotations we're looking at)
+      RecorderUI.userPaused = false;
+      RecorderUI.userStopped = false;
+      this.clearRunningState();
       this.runBasicBlock(this.loopyStatements, function(){
         program.currentDataset.closeDataset();
         WALconsole.log("Done with script execution.");});
@@ -4270,6 +4288,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       _.each(this.relations, function(relation){relation.clearRunningState();});
       _.each(this.pageVars, function(pageVar){pageVar.clearRunningState();});
       _.each(this.loopyStatements, function(statement){statement.clearRunningState();});
+      this.environment = Environment.envRoot();
     };
 
     this.download = function _download(){

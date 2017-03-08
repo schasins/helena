@@ -1025,11 +1025,17 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     data.tag = next_or_more_button.prop("tagName");
     data.text = next_or_more_button.text();
     data.id = next_or_more_button.attr("id");
+    data.src = next_or_more_button.prop('src');
     data.xpath = nodeToXPath(event.target);
     data.frame_id = SimpleRecord.getFrameId();
     
     utilities.sendMessage("content", "mainpanel", "nextButtonSelector", {selector: data});
     highlightNextOrMoreButton(data);
+  }
+
+  function rightText(next_button_data, node){
+    // either there's actual text and it's the same, or there's an actual image and it's the same
+    return (next_button_data.text.length > 0 && node.text() === next_button_data.text) || (next_button_data.src && node.prop('src') === next_button_data.src);
   }
 
   function findNextButton(next_button_data){
@@ -1038,8 +1044,9 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     var next_or_more_button_text = next_button_data.text;
     var next_or_more_button_id = next_button_data.id;
     var next_or_more_button_xpath = next_button_data.xpath;
+    var next_or_more_button_src = next_button_data.src;
     var button = null;
-    var candidate_buttons = $(next_or_more_button_tag).filter(function(){ return $(this).text() === next_or_more_button_text;});
+    var candidate_buttons = $(next_or_more_button_tag).filter(function(){ return rightText(next_button_data, $(this));});
     //hope there's only one button
     if (candidate_buttons.length === 1){
       button = candidate_buttons[0];

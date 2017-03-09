@@ -2379,18 +2379,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   };
 
   var duplicateAnnotationCounter = 0;
-  pub.DuplicateAnnotation = function _DuplicateAnnotation(annotationItems, availableAnnotationItems){
+  pub.DuplicateAnnotation = function _EntityScope(annotationItems, availableAnnotationItems){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "duplicate_annotation");
 
     if (annotationItems){
       this.annotationItems = annotationItems;
       this.availableAnnotationItems = availableAnnotationItems;
-      this.skipIfDuplicate = true; // by default, skip nested transactions if we find a duplicate
       this.ancestorAnnotations = [];
       this.requiredAncestorAnnotations = []; // we're also allowed to require that prior annotations match, as well as our own annotationItems
       duplicateAnnotationCounter += 1;
-      this.name = "duplicate_annotation_" + duplicateAnnotationCounter;
+      this.name = "Entity" + duplicateAnnotationCounter;
       this.dataset_specific_id = duplicateAnnotationCounter;
     }
 
@@ -2433,24 +2432,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var requiredAncestorAnnotations = this.requiredAncestorAnnotations;
       var availableAnnotationItems = this.availableAnnotationItems;
       var annotationItems = this.annotationItems;
-      var skipIfDuplicate = this.skipIfDuplicate;
       console.log("in genBlocklyNode", this, this.name, ancestorAnnotations, requiredAncestorAnnotations);
       Blockly.Blocks[customBlocklyLabel] = {
         init: function() {
           console.log("in init", ancestorAnnotations, requiredAncestorAnnotations);
           var fieldsSoFar = this.appendDummyInput()
-              .appendField(name);
-          if (ancestorAnnotations.length > 0){
-            fieldsSoFar = this.appendDummyInput().appendField("require other duplicate matches: ");
-          }
-          for (var i = 0; i < ancestorAnnotations.length; i++){
-            var onNow = requiredAncestorAnnotations.indexOf(ancestorAnnotations[i]) > -1;
-            onNow = MiscUtilities.toBlocklyBoolString(onNow);
-            fieldsSoFar = fieldsSoFar.appendField(ancestorAnnotations[i].name + ":")
-            .appendField(new Blockly.FieldCheckbox(onNow), ancestorAnnotations[i].name);
-          }
+              .appendField("entity scope ")
+              .appendField(new Blockly.FieldTextInput(name), "name");
           if (availableAnnotationItems.length > 0){
-            fieldsSoFar = this.appendDummyInput().appendField("require attribute matches: ");
+            fieldsSoFar = this.appendDummyInput().appendField("attributes: ");
           }
           for (var i = 0; i < availableAnnotationItems.length; i++){
             var onNow = annotationItems.indexOf(availableAnnotationItems[i]) > -1;
@@ -2458,14 +2448,25 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             fieldsSoFar = fieldsSoFar.appendField(annotationItemToString(availableAnnotationItems[i]) + ":")
             .appendField(new Blockly.FieldCheckbox(onNow), annotationItemToString(availableAnnotationItems[i]));
           }
-
-          var onNow = MiscUtilities.toBlocklyBoolString(skipIfDuplicate);
-          this.appendDummyInput().appendField("skip if match: ")
-          .appendField(new Blockly.FieldCheckbox(onNow), "skipIfDuplicate");
+          if (ancestorAnnotations.length > 0){
+            fieldsSoFar = this.appendDummyInput().appendField("other entitites: ");
+          }
+          for (var i = 0; i < ancestorAnnotations.length; i++){
+            var onNow = requiredAncestorAnnotations.indexOf(ancestorAnnotations[i]) > -1;
+            onNow = MiscUtilities.toBlocklyBoolString(onNow);
+            fieldsSoFar = fieldsSoFar.appendField(ancestorAnnotations[i].name + ":")
+            .appendField(new Blockly.FieldCheckbox(onNow), ancestorAnnotations[i].name);
+          }
           
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(color);
+        },
+        onchange: function(ev) {
+            var newName = this.getFieldValue("name");
+            if (newName !== this.WALStatement.name){
+              this.WALStatement.name = newName;
+            }
         }
       };
       this.block = workspace.newBlock(customBlocklyLabel);
@@ -2481,23 +2482,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.currentTransaction = null;
     this.run = function _run(programObj, rbbcontinuation){
       this.currentTransaction = this.singleAnnotationItems();
-      if (this.skipIfDuplicate){
-        // you only need to talk to the server if you're actually going to act (skip) now on the knowledge of the duplicate
-        var msg = this.serverTransactionRepresentation();
-        MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/transactionexists', msg, function(resp){
-          console.log("resp", resp);
-          if (resp.exists){
-            // this is a duplicate, current loop iteration already done, so we're ready to skip to the next
-            // so pass the skip flag in
-            rbbcontinuation(true);
-          }
-          else{
-            // no duplicate saved, so just carry on as usual
-            rbbcontinuation();
-          }
-        });
-
-      }
+      // you only need to talk to the server if you're actually going to act (skip) now on the knowledge of the duplicate
+      var msg = this.serverTransactionRepresentation();
+      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/transactionexists', msg, function(resp){
+        console.log("resp", resp);
+        if (resp.exists){
+          // this is a duplicate, current loop iteration already done, so we're ready to skip to the next
+          // so pass the skip flag in
+          rbbcontinuation(true);
+        }
+        else{
+          // no duplicate saved, so just carry on as usual
+          rbbcontinuation();
+        }
+      });
     };
 
     this.singleAnnotationItems = function _singleAnnotationItems(){

@@ -1034,8 +1034,11 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   }
 
   function rightText(next_button_data, node){
-    // either there's actual text and it's the same, or there's an actual image and it's the same
-    return (next_button_data.text.length > 0 && node.text() === next_button_data.text) || (next_button_data.src && node.prop('src') === next_button_data.src);
+    // either there's an actual image and it's the same, or the text is the same
+    if (next_button_data.src){
+      return (node.prop('src') === next_button_data.src);
+    }
+    return (node.text() === next_button_data.text);
   }
 
   function findNextButton(next_button_data){

@@ -2411,18 +2411,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     var color = 7;
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
-      /*
-      addToolboxLabel(this.blocklyLabel);
-      Blockly.Blocks[this.blocklyLabel] = {
-        init: function() {
-          this.appendDummyInput()
-              .appendField("annotation");
-          this.setPreviousStatement(true, null);
-          this.setNextStatement(true, null);
-          this.setColour(color);
-        }
-      };
-      */
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock){
@@ -2498,6 +2486,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       });
     };
 
+    this.commit = function _commit(programObj, rbbcontinuation){
+      var msg = this.duplicateAnnotation.serverTransactionRepresentation();
+      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newtransaction', msg, function(){});
+      rbbcontinuation();
+    };
+
     this.singleAnnotationItems = function _singleAnnotationItems(){
       var rep = [];
       for (var i = 0; i < this.annotationItems.length; i++){
@@ -2540,57 +2534,18 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   };
 
-  pub.CommitTransaction = function _CommitTransaction(duplicateAnnotation){
-    Revival.addRevivalLabel(this);
-
-    this.duplicateAnnotation = duplicateAnnotation;
-
-    this.remove = function _remove(){
-      this.parent.removeChild(this);
-    };
-    this.clearRunningState = function _clearRunningState(){
-      return;
-    }
-    this.toStringLines = function _toStringLines(){
-      return ["commitTransaction"];
-    };
-
-    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
-    };
-
-    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
-    };
-
-    this.traverse = function _traverse(fn){
-      fn(this);
-    };
-
-    this.run = function _run(programObj, rbbcontinuation){
-      var msg = this.duplicateAnnotation.serverTransactionRepresentation();
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newtransaction', msg, function(){});
-      rbbcontinuation();
-    };
-
-    this.parameterizeForRelation = function _parameterizeForRelation(relation){
-      return [];
-    };
-    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
-      return;
-    };
-
-  };
-
 
   /*
   Loop statements not executed by run method, although may ultimately want to refactor to that
   */
 
-  pub.LoopStatement = function _LoopStatement(relation, relationColumnsUsed, bodyStatements, pageVar){
+  pub.LoopStatement = function _LoopStatement(relation, relationColumnsUsed, bodyStatements, cleanupStatements, pageVar){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "loop");
 
     var doInitialization = bodyStatements;
     var loopStatement = this;
+    this.cleanupStatements = [];
 
     this.initialize = function _initialize(){
       this.relation = relation;
@@ -2599,6 +2554,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.pageVar = pageVar;
       this.maxRows = null; // note: for now, can only be sat at js console.  todo: eventually should have ui interaction for this.
       this.rowsSoFar = 0; 
+      this.cleanupStatements = cleanupStatements;
     }
 
     this.remove = function _remove(){
@@ -4003,8 +3959,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 || statement instanceof WebAutomationLanguage.OutputRowStatement);
     }
 
-    this.runBasicBlock = function _runBasicBlock(loopyStatements, callback, skipAllExceptBackAndClose){
-      if (skipAllExceptBackAndClose === undefined){ skipAllExceptBackAndClose = false; }
+    this.runBasicBlock = function _runBasicBlock(loopyStatements, callback, skipMode){
+      if (skipMode === undefined){ skipMode = false; }
       WALconsole.log("rbb", loopyStatements.length, loopyStatements);
       // first check if we're supposed to pause, stop execution if yes
       WALconsole.log("RecorderUI.userPaused", RecorderUI.userPaused);
@@ -4027,9 +3983,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
       // for now LoopStatement gets special processing
       else if (loopyStatements[0] instanceof WebAutomationLanguage.LoopStatement){
-        if (skipAllExceptBackAndClose){
+        if (skipMode){
           // in this case, when we're basically 'continue'ing, it's as if this loop is empty, so skip straight to that
-          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, skipAllExceptBackAndClose);
+          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, skipMode);
           return;
         }
         WALconsole.log("rbb: loop.");
@@ -4071,7 +4027,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             // but first let's get rid of that last environment frame
             WALconsole.log("rbb: preparing for next loop iteration, popping frame off environment.");
             program.environment = program.environment.parent;
-            program.runBasicBlock(loopyStatements, callback); 
+            // and let's run loop cleanup, since we actually ran the body statements
+            program.runBasicBlock(loopStatement.cleanupStatements, function(){
+              // and once we've done that loop body cleanup, then let's finally go ahead and go back to do the loop again!
+              program.runBasicBlock(loopyStatements, callback); 
+            });
           });
         });
         return;
@@ -4080,24 +4040,21 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       else if (!ringerBased(loopyStatements[0])){
         WALconsole.log("rbb: non-Ringer-based statement.");
 
-        if (skipAllExceptBackAndClose){
-          // in this case, when we're basically 'continue'ing, we should do nothing unless this is actually a back or close
-          if (!(loopyStatements[0] instanceof WebAutomationLanguage.BackStatement || loopyStatements[0] instanceof WebAutomationLanguage.ClosePageStatement || loopyStatements[0] instanceof WebAutomationLanguage.CommitTransaction)){
-            // for now, back, close, and commit are treated as end of loop cleanup that user can't control.  may want to just make that explicit...
-            program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, skipAllExceptBackAndClose);
-            return;
-          }
+        if (skipMode){
+          // in this case, when we're basically 'continue'ing, we should do nothing
+          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, skipMode);
+          return;
         }
 
-        // normal execution, either because we're not in skipallexceptbackandclose mode, or because we are but it's a back or a close
+        // normal execution, either because we're not in skipMode, or because we are but it's a back or a close
         var continuation = function(continueflag){ // remember that rbbcontinuations passed to run methods must always handle continueflag
           if (continueflag){
             // executed a continue statement, better stop going through this loop's statements, get back to the original callback
-            program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, true); // set skipAllExceptBackAndClose flag
+            program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, true); // set skipMode flag
             return;
           }
           // once we're done with this statement running, have to replay the remainder of the script
-          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, skipAllExceptBackAndClose);
+          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, skipMode);
         };
         loopyStatements[0].run(program, continuation); // todo: program is passed to give access to environment.  may want a better way
         return;
@@ -4115,9 +4072,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           basicBlockStatements.push(loopyStatements[i]);
         }
 
-        if (skipAllExceptBackAndClose){
+        if (skipMode){
           // in this case, when we're basically 'continue'ing, we should do nothing, so just go on to the next statement without doing anything else
-          program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, skipAllExceptBackAndClose);
+          program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, skipMode);
           return;
         }
 
@@ -4829,10 +4786,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
       }
       backStatements.reverse(); // must do the back button in reverse order
-      bodyStatementLs = bodyStatementLs.concat(backStatements);
+
+      cleanupStatementLs = backStatements;
       // todo: also, this is only one of the places we introduce loops.  should do this everywhere we introduce or adjust loops.  really need to deal with the fact those aren't aligned right now
 
-      var loopStatement = new WebAutomationLanguage.LoopStatement(relation, relationColumnsUsed, bodyStatementLs, pageVar); 
+      var loopStatement = new WebAutomationLanguage.LoopStatement(relation, relationColumnsUsed, bodyStatementLs, cleanupStatementLs, pageVar); 
       return loopStatement;
     }
 

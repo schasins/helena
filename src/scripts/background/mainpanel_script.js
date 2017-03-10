@@ -1202,6 +1202,29 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
   }
 
+  // for things like loops that have bodies, attach the nested blocks
+  function attachNestedBlocksToWrapper(wrapperBlock, fistNestedBlock){
+    var parentConnection = wrapperBlock.getInput('statements').connection;
+    var childConnection = fistNestedBlock.previousConnection;
+    parentConnection.connect(childConnection);
+  }
+
+  function genBlocklyBlocksSeq(statements){
+    var foundFirstNonNull = false;
+    var lastBlock = null;
+    for (var i = 0; i < statements.length; i++){
+      var newBlock = statements[i].genBlocklyNode(lastBlock);
+      if (newBlock !== null){ // handle the fact that there could be null-producing nodes in the middle, and need to connect around those
+        lastBlock = newBlock;
+        // also, if this is our first non-null block it's the one we'll want to return
+        if (!foundFirstNonNull){
+          foundFirstNonNull = newBlock;
+        }
+      }
+    }
+    return foundFirstNonNull;
+  }
+
   // the actual statements
 
   pub.LoadStatement = function _LoadStatement(trace){
@@ -1283,8 +1306,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.block;
     };
 
-    this.traverse = function _traverse(fn){
+    this.traverse = function _traverse(fn, fn2){
       fn(this);
+      fn2(this);
     };
 
     this.pbvs = function _pbvs(){
@@ -1402,8 +1426,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.block;
     };
 
-    this.traverse = function _traverse(fn){
+    this.traverse = function _traverse(fn, fn2){
       fn(this);
+      fn2(this);
     };
 
     this.pbvs = function _pbvs(){
@@ -1586,8 +1611,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.block;
     };
 
-    this.traverse = function _traverse(fn){
+    this.traverse = function _traverse(fn, fn2){
       fn(this);
+      fn2(this);
     };
 
     this.scrapingRelationItem = function _scrapingRelationItem(){
@@ -1878,8 +1904,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.block;
     };
 
-    this.traverse = function _traverse(fn){
+    this.traverse = function _traverse(fn, fn2){
       fn(this);
+      fn2(this);
     };
 
     this.pbvs = function _pbvs(){
@@ -2019,8 +2046,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.block;
     };
 
-    this.traverse = function _traverse(fn){
+    this.traverse = function _traverse(fn, fn2){
       fn(this);
+      fn2(this);
     };
 
     this.pbvs = function _pbvs(){
@@ -2118,8 +2146,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return null;
     };
 
-    this.traverse = function _traverse(fn){
+    this.traverse = function _traverse(fn, fn2){
       fn(this);
+      fn2(this);
     };
 
     this.run = function _run(programObj, rbbcontinuation){
@@ -2180,8 +2209,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return null;
     };
 
-    this.traverse = function _traverse(fn){
+    this.traverse = function _traverse(fn, fn2){
       fn(this);
+      fn2(this);
     };
 
     this.run = function _run(programObj, rbbcontinuation){
@@ -2246,8 +2276,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.block;
     };
 
-    this.traverse = function _traverse(fn){
+    this.traverse = function _traverse(fn, fn2){
       fn(this);
+      fn2(this);
     };
 
     this.run = function _run(programObj, rbbcontinuation){
@@ -2277,6 +2308,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.removeChild = function _removeChild(childStatement){
       this.bodyStatements = _.without(this.bodyStatements, childStatement);
+    };
+    this.removeChildren = function _removeChild(childStatements){
+      this.bodyStatements = _.difference(this.bodyStatements, childStatements);
     };
     this.appendChild = function _appendChild(childStatement){
       var newChildStatements = this.bodyStatements;
@@ -2317,11 +2351,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.block;
     };
 
-    this.traverse = function _traverse(fn){
+    this.traverse = function _traverse(fn, fn2){
       fn(this);
       for (var i = 0; i < this.bodyStatements.length; i++){
-        this.bodyStatements[i].traverse(fn);
+        this.bodyStatements[i].traverse(fn, fn2);
       }
+      fn2(this);
     };
 
     this.updateChildStatements = function _updateChildStatements(newChildStatements){
@@ -2379,11 +2414,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   };
 
   var duplicateAnnotationCounter = 0;
-  pub.DuplicateAnnotation = function _EntityScope(annotationItems, availableAnnotationItems){
+  pub.DuplicateAnnotation = function _EntityScope(annotationItems, availableAnnotationItems, bodyStatements){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "duplicate_annotation");
 
-    if (annotationItems){
+    var entityScope = this;
+
+    this.initialize = function(){
       this.annotationItems = annotationItems;
       this.availableAnnotationItems = availableAnnotationItems;
       this.ancestorAnnotations = [];
@@ -2391,11 +2428,36 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       duplicateAnnotationCounter += 1;
       this.name = "Entity" + duplicateAnnotationCounter;
       this.dataset_specific_id = duplicateAnnotationCounter;
+      this.updateChildStatements(bodyStatements);
     }
 
     this.remove = function _remove(){
       this.parent.removeChild(this);
     };
+
+    this.removeChild = function _removeChild(childStatement){
+      this.bodyStatements = _.without(this.bodyStatements, childStatement);
+    };
+    this.removeChildren = function _removeChild(childStatements){
+      this.bodyStatements = _.difference(this.bodyStatements, childStatements);
+    };
+    this.appendChild = function _appendChild(childStatement){
+      var newChildStatements = this.bodyStatements;
+      newChildStatements.push(childStatement);
+      this.updateChildStatements(newChildStatements);
+    };
+    this.insertChild = function _appendChild(childStatement, index){
+      var newChildStatements = this.bodyStatements;
+      newChildStatements.splice(index, 0, childStatement);
+      this.updateChildStatements(newChildStatements);
+    };
+
+    this.updateChildStatements = function _updateChildStatements(newChildStatements){
+      this.bodyStatements = newChildStatements;
+      for (var i = 0; i < this.bodyStatements.length; i++){
+        this.bodyStatements[i].parent = this;
+      }
+    }
 
     this.clearRunningState = function _clearRunningState(){
       return;
@@ -2445,6 +2507,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             fieldsSoFar = fieldsSoFar.appendField(ancestorAnnotations[i].name + ":")
             .appendField(new Blockly.FieldCheckbox(onNow), ancestorAnnotations[i].name);
           }
+
+          this.appendStatementInput("statements")
+              .setCheck(null)
+              .appendField("do");
           
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
@@ -2459,12 +2525,21 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
       this.block = workspace.newBlock(customBlocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
+
+      // handle the body statements
+      var firstNestedBlock = genBlocklyBlocksSeq(this.bodyStatements);
+      attachNestedBlocksToWrapper(this.block, firstNestedBlock);
+
       this.block.WALStatement = this;
       return this.block;
     };
 
-    this.traverse = function _traverse(fn){
+    this.traverse = function _traverse(fn, fn2){
       fn(this);
+      for (var i = 0; i < this.bodyStatements.length; i++){
+        this.bodyStatements[i].traverse(fn, fn2);
+      }
+      fn2(this);
     };
 
     this.currentTransaction = null;
@@ -2476,18 +2551,22 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         console.log("resp", resp);
         if (resp.exists){
           // this is a duplicate, current loop iteration already done, so we're ready to skip to the next
-          // so pass the skip flag in
-          rbbcontinuation(true);
+          // so actually nothing should happen.  the whole entityscope should be a no-op
+          rbbcontinuation();
         }
         else{
           // no duplicate saved, so just carry on as usual
-          rbbcontinuation();
+          ReplayScript.prog.runBasicBlock(entityScope.bodyStatements, function(){
+            // and when we're done with processing the bodystatements, we'll want to commit
+            // and then once we've committed, we can go ahead and do the original rbbcontinuation
+            entityScope.commit(programObj, rbbcontinuation);
+          });
         }
       });
     };
 
     this.commit = function _commit(programObj, rbbcontinuation){
-      var msg = this.duplicateAnnotation.serverTransactionRepresentation();
+      var msg = this.serverTransactionRepresentation();
       MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newtransaction', msg, function(){});
       rbbcontinuation();
     };
@@ -2532,6 +2611,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return;
     };
 
+    if (annotationItems){
+      this.initialize();
+    }
+
   };
 
 
@@ -2565,6 +2648,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
     this.removeChild = function _removeChild(childStatement){
       this.bodyStatements = _.without(this.bodyStatements, childStatement);
+    };
+    this.removeChildren = function _removeChild(childStatements){
+      this.bodyStatements = _.difference(this.bodyStatements, childStatements);
     };
     this.appendChild = function _appendChild(childStatement){
       var newChildStatements = this.bodyStatements;
@@ -2635,32 +2721,19 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       attachToPrevBlock(this.block, prevBlock);
 
       // handle the body statements
-      var foundFirstNonNull = false;
-      var lastBlock = null;
-      for (var i = 0; i < this.bodyStatements.length; i++){
-        var newBlock = this.bodyStatements[i].genBlocklyNode(lastBlock);
-        if (newBlock !== null){ // handle the fact that there could be null-producing nodes in the middle, and need to connect around those
-          lastBlock = newBlock;
-          // also, if this is our first non-null block we want to attach it to the loop statement
-          if (!foundFirstNonNull){
-            foundFirstNonNull = true;
-
-            var parentConnection = this.block.getInput('statements').connection;
-            var childConnection = newBlock.previousConnection;
-            parentConnection.connect(childConnection);
-          }
-        }
-      }
+      var firstNestedBlock = genBlocklyBlocksSeq(this.bodyStatements);
+      attachNestedBlocksToWrapper(this.block, firstNestedBlock);
 
       this.block.WALStatement = this;
       return this.block;
     };
 
-    this.traverse = function _traverse(fn){
+    this.traverse = function _traverse(fn, fn2){
       fn(this);
       for (var i = 0; i < this.bodyStatements.length; i++){
-        this.bodyStatements[i].traverse(fn);
+        this.bodyStatements[i].traverse(fn, fn2);
       }
+      fn2(this);
     };
 
     function adjustAnnotationParents(){
@@ -2674,17 +2747,21 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           statement.requiredAncestorAnnotations = ancestorAnnotations.slice();
           ancestorAnnotations.push(statement);
         }
-        if (statement instanceof WebAutomationLanguage.CommitTransaction){
-          // traverse is depth first, so just remove an annotation when we find the corresponding commit
-          ancestorAnnotations = _.without(ancestorAnnotations, statement.duplicateAnnotation);
+      },
+      function(statement){
+        if (statement instanceof WebAutomationLanguage.DuplicateAnnotation){
+          // back out of this entity scope again, so pop it off
+          ancestorAnnotations = _.without(ancestorAnnotations, statement);
         }
       });
     }
 
     function insertAnnotation(annotationItems, availableAnnotationItems, index){
-      var annotation = new WebAutomationLanguage.DuplicateAnnotation(annotationItems, availableAnnotationItems);
-      loopStatement.insertChild(annotation, index);
-      loopStatement.appendChild(new WebAutomationLanguage.CommitTransaction(annotation)); // stick the commit in at the end of the loop
+      var loopBodyStatements = loopStatement.bodyStatements;
+      var bodyStatements = loopBodyStatements.slice(index, loopBodyStatements.length);
+      var annotation = new WebAutomationLanguage.DuplicateAnnotation(annotationItems, availableAnnotationItems, bodyStatements);
+      loopStatement.removeChildren(bodyStatements); // now that they're the entityScope's children, shouldn't be loop's children anymore
+      loopStatement.appendChild(annotation);
       adjustAnnotationParents();
       RecorderUI.updateDisplayedScript();
     }
@@ -3729,6 +3806,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.removeChild = function _removeChild(childStatement){
       this.loopyStatements = _.without(this.loopyStatements, childStatement);
     };
+    this.removeChildren = function _removeChild(childStatements){
+      this.bodyStatements = _.difference(this.bodyStatements, childStatements);
+    };
     this.appendChild = function _appendChild(childStatement){
       var newChildStatements = this.loopyStatements;
       newChildStatements.push(childStatement);
@@ -3811,12 +3891,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     // a convenient way to traverse the statements of a program
     // todo: currently no way to halt traversal, may ultimately want fn arg to return boolean to do that
-    this.traverse = function _traverse(fn){
+    this.traverse = function _traverse(fn, fn2){
+      if (fn2 === undefined){
+        fn2 = function(){return;};
+      }
       if (this.loopyStatements.length < 1){
         WALconsole.warn("Calling traverse on a program even though loopStatements is empty.");
       }
       for (var i = 0; i < this.loopyStatements.length; i++){
-        this.loopyStatements[i].traverse(fn);
+        this.loopyStatements[i].traverse(fn, fn2);
       }
     };
 

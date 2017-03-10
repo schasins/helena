@@ -2567,7 +2567,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.commit = function _commit(programObj, rbbcontinuation){
       var msg = this.serverTransactionRepresentation();
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newtransaction', msg, function(){});
+      var saveTransactionFunction = function(){MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newtransaction', msg, function(){});};
+      ReplayScript.prog.currentDataset.sendDatasetSlice(saveTransactionFunction);
+      
       rbbcontinuation();
     };
 

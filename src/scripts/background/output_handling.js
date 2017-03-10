@@ -62,15 +62,17 @@ var OutputHandler = (function _OutputHandler() {
     	}
     };
 
-    this.sendDatasetSlice = function _sendDatasetSlice(){
+    this.sendDatasetSlice = function _sendDatasetSlice(handler){
+      if (handler === undefined){ handler = function(){}};
       if (this.currentDatasetSliceLength === 0){
+        handler();
         return; // no need to send/save rows if we have no rows
       }
       var msg = {id: this.id, position_lists: JSON.stringify(this.currentDatasetPositionLists), nodes: encodeURIComponent(JSON.stringify(this.currentDatasetNodes))};
     	this.currentDatasetNodes = [];
       this.currentDatasetPositionLists = [];
       this.currentDatasetSliceLength = 0;
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/datasetslice', msg, function(){});
+      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/datasetslice', msg, handler);
     };
 
     this.closeDataset = function _closeDataset(){

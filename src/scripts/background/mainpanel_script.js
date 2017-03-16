@@ -1079,8 +1079,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   }
 
   // returns true if we successfully parameterize this node with this relation, false if we can't
-  function parameterizeNodeWithRelation(statement, relation, pageVar, link){
-      if (link === undefined) {link = false;}
+  function parameterizeNodeWithRelation(statement, relation, pageVar){
       // note: may be tempting to use the columns' xpath attributes to decide this, but this is not ok!  now that we can have
       // mutliple suffixes associated with a column, that xpath is not always correct
       // but we're in luck because we know the selector has just been applied to the relevant page (to produce relation.demonstrationTimeRelation and from that relation.firstRowXpaths)
@@ -1102,6 +1101,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           var name = relation.columns[i].name;
           var nodeRep = nodeRepresentations[i];
           statement.currentNode = new WebAutomationLanguage.NodeVariable(name, nodeRep); // note that this means the elements in the firstRowXPaths and the elements in columns must be aligned!
+          
+          // the statement should track whether it's currently parameterized for a given relation and column obj
+          statement.relation = relation;
+          statement.columnObj = relation.columns[i];
+
           return relation.columns[i]; 
         }
       }
@@ -1111,6 +1115,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   function unParameterizeNodeWithRelation(statement, relation){
     if (statement.relation === relation){
       statement.relation = null;
+      statement.columnObj = null;
       var variableUse = statement.currentNode;
       statement.currentNode = statement.origNode;
       return variableUse;
@@ -1464,7 +1469,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.requireFeature = function _requireFeature(featureName){
       requireFeature(this, featureName); // todo: put this method in all the other statements that have orig xpath in this.node
     };
+
+
+    this.currentRelation = function _currentRelation(){
+      return this.relation;
+    };
+
+    this.currentColumnObj = function _currentColumnObj(){
+      return this.columnObj;
+    };
   };
+
   pub.ScrapeStatementFromRelationCol = function _ScrapeStatementFromRelationCol(relation, colObj, pageVar){
     var statement = new pub.ScrapeStatement([]);
     statement.currentNode = new WebAutomationLanguage.NodeVariable(colObj.name, relation.firstRowNodeRepresentation(colObj));
@@ -1474,6 +1489,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     return statement;
   }
   var scrapeStatementCounter = 0;
+
   pub.ScrapeStatement = function _ScrapeStatement(trace){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "scrape");
@@ -1644,7 +1660,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.parameterizeForRelation = function _parameterizeForRelation(relation){
       WALconsole.log("scraping cleantrace", this.cleanTrace);
-      var relationColumnUsed = parameterizeNodeWithRelation(this, relation, this.pageVar, this.scrapeLink); // this sets the currentNode
+      var relationColumnUsed = parameterizeNodeWithRelation(this, relation, this.pageVar); // this sets the currentNode
       if (relationColumnUsed){
         relationColumnUsed.scraped = true; // need the relation column to keep track of the fact that this is being scraped
         // this is cool because now we don't need to actually run scraping interactions to get the value, so let's update the cleanTrace to reflect that
@@ -1659,9 +1675,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
         WALconsole.log("shortened cleantrace", this.cleanTrace);
         */
-        // we do a little extra tracking for scrape statements, so record the relation and relationColumnUsed with the statement
-        this.relation = relation;
-        this.columnObj = relationColumnUsed;
         return [relationColumnUsed];
       }
       else {
@@ -1675,9 +1688,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // but there's no reason for this assumption to be true.  it doesn't matter much, so not fixing it now.  but fix in future
       if (removedVarUse){ // will be null if we're not actually unparameterizing anything
         var colObject = removedVarUse.currentColumnObj();
-        colObject.scraped = false;
-        this.relation = null;
-        this.columnObj = null;
+        colObject.scraped = false; // should really do reference counting
       }
 
       // have to go back to actually running the scraping interactions...
@@ -1785,7 +1796,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.currentColumnObj = function _currentColumnObj(){
       return this.columnObj;
-    };    
+    };   
+
+    this.requireFeature = function _requireFeature(featureName){
+      requireFeature(this, featureName); // todo: put this method in all the other statements that have orig xpath in this.node
+    }; 
   };
 
   pub.TypeStatement = function _TypeStatement(trace){
@@ -1981,6 +1996,19 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.postReplayProcessing = function _postReplayProcessing(trace, temporaryStatementIdentifier){
       return;
     };
+
+    this.requireFeature = function _requireFeature(featureName){
+      requireFeature(this, featureName); // todo: put this method in all the other statements that have orig xpath in this.node
+    };
+
+    this.currentRelation = function _currentRelation(){
+      return this.relation;
+    };
+
+    this.currentColumnObj = function _currentColumnObj(){
+      return this.columnObj;
+    };
+
   };
 
   pub.OutputRowStatement = function _OutputRowStatement(scrapeStatements){
@@ -4170,6 +4198,18 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
         basicBlockStatements = markNonTraceContributingStatements(basicBlockStatements);
 
+        var haveAllNecessaryRelationNodes = doWeHaveRealRelationNodesWhereNecessary(basicBlockStatements);
+        if (!haveAllNecessaryRelationNodes){
+          // ok, we're going to have to skip this iteration, because we're supposed to open a page and we just won't know how to
+          WALconsole.warn("Had to skip an iteration because of lacking the node we'd need to open a new page");
+          // todo: should probably also warn the contents of the various relation variables at this iteration that we're skipping
+
+          // we're essentially done 'replaying', have to replay the remainder of the script
+          // and we're doing continue, so set the continue flag to true
+          program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, true);
+          return;
+        }
+
         // make the trace we'll replay
         var trace = [];
         // label each trace item with the basicBlock statement being used
@@ -4545,6 +4585,26 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
       // we've run out
       return false;
+    }
+
+    function doWeHaveRealRelationNodesWhereNecessary(statements){
+      for (var i = 0; i < statements.length; i++){
+        var s = statements[i];
+        if (s.outputPageVars && s.outputPageVars.length > 0){
+          // ok, this is an interaction where we should be opening a new page based on the statement
+          if (s.columnObj){
+            // if the statement is parameterized with the column object of a given relation, this will be non-null
+            // also, it means the statement's currentNode will be a NodeVariable, so we can call currentXPath
+            // also it means we'll already have assigned to the node variable, so currentXPath should actually have a value
+            var currentXpath = s.currentNode.currentXPath();
+            if (currentXpath){
+              continue;
+            }
+            return false; // we've found a statement for which we'll want to use a node to produce a new page, but we won't have one
+          }
+        }
+      }
+      return true;
     }
 
     function markNonTraceContributingStatements(statements){

@@ -2594,10 +2594,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.commit = function _commit(programObj, rbbcontinuation){
-      var msg = this.serverTransactionRepresentation();
-      var saveTransactionFunction = function(){MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newtransaction', msg, function(){});};
-      ReplayScript.prog.currentDataset.sendDatasetSlice(saveTransactionFunction);
-      
+      var transactionMsg = this.serverTransactionRepresentation();
+      var datasetSliceMsg = ReplayScript.prog.currentDataset.datasetSlice();
+      var fullMsg = _.extend(transactionMsg, datasetSliceMsg);
+      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newtransactionwithdata', fullMsg);
       rbbcontinuation();
     };
 

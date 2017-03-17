@@ -631,6 +631,13 @@ var TraceManipulationUtilities = (function _TraceManipulationUtilities() { var p
     return null; // bad!
   }
 
+  pub.tabId = function _tabId(ev){
+    return ev.data.tabId;
+  };
+  pub.frameId = function _frameId(ev){
+    return ev.data.frameId;
+  };
+
   pub.lastTopLevelCompletedEventTabId = function _lastTopLevelCompletedEventTabId(trace){
     var ev = pub.lastTopLevelCompletedEvent(trace);
     return ev.data.tabId;

@@ -3018,7 +3018,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   }
 
   var relationCounter = 0;
-  pub.Relation = function _Relation(relationId, name, selector, selectorVersion, excludeFirst, columns, demonstrationTimeRelation, numRowsInDemo, pageVarName, url, nextType, nextButtonSelector){
+  pub.Relation = function _Relation(relationId, name, selector, selectorVersion, excludeFirst, columns, demonstrationTimeRelation, numRowsInDemo, pageVarName, url, nextType, nextButtonSelector, frame){
     Revival.addRevivalLabel(this);
     var doInitialization = selector;
     if (doInitialization){ // we will sometimes initialize with undefined, as when reviving a saved program
@@ -3033,6 +3033,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.url = url;
       this.nextType = nextType;
       this.nextButtonSelector = nextButtonSelector;
+      this.frame = frame; // note that right now this frame comes from our relation-finding stage.  might want it to come from record
       if (name === undefined || name === null){
         relationCounter += 1;
         this.name = "relation_"+relationCounter;
@@ -3448,47 +3449,61 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // let's go ask all the frames to give us relation items for the relation
       var tabId = pageVar.currentTabId();
       WALconsole.log("pageVar.currentTabId()", pageVar.currentTabId());
-      chrome.webNavigation.getAllFrames({tabId: tabId}, function(details) {
-          var currentGetRowsCounter = getRowsCounter;
-          relationItemsRetrieved = {};
-          missesSoFar = {};
-          details.forEach(function(frame){
-            // keep track of which frames need to respond before we'll be ready to advance
-            relationItemsRetrieved[frame.frameId] = false;
-            missesSoFar[frame.frameId] = 0;
-          });
-          details.forEach(function(frame) {
-            // for each frame in the target tab, we want to see if the frame retrieves good relation items
-            // we'll pick the one we like best
-            // todo: is there a better way?  after all, we do know the frame in which the user interacted with the first page at original record-time.  if we have next stuff happening, we might even know the exact frameId on this exact page
-            
-            // here's the function for sending the message once
-            var msg = relation.messageRelationRepresentation();
-            msg.msgType = "getFreshRelationItems";
-            var sendGetRelationItems = function(){
-              WALconsole.namedLog("getRelationItems", "requesting relation items", currentGetRowsCounter);
-              utilities.sendFrameSpecificMessage("mainpanel", "content", "getFreshRelationItems", 
-                                                  relation.messageRelationRepresentation(), 
-                                                  tabId, frame.frameId, 
-                                                  // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?  maybe accept once we have at least one good response from one of the frames?
-                                                  function _getRelationItemsHandler(response) { WALconsole.log("Receiving response: ", frame.frameId, response); if (response !== null && response !== undefined) {handleNewRelationItemsFromFrame(response, frame.frameId);}}); // when get response, call handleNewRelationItemsFromFrame (defined above) to pick from the frames' answers
-            };
-            // here's the function for sending the message until we decide we're done with the current attempt to get new rows, or until actually get the answer
-            MiscUtilities.repeatUntil(sendGetRelationItems, function _checkDone(){return doneArray[currentGetRowsCounter] || relationItemsRetrieved[frame.frameId];}, 1000, true);
-          });
-          // and let's make sure that after our chosen timeout, we'll stop and just process whatever we have
-          var desiredTimeout = 60000;
-          setTimeout(
-            function _reachedTimeoutHandler(){
-              WALconsole.namedLog("getRelationItems", "Reached timeout", currentGetRowsCounter);
-              if (!doneArray[currentGetRowsCounter]){
-                doneArray[currentGetRowsCounter] = false;
-                processEndOfCurrentGetRows(pageVar, callback, prinfo);
-              }
-            },
-            desiredTimeout
-          );
-      });
+
+      function requestFreshRelationItems(frames){
+        var currentGetRowsCounter = getRowsCounter;
+        relationItemsRetrieved = {};
+        missesSoFar = {};
+        frames.forEach(function(frame){
+          // keep track of which frames need to respond before we'll be ready to advance
+          relationItemsRetrieved[frame] = false;
+          missesSoFar[frame] = 0;
+        });
+        frames.forEach(function(frame) {
+          // for each frame in the target tab, we want to see if the frame retrieves good relation items
+          // we'll pick the one we like best
+          // todo: is there a better way?  after all, we do know the frame in which the user interacted with the first page at original record-time.  if we have next stuff happening, we might even know the exact frameId on this exact page
+          
+          // here's the function for sending the message once
+          var msg = relation.messageRelationRepresentation();
+          msg.msgType = "getFreshRelationItems";
+          var sendGetRelationItems = function(){
+            WALconsole.namedLog("getRelationItems", "requesting relation items", currentGetRowsCounter);
+            utilities.sendFrameSpecificMessage("mainpanel", "content", "getFreshRelationItems", 
+                                                relation.messageRelationRepresentation(), 
+                                                tabId, frame, 
+                                                // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?  maybe accept once we have at least one good response from one of the frames?
+                                                function _getRelationItemsHandler(response) { WALconsole.log("Receiving response: ", frame, response); if (response !== null && response !== undefined) {handleNewRelationItemsFromFrame(response, frame);}}); // when get response, call handleNewRelationItemsFromFrame (defined above) to pick from the frames' answers
+          };
+          // here's the function for sending the message until we decide we're done with the current attempt to get new rows, or until actually get the answer
+          MiscUtilities.repeatUntil(sendGetRelationItems, function _checkDone(){return doneArray[currentGetRowsCounter] || relationItemsRetrieved[frame];}, 1000, true);
+        });
+        // and let's make sure that after our chosen timeout, we'll stop and just process whatever we have
+        var desiredTimeout = 30000;
+        setTimeout(
+          function _reachedTimeoutHandler(){
+            WALconsole.namedLog("getRelationItems", "Reached timeout", currentGetRowsCounter);
+            if (!doneArray[currentGetRowsCounter]){
+              doneArray[currentGetRowsCounter] = false;
+              processEndOfCurrentGetRows(pageVar, callback, prinfo);
+            }
+          },
+          desiredTimeout
+        );
+      };
+
+      // ok, let's figure out whether to send the message to all frames in the tab or only the top frame
+      if (relation.frame === 0){
+        // for now, it's only when the frame index is 0, meaning it's the top-level frame, that we decide on using a single frame ahead of time
+        var frames = [0];
+        requestFreshRelationItems(frames);
+      }
+      else {
+        chrome.webNavigation.getAllFrames({tabId: tabId}, function(details) {
+          var frames = _.map(details, function(d){return d.frameId;});
+          requestFreshRelationItems(frames);
+        });
+      }
 
     }
 
@@ -4505,6 +4520,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     var pagesToUrls = {};
     var pagesProcessed = {};
     var pagesToFrameUrls = {};
+    var pagesToFrames = {};
     this.relevantRelations = function _relevantRelations(){
       // ok, at this point we know the urls we've used and the xpaths we've used on them
       // we should ask the server for relations that might help us out
@@ -4521,12 +4537,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           var pageVarName = s.pageVar.name; // pagevar is better than url for helping us figure out what was on a given logical page
           var url = s.pageVar.recordTimeUrl;
           var frameUrl = s.trace[0].frame.URL;
+          var frameId = s.trace[0].frame.iframeIndex;
 
           if (!(pageVarName in pagesToNodes)){ pagesToNodes[pageVarName] = []; }
           if (pagesToNodes[pageVarName].indexOf(xpath) === -1){ pagesToNodes[pageVarName].push(xpath); }
 
           if (!(pageVarName in pagesToFrameUrls)){ pagesToFrameUrls[pageVarName] = []; }
           pagesToFrameUrls[pageVarName].push(frameUrl);
+
+          if (!(pageVarName in pagesToFrames)){ pagesToFrames[pageVarName] = []; }
+          pagesToFrames[pageVarName].push(frameId);
 
           pagesToUrls[pageVarName] = url;
         }
@@ -4535,7 +4555,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // sample: $($.post('http://localhost:3000/retrieverelations', { pages: [{xpaths: ["a[1]/div[2]"], url: "www.test2.com/test-test"}] }, function(resp){ WALconsole.log(resp);} ));
       var reqList = [];
       for (var pageVarName in pagesToNodes){
-        reqList.push({url: pagesToUrls[pageVarName], xpaths: pagesToNodes[pageVarName], page_var_name: pageVarName});
+        reqList.push({url: pagesToUrls[pageVarName], xpaths: pagesToNodes[pageVarName], page_var_name: pageVarName, frame_ids: pagesToFrames[pageVarName]});
 
       }
       var that = this;
@@ -4728,7 +4748,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
             // what's the tab that now has the target page?
             var replayTrace = replayObj.record.events;
-            var lastCompletedEventTabId = TraceManipulationUtilities.lastTopLevelCompletedEventTabId(replayTrace);
+            var lastCompletedEvent = TraceManipulationUtilities.lastTopLevelCompletedEvent(replayTrace);
+            var lastCompletedEventTabId = TraceManipulationUtilities.tabId(lastCompletedEvent);
             // what tabs did we make in the interaction in general?
             tabsToCloseAfter = tabsToCloseAfter.concat(TraceManipulationUtilities.tabsInTrace(replayTrace));
 
@@ -4811,15 +4832,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               handleSelectedRelation(sortedDataObjs[0]);
             };
 
-            // let's get some info from the pages, and when we get that info back we can come back and deal with more script segments
-            chrome.webNavigation.getAllFrames({tabId: lastCompletedEventTabId}, function(details) {
-                framesHandled = {};
-                details.forEach(function(frame){
+            function sendMessageForFrames(frames){
+              framesHandled = {};
+                frames.forEach(function(frame){
                   // keep track of which frames need to respond before we'll be read to advance
-                  WALconsole.log("frameId", frame.frameId);
-                  framesHandled[frame.frameId] = false;
+                  WALconsole.log("frameId", frame);
+                  framesHandled[frame] = false;
                 });
-                details.forEach(function(frame) {
+                frames.forEach(function(frame) {
                     // for each frame in the target tab, we want to see if the frame suggests a good relation.  once they've all made their suggestions
                     // we'll pick the one we like best
                     // todo: is there a better way?  after all, we do know the frame in which the user interacted with the first page at original record-time
@@ -4828,14 +4848,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                     var getLikelyRelationFunc = function(){
                       utilities.sendFrameSpecificMessage("mainpanel", "content", "likelyRelation", 
                                                           {xpaths: pagesToNodes[targetPageVar.name], pageVarName: targetPageVar.name, serverSuggestedRelations: suggestedRelations}, 
-                                                          lastCompletedEventTabId, frame.frameId, 
+                                                          lastCompletedEventTabId, frame, 
                                                           // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?  maybe accept once we have at least one good response from one of the frames?
-                                                          function(response) { framesHandled[frame.frameId] = response; pickLikelyRelation();}); // when get response, call pickLikelyRelation (defined above) to pick from the frames' answers
+                                                          function(response) { response.frame = frame; framesHandled[frame] = response; pickLikelyRelation();}); // when get response, call pickLikelyRelation (defined above) to pick from the frames' answers
                     };
 
                     // here's the function for sending the message until we get the answer
                     var getLikelyRelationFuncUntilAnswer = function(){
-                      if (framesHandled[frame.frameId]){ return; } // cool, already got the answer, stop asking
+                      if (framesHandled[frame]){ return; } // cool, already got the answer, stop asking
                       getLikelyRelationFunc(); // send that message
                       setTimeout(getLikelyRelationFuncUntilAnswer, 5000); // come back and send again if necessary
                     };
@@ -4844,7 +4864,24 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                     getLikelyRelationFuncUntilAnswer();
 
                 });
-            });
+            }
+
+            var allFrames = pagesToFrames[targetPageVar.name];
+            allFrames = _.uniq(allFrames);
+            if (allFrames.length === 1 && allFrames[0] === -1){
+              // cool, it's just the top-level frame
+              // just do the top-level iframe, and that will be faster
+              sendMessageForFrames([0]); // assumption: 0 is the id for the top-level frame
+            }
+            else{
+              // ok, we'll have to ask the tab what frames are in it
+              // let's get some info from the pages, and when we get that info back we can come back and deal with more script segments
+              chrome.webNavigation.getAllFrames({tabId: lastCompletedEventTabId}, function(details) {
+                console.log("about to send to frames, tabId", lastCompletedEventTabId);
+                var frames = _.map(details, function(d){return d.frameId;});
+                sendMessageForFrames(frames);
+              });
+            }
 
           });
           return; // all later indexes will be handled by the recursion instead of the rest of the loop
@@ -4880,7 +4917,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         pagesToRelations[data.page_var_name] = null;
       }
       else{
-        var rel = new WebAutomationLanguage.Relation(data.relation_id, data.name, data.selector, data.selector_version, data.exclude_first, data.columns, data.first_page_relation, data.num_rows_in_demonstration, data.page_var_name, data.url, data.next_type, data.next_button_selector);
+        var rel = new WebAutomationLanguage.Relation(data.relation_id, data.name, data.selector, data.selector_version, data.exclude_first, data.columns, data.first_page_relation, data.num_rows_in_demonstration, data.page_var_name, data.url, data.next_type, data.next_button_selector, data.frame);
         pagesToRelations[data.page_var_name] = rel;
         this.relations.push(rel);
         this.relations = _.uniq(this.relations);

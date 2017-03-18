@@ -2179,7 +2179,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       fn2(this);
     };
 
-    this.run = function _run(programObj, rbbcontinuation){
+    this.run = function _run(programObj, rbbcontinuation, rbboptions){
       WALconsole.log("run back statement");
 
       // ok, the only thing we're doing right now is trying to run this back button, so the next time we see a tab ask for an id
@@ -2187,7 +2187,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // but that should probably be rare.  todo: is that actually rare?
       utilities.listenForMessageOnce("content", "mainpanel", "requestTabID", function _backListener(data){
         WALconsole.log("back completed");
-        backStatement.pageVarBack.setCurrentTabId(backStatement.pageVarCurr.tabId, function(){rbbcontinuation(false);});
+        backStatement.pageVarBack.setCurrentTabId(backStatement.pageVarCurr.tabId, function(){rbbcontinuation(rbboptions);});
       });
 
       // send a back message to pageVarCurr
@@ -2242,7 +2242,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       fn2(this);
     };
 
-    this.run = function _run(programObj, rbbcontinuation){
+    this.run = function _run(programObj, rbbcontinuation, rbboptions){
       WALconsole.log("run close statement");
 
       var tabId = this.pageVarCurr.currentTabId();
@@ -2250,12 +2250,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         console.log("ClosePageStatement run removing tab", this.pageVarCurr.currentTabId());
         chrome.tabs.remove(this.pageVarCurr.currentTabId(), function(){
             that.pageVarCurr.clearCurrentTabId();
-            rbbcontinuation();
+            rbbcontinuation(rbboptions);
           }); 
       }
       else{
         WALconsole.log("Warning: trying to close tab for pageVar that didn't have a tab associated at the moment.  Can happen after continue statement.");
-        rbbcontinuation();
+        rbbcontinuation(rbboptions);
       }
     };
 
@@ -2309,9 +2309,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       fn2(this);
     };
 
-    this.run = function _run(programObj, rbbcontinuation){
+    this.run = function _run(programObj, rbbcontinuation, rbboptions){
       // fun stuff!  time to flip on the 'continue' flag in our continuations, which the for loop continuation will eventually consume and turn off
-      rbbcontinuation(true);
+      rbboptions.skipMode = true;
+      rbbcontinuation(rbboptions);
     };
 
     this.parameterizeForRelation = function _parameterizeForRelation(relation){
@@ -2394,27 +2395,27 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     }
 
-    this.run = function _run(programObj, rbbcontinuation){
+    this.run = function _run(programObj, rbbcontinuation, rbboptions){
       // todo: the condition is hard-coded for now, but obviously we should ultimately have real conds
       if (programObj.environment.envLookup("cases.case_id").indexOf("CVG") !== 0){ // todo: want to check if first scrape statement scrapes something with "CFG" in it
         if (this.bodyStatements.length < 1){
           // ok seriously, why'd you make an if with no body?  come on.
-          rbbcontinuation(false);
+          rbbcontinuation(rbboptions);
           return;
         }
         // let's run the first body statement, make a continuation for running the remaining ones
         var bodyStatements = this.bodyStatements;
         var currBodyStatementsIndex = 1;
         var bodyStatmentsLength = this.bodyStatements.length;
-        var newContinuation = function(continueflag){ // remember that rbbcontinuations must always handle continueflag
-          if (continueflag){
+        var newContinuation = function(rbboptions){ // remember that rbbcontinuations must always handle options.skipMode
+          if (rbboptions.skipMode){
             // executed a continue statement, so don't carry on with this if
-            rbbcontinuation(true);
+            rbbcontinuation(rbboptions);
             return;
           }
           if (currBodyStatementsIndex === bodyStatmentsLength){
             // finished with the body statements, call original continuation
-            rbbcontinuation(false);
+            rbbcontinuation(rbboptions);
             return;
           }
           else{
@@ -2428,7 +2429,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
       else{
         // for now we don't have else body statements for our ifs, so we should just carry on with execution
-        rbbcontinuation(false);
+        rbbcontinuation(rbboptions);
       }
 
     }
@@ -2571,7 +2572,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.currentTransaction = null;
-    this.run = function _run(programObj, rbbcontinuation){
+    this.run = function _run(programObj, rbbcontinuation, rbboptions){
       this.currentTransaction = this.singleAnnotationItems();
       // you only need to talk to the server if you're actually going to act (skip) now on the knowledge of the duplicate
       var msg = this.serverTransactionRepresentation();
@@ -2580,25 +2581,25 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         if (resp.exists){
           // this is a duplicate, current loop iteration already done, so we're ready to skip to the next
           // so actually nothing should happen.  the whole entityscope should be a no-op
-          rbbcontinuation();
+          rbbcontinuation(rbboptions);
         }
         else{
           // no duplicate saved, so just carry on as usual
           ReplayScript.prog.runBasicBlock(entityScope.bodyStatements, function(){
             // and when we're done with processing the bodystatements, we'll want to commit
             // and then once we've committed, we can go ahead and do the original rbbcontinuation
-            entityScope.commit(programObj, rbbcontinuation);
-          });
+            entityScope.commit(programObj, rbbcontinuation, rbboptions);
+          }, rbboptions);
         }
       });
     };
 
-    this.commit = function _commit(programObj, rbbcontinuation){
+    this.commit = function _commit(programObj, rbbcontinuation, rbboptions){
       var transactionMsg = this.serverTransactionRepresentation();
       var datasetSliceMsg = ReplayScript.prog.currentDataset.datasetSlice();
       var fullMsg = _.extend(transactionMsg, datasetSliceMsg);
       MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newtransactionwithdata', fullMsg);
-      rbbcontinuation();
+      rbbcontinuation(rbboptions);
     };
 
     this.singleAnnotationItems = function _singleAnnotationItems(){
@@ -4087,13 +4088,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 || statement instanceof WebAutomationLanguage.OutputRowStatement);
     }
 
-    this.runBasicBlock = function _runBasicBlock(loopyStatements, callback, skipMode){
+    this.runBasicBlock = function _runBasicBlock(loopyStatements, callback, options){
+      if (options === undefined){options = {};}
+      var skipMode = options.skipMode;
       if (skipMode === undefined){ skipMode = false; }
+      var ignoreEntityScope = options.ignoreEntityScope;
+      if (ignoreEntityScope === undefined){ ignoreEntityScope = false; }
       WALconsole.log("rbb", loopyStatements.length, loopyStatements);
       // first check if we're supposed to pause, stop execution if yes
       WALconsole.log("RecorderUI.userPaused", RecorderUI.userPaused);
       if (RecorderUI.userPaused){
-        RecorderUI.resumeContinuation = function(){program.runBasicBlock(loopyStatements, callback);};
+        RecorderUI.resumeContinuation = function(){program.runBasicBlock(loopyStatements, callback, options);};
         WALconsole.log("paused");
         return;
       }
@@ -4113,7 +4118,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       else if (loopyStatements[0] instanceof WebAutomationLanguage.LoopStatement){
         if (skipMode){
           // in this case, when we're basically 'continue'ing, it's as if this loop is empty, so skip straight to that
-          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, skipMode);
+          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, options);
           return;
         }
         WALconsole.log("rbb: loop.");
@@ -4127,7 +4132,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           WALconsole.log("hit the row limit");
           loopStatement.rowsSoFar = 0;
           // once we're done with the loop, have to replay the remainder of the script
-          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback);
+          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, options);
           return;
         }
 
@@ -4137,7 +4142,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             WALconsole.log("no more rows");
             loopStatement.rowsSoFar = 0;
             // once we're done with the loop, have to replay the remainder of the script
-            program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback);
+            program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, options);
             return;
           }
           WALconsole.log("we have a row!  let's run");
@@ -4158,9 +4163,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             // and let's run loop cleanup, since we actually ran the body statements
             program.runBasicBlock(loopStatement.cleanupStatements, function(){
               // and once we've done that loop body cleanup, then let's finally go ahead and go back to do the loop again!
-              program.runBasicBlock(loopyStatements, callback); 
-            });
-          });
+              program.runBasicBlock(loopyStatements, callback, options); 
+            }, options);
+          }, options);
         });
         return;
       }
@@ -4170,21 +4175,24 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
         if (skipMode){
           // in this case, when we're basically 'continue'ing, we should do nothing
-          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, skipMode);
+          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, options);
           return;
         }
 
         // normal execution, either because we're not in skipMode, or because we are but it's a back or a close
-        var continuation = function(continueflag){ // remember that rbbcontinuations passed to run methods must always handle continueflag
-          if (continueflag){
+        var continuation = function(rbboptions){ 
+        // remember that rbbcontinuations passed to run methods must always handle rbboptions
+        // rbboptions includes skipMode to indicate whether we're continuing
+          if (rbboptions.skipMode){
             // executed a continue statement, better stop going through this loop's statements, get back to the original callback
-            program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, true); // set skipMode flag
+            options.skipMode = true;
+            program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, options); // set skipMode flag
             return;
           }
           // once we're done with this statement running, have to replay the remainder of the script
-          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, skipMode);
+          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, options);
         };
-        loopyStatements[0].run(program, continuation); // todo: program is passed to give access to environment.  may want a better way
+        loopyStatements[0].run(program, continuation, options); // todo: program is passed to give access to environment.  may want a better way
         return;
       }
       else {
@@ -4202,7 +4210,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
         if (skipMode){
           // in this case, when we're basically 'continue'ing, we should do nothing, so just go on to the next statement without doing anything else
-          program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, skipMode);
+          program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
           return;
         }
 
@@ -4221,7 +4229,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
           // we're essentially done 'replaying', have to replay the remainder of the script
           // and we're doing continue, so set the continue flag to true
-          program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, true);
+          options.skipMode = true;
+          program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
           return;
         }
 
@@ -4274,7 +4283,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             basicBlockStatements[i].postReplayProcessing([], i);
           }
           // once we're done replaying, have to replay the remainder of the script
-          program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback);
+          program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
           return;
         }
 
@@ -4315,7 +4324,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             }
 
             // once we're done replaying, have to replay the remainder of the script
-            program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback);
+            program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
           };
           updatePageVars(trace, replayObject.record.events, allPageVarsOk);
 
@@ -4338,7 +4347,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           _.each(basicBlockStatements, function(statement){trace = trace.concat(statement.trace);}); // want the trace with display data, not the clean trace
             updatePageVars(trace, replayObject.record.events, function(){
               // in the continuation, we'll do the actual move onto the next statement
-              program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, true);
+              options.skipMode = true;
+              program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
             });
 
           }

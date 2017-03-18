@@ -2573,6 +2573,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.currentTransaction = null;
     this.run = function _run(programObj, rbbcontinuation, rbboptions){
+
+      if (rbboptions.ignoreEntityScope){
+        // this is the case where we just want to assume there's no duplicate because we're pretending the annotation isn't there
+        programObj.runBasicBlock(entityScope.bodyStatements, rbbcontinuation, rbboptions);
+        return;
+      }
+
+      // if we're not ignoring entityscope, we're in the case where choice depends on whether there's a saved duplicate on server
       this.currentTransaction = this.singleAnnotationItems();
       // you only need to talk to the server if you're actually going to act (skip) now on the knowledge of the duplicate
       var msg = this.serverTransactionRepresentation();
@@ -2585,7 +2593,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
         else{
           // no duplicate saved, so just carry on as usual
-          ReplayScript.prog.runBasicBlock(entityScope.bodyStatements, function(){
+          programObj.runBasicBlock(entityScope.bodyStatements, function(){
             // and when we're done with processing the bodystatements, we'll want to commit
             // and then once we've committed, we can go ahead and do the original rbbcontinuation
             entityScope.commit(programObj, rbbcontinuation, rbboptions);
@@ -4111,7 +4119,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       if (loopyStatements.length < 1){
         WALconsole.log("rbb: empty loopystatments.");
-        callback();
+        callback(options);
         return;
       }
       // for now LoopStatement gets special processing
@@ -4365,7 +4373,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.clearRunningState();
       this.runBasicBlock(this.loopyStatements, function(){
         program.currentDataset.closeDataset();
-        WALconsole.log("Done with script execution.");});
+        WALconsole.log("Done with script execution.");}, {ignoreEntityScope: true});
     };
 
     this.restartFromBeginning = function _restartFromBeginning(){

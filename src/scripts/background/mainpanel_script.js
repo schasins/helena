@@ -11,7 +11,7 @@ function setUp(){
   MiscUtilities.useCorrectScrapingConditionStrings("#scraping_instructions", "___SCRAPINGCONDITIONSTRING___", "___LINKSCRAPINGCONDITIONSTRING___"); // important to do this one first, what with everything going all stringy
   //handle user interactions with the mainpanel
   //$("button").button(); 
-  $( "#tabs" ).tabs();
+  //$( "#tabs" ).tabs();
   RecorderUI.setUpRecordingUI();
 
   // control blockly look and feel
@@ -31,8 +31,12 @@ var blocklyLabels = [];
 var RecorderUI = (function () {
   var pub = {};
 
+  pub.tabs = null;
+
   pub.setUpRecordingUI = function _setUpRecordingUI(){
     // we'll start on the first tab, our default, which gives user change to start a new recording
+    pub.tabs = $( "#tabs" ).tabs();
+
     var div = $("#new_script_content");
     DOMCreationUtilities.replaceContent(div, $("#about_to_record"));
     div.find("#start_recording").click(RecorderUI.startRecording);
@@ -163,23 +167,7 @@ var RecorderUI = (function () {
   };
 
   pub.run = function _run(){
-    // update the panel to show pause, resume buttons
-    WALconsole.log("UI run");
-    var div = $("#new_script_content");
-    DOMCreationUtilities.replaceContent(div, $("#script_running"));
-
-    activateButton(div, "#pause", RecorderUI.pauseRun);
-    activateButton(div, "#resume", RecorderUI.resumeRun);
-    activateButton(div, "#restart", RecorderUI.restartRun);
-    div.find("#resume").button("option", "disabled", true); // shouldn't be able to resume before we even pause
-
-    activateButton(div, "#download", function(){ReplayScript.prog.download();});
-
-    var reset = function(){
-      ReplayScript.prog.stopRunning();
-      pub.showProgramPreview();
-    }
-    activateButton(div, "#cancelRun", reset);
+    // run whichever program is currently being displayed (so ReplayScript.prog)
 
     // let's do this in a fresh window
     makeNewRecordReplayTab(function(){
@@ -188,6 +176,39 @@ var RecorderUI = (function () {
       ReplayScript.prog.run();
     });
 
+  };
+
+  var scriptRunCounter = 0;
+
+  pub.newRunTab = function _newRunTab(runObject){
+    // first let's make the new tab
+    scriptRunCounter += 1;
+    var tabDivId = 'runTab' + scriptRunCounter;
+    var ul = pub.tabs.find( "ul" );
+    $( "<li><a href='#" + tabDivId + "'>Script Run "+ scriptRunCounter + "</a></li>" ).appendTo( ul );
+    $( "<div id='" + tabDivId + "'><div id='running_script_content'></div></div>" ).appendTo( pub.tabs );
+    pub.tabs.tabs( "refresh" );
+    pub.tabs.tabs( "option", "active", scriptRunCounter + 1 );
+
+    // update the panel to show pause, resume buttons
+    WALconsole.log("UI newRunTab");
+    var div = $("#" + tabDivId).find("#running_script_content");
+    DOMCreationUtilities.replaceContent(div, $("#script_running"));
+
+    activateButton(div, "#pause", function(){RecorderUI.pauseRun(runObject);});
+    activateButton(div, "#resume", function(){RecorderUI.resumeRun(runObject);});
+    activateButton(div, "#restart", function(){RecorderUI.restartRun(runObject);});
+    div.find("#resume").button("option", "disabled", true); // shouldn't be able to resume before we even pause
+
+    activateButton(div, "#download", function(){runObject.dataset.downloadDataset();});
+
+    var reset = function(){
+      runObject.program.stopRunning(runObject);
+      // todo: maybe have this close the tab or swap us back to the program preview
+    }
+    activateButton(div, "#cancelRun", reset);
+
+    return tabDivId;
   };
 
   // for saving a program to the server
@@ -211,28 +232,28 @@ var RecorderUI = (function () {
     ReplayScript.prog.replayOriginal();
   };
 
-  pub.pauseRun = function _pauseRun(){
+  pub.pauseRun = function _pauseRun(runObject){
     WALconsole.log("Setting pause flag.");
-    pub.userPaused = true; // next runbasicblock call will handle saving a continuation
-    var div = $("#new_script_content");
+    runObject.userPaused = true; // next runbasicblock call will handle saving a continuation
+    var div = $("#" + runObject.tab).find("#running_script_content");
     div.find("#pause").button("option", "disabled", true); // can't pause while we're paused
     div.find("#resume").button("option", "disabled", false); // can now resume
   };
 
-  pub.resumeRun = function _resumeRun(){
-    pub.userPaused = false;
-    var div = $("#new_script_content");
+  pub.resumeRun = function _resumeRun(runObject){
+    runObject.userPaused = false;
+    var div = $("#" + runObject.tab).find("#running_script_content");
     div.find("#pause").button("option", "disabled", false);
     div.find("#resume").button("option", "disabled", true);
-    pub.resumeContinuation();
+    runObject.resumeContinuation();
   };
 
-  pub.restartRun = function _restartRun(){
+  pub.restartRun = function _restartRun(runObject){
     WALconsole.log("Restarting.");
-    var div = $("#new_script_content");
+    var div = $("#" + runObject.tab).find("#running_script_content");
     div.find("#pause").button("option", "disabled", false);
     div.find("#resume").button("option", "disabled", true);
-    ReplayScript.prog.restartFromBeginning();
+    runObject.program.restartFromBeginning(runObject);
   };
 
   // during recording, when user scrapes, show the text so user gets feedback on what's happening
@@ -504,13 +525,13 @@ var RecorderUI = (function () {
     }
   };
 
-  pub.addNewRowToOutput = function _addNewRowToOutput(listOfCellTexts){
-    var div = $("#new_script_content").find("#output_preview").find("table").find("tbody");
+  pub.addNewRowToOutput = function _addNewRowToOutput(runTabId, listOfCellTexts){
+    var div = $("#" + runTabId).find("#running_script_content").find("#output_preview").find("table").find("tbody");
     var l = div.children().length;
     var limit = 100;
     if (l === limit){
-      if ($("#new_script_content").find("#output_preview").find("#data_too_big").length === 0){
-        $("#new_script_content").find("#output_preview").append($("<div id='data_too_big'>This dataset is too big for us to display.  The preview here shows the first "+limit+" rows.  To see the whole dataset, just click the download button above.</div>"));  
+      if ($("#" + runTabId).find("#running_script_content").find("#output_preview").find("#data_too_big").length === 0){
+        $("#" + runTabId).find("#running_script_content").find("#output_preview").append($("<div id='data_too_big'>This dataset is too big for us to display.  The preview here shows the first "+limit+" rows.  To see the whole dataset, just click the download button above.</div>"));  
       }
     }
     else if (l < limit){
@@ -616,8 +637,8 @@ var RecorderUI = (function () {
     });
   }
 
-  pub.updateRowsSoFar = function _updateRowsSoFar(num){
-    var div = $("#new_script_content");
+  pub.updateRowsSoFar = function _updateRowsSoFar(runTabId, num){
+    var div = $("#" + runTabId).find("#running_script_content");
     div.find("#rows_so_far").html(num);
   };
 
@@ -2129,9 +2150,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // maybe start saving this per-row info with the other per-row info instead of treating it as a cell?
       // cells.push(new Date().getTime()); // might be useful to know the current time.  although not sure if this is how we want to handle it.  todo: better way?
       var displayTextCells = _.map(cells, function(cell){if (cell.scraped_attribute === "LINK"){return cell.link;} else {return cell.text;}});
-      RecorderUI.addNewRowToOutput(displayTextCells);
+      RecorderUI.addNewRowToOutput(runObject.tab, displayTextCells);
       runObject.dataset.addRow(cells); // todo: is replayscript.prog really the best way to access the prog object so that we can get the current dataset object, save data to server?
-      ReplayScript.prog.mostRecentRow = cells;
+      RecorderUI.updateRowsSoFar(runObject.tab, runObject.dataset.fullDatasetLength);
+      runObject.program.mostRecentRow = cells;
     };
 
     if (doInitialize){
@@ -4069,16 +4091,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (ignoreEntityScope === undefined){ ignoreEntityScope = false; }
       WALconsole.log("rbb", loopyStatements.length, loopyStatements);
       // first check if we're supposed to pause, stop execution if yes
-      WALconsole.log("RecorderUI.userPaused", RecorderUI.userPaused);
-      if (RecorderUI.userPaused){
-        RecorderUI.resumeContinuation = function(){program.runBasicBlock(runObject, loopyStatements, callback, options);};
+      WALconsole.log("runObject.userPaused", runObject.userPaused);
+      if (runObject.userPaused){
+        runObject.resumeContinuation = function(){program.runBasicBlock(runObject, loopyStatements, callback, options);};
         WALconsole.log("paused");
         return;
       }
-      WALconsole.log("RecorderUI.userStopped", RecorderUI.userStopped);
-      if (RecorderUI.userStopped){
+      WALconsole.log("runObject.userStopped", runObject.userStopped);
+      if (runObject.userStopped){
         WALconsole.log("run stopped");
-        RecorderUI.userStopped = false; // set it back so that if the user goes to run again, everything will work
+        runObject.userStopped = false; // set it back so that if the user goes to run again, everything will work
         return;
       }
 
@@ -4331,34 +4353,36 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.run = function _run(){
-      RecorderUI.userPaused = false;
-      RecorderUI.userStopped = false;
       var dataset = new OutputHandler.Dataset();
       this.clearRunningState();
       var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
       var runObject = {program: programCopy, dataset: dataset, environment: Environment.envRoot()};
+      var tab = RecorderUI.newRunTab(runObject);
+      runObject.tab = tab;
       this.runBasicBlock(runObject, this.loopyStatements, function(){
         dataset.closeDataset();
         WALconsole.log("Done with script execution.");}, {ignoreEntityScope: true});
     };
 
-    this.restartFromBeginning = function _restartFromBeginning(){
+    this.restartFromBeginning = function _restartFromBeginning(runObjectOld){
       // basically same as above, but store to the same dataset (for now, dataset id also controlls which saved annotations we're looking at)
-      RecorderUI.userPaused = false;
-      RecorderUI.userStopped = false;
       this.clearRunningState();
+      var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
+      var runObject = {program: programCopy, dataset: runObjectOld.dataset, environment: Environment.envRoot()};
+      var tab = RecorderUI.newRunTab(runObject);
+      runObject.tab = tab;
       this.runBasicBlock(runObject, this.loopyStatements, function(){
         program.currentDataset.closeDataset();
         WALconsole.log("Done with script execution.");});
     };
 
-    this.stopRunning = function _stopRunning(){
-      if (!RecorderUI.userPaused){
+    this.stopRunning = function _stopRunning(runObject){
+      if (!runObject.userPaused){
         // don't need to stop continuation chain unless it's currently going; if paused, isn't going, stopping flag won't get turned off and will prevent us from replaying later
-        RecorderUI.userStopped = true; // this will stop the continuation chain
+        runObject.userStopped = true; // this will stop the continuation chain
       }
       // should we even bother saving the data?
-      this.currentDataset.closeDataset();
+      runObject.dataset.closeDataset();
       this.clearRunningState();
       SimpleRecord.stopReplay(); // todo: is current (new) stopReplay enough to make sure that when we try to run the script again, it will start up correctly?
     };
@@ -4368,12 +4392,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       _.each(this.pageVars, function(pageVar){pageVar.clearRunningState();});
       _.each(this.loopyStatements, function(statement){statement.clearRunningState();});
     };
-
-    this.download = function _download(){
-      if (this.currentDataset){
-        this.currentDataset.downloadDataset();
-      }
-    }
 
     function paramName(statementIndex, paramType){ // assumes we can't have more than one of a single paramtype from a single statement.  should be true
       return "s"+statementIndex+"_"+paramType;

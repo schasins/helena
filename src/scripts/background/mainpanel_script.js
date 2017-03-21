@@ -4335,7 +4335,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       RecorderUI.userStopped = false;
       var dataset = new OutputHandler.Dataset();
       this.clearRunningState();
-      var runObject = {program: program, dataset: dataset, environment: Environment.envRoot()};
+      var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
+      var runObject = {program: programCopy, dataset: dataset, environment: Environment.envRoot()};
       this.runBasicBlock(runObject, this.loopyStatements, function(){
         dataset.closeDataset();
         WALconsole.log("Done with script execution.");}, {ignoreEntityScope: true});

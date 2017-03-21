@@ -1123,9 +1123,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     return null;
   }
 
-  function currentNodeXpath(statement){
+  function currentNodeXpath(statement, environment){
     if (statement.currentNode instanceof WebAutomationLanguage.NodeVariable){
-      return statement.currentNode.currentXPath();
+      return statement.currentNode.currentXPath(environment);
     }
     return statement.currentNode; // this means currentNode better be an xpath if it's not a variable use!
   }
@@ -1260,9 +1260,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return;
     }
 
-    this.cUrl = function _cUrl(){
+    this.cUrl = function _cUrl(environment){
       if (this.currentUrl instanceof WebAutomationLanguage.NodeVariable){
-        return this.currentUrl.currentText();
+        return this.currentUrl.currentText(environment);
       }
       else {
         // else it's a string
@@ -1353,10 +1353,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return;
     };
 
-    this.args = function _args(){
+    this.args = function _args(environment){
       var args = [];
       if (this.currentUrl instanceof WebAutomationLanguage.NodeVariable){
-        args.push({type:"url", value: this.currentUrl.currentText()});
+        args.push({type:"url", value: this.currentUrl.currentText(environment)});
       }
       else{
         args.push({type:"url", value: this.currentUrl}); // if it's not a var use, it's just a string
@@ -1364,7 +1364,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return args;
     };
 
-    this.postReplayProcessing = function _postReplayProcessing(trace, temporaryStatementIdentifier){
+    this.postReplayProcessing = function _postReplayProcessing(runObject, trace, temporaryStatementIdentifier){
       return;
     };
   };
@@ -1455,14 +1455,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       unParameterizeNodeWithRelation(this, relation);
     };
 
-    this.args = function _args(){
+    this.args = function _args(environment){
       var args = [];
       args.push({type:"tab", value: currentTab(this)});
-      args.push({type:"node", value: currentNodeXpath(this)});
+      args.push({type:"node", value: currentNodeXpath(this, environment)});
       return args;
     };
 
-    this.postReplayProcessing = function _postReplayProcessing(trace, temporaryStatementIdentifier){
+    this.postReplayProcessing = function _postReplayProcessing(runObject, trace, temporaryStatementIdentifier){
       return;
     };
 
@@ -1697,11 +1697,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.cleanTrace = cleanTrace(this.trace);
     };
 
-    this.args = function _args(){
+    this.args = function _args(environment){
       var args = [];
       if (this.trace.length > 0){ // no need to make pbvs based on this statement's parameterization if it doesn't have any events to parameterize anyway...
         if (this.scrapingRelationItem()){
-          args.push({type:"node", value: currentNodeXpath(this)});
+          args.push({type:"node", value: currentNodeXpath(this, environment)});
         }
         args.push({type:"tab", value: currentTab(this)});
         if (this.preferredXpath){
@@ -1712,7 +1712,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.xpaths = [];
-    this.postReplayProcessing = function _postReplayProcessing(trace, temporaryStatementIdentifier){
+    this.postReplayProcessing = function _postReplayProcessing(runObject, trace, temporaryStatementIdentifier){
 
       if (!this.scrapingRelationItem()){
         // ok, this was a ringer-run scrape statement, so we have to grab the right node out of the trace
@@ -1724,13 +1724,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         for (var i = 0; i < ourStatementTraceSegment.length; i++){
           if (ourStatementTraceSegment[i].additional && ourStatementTraceSegment[i].additional.scrape && ourStatementTraceSegment[i].additional.scrape.text){
             // for now, all scrape statements have a NodeVariable as currentNode, so can call setCurrentNodeRep to bind name in current environment
-            this.currentNode.setCurrentNodeRep(ourStatementTraceSegment[i].additional.scrape);
+            this.currentNode.setCurrentNodeRep(runObject.environment, ourStatementTraceSegment[i].additional.scrape);
             matchI = i;
             break;
           }
         }
         if (matchI === null){
-          this.currentNode.setCurrentNodeRep(null);
+          this.currentNode.setCurrentNodeRep(runObject.enviornment, null);
         }
 
         // it's not a relation item, so let's start keeping track of the xpaths of the nodes we actually find, so we can figure out if we want to stop running full similarity
@@ -1768,7 +1768,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
 
       // and now get the answer in a way that works both for relation-scraped and ringer-scraped, because of using NodeVariable
-      this.currentNodeCurrentValue = this.currentNode.currentNodeRep();
+      this.currentNodeCurrentValue = this.currentNode.currentNodeRep(runObject.environment);
       if (!this.currentNodeCurrentValue){
         this.currentNodeCurrentValue = {}; // todo: is it ok to just use an empty entry as a cell when we find none?
       }
@@ -1978,22 +1978,22 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       unParameterizeNodeWithRelation(this, relation);
     };
 
-    function currentNodeText(statement){
+    function currentNodeText(statement, environment){
       if (statement.currentTypedString instanceof WebAutomationLanguage.Concatenate){
-        return statement.currentTypedString.currentText();
+        return statement.currentTypedString.currentText(environment);
       }
       return statement.currentTypedString; // this means currentNode better be a string if it's not a concatenate node
     }
 
-    this.args = function _args(){
+    this.args = function _args(environment){
       var args = [];
-      args.push({type:"node", value: currentNodeXpath(this)});
-      args.push({type:"typedString", value: currentNodeText(this)});
+      args.push({type:"node", value: currentNodeXpath(this, environment)});
+      args.push({type:"typedString", value: currentNodeText(this, environment)});
       args.push({type:"tab", value: currentTab(this)});
       return args;
     };
 
-    this.postReplayProcessing = function _postReplayProcessing(trace, temporaryStatementIdentifier){
+    this.postReplayProcessing = function _postReplayProcessing(runObject, trace, temporaryStatementIdentifier){
       return;
     };
 
@@ -2095,7 +2095,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
       this.relations = _.without(this.relations, relation);
     };
-    this.args = function _args(){
+    this.args = function _args(environment){
       return [];
     };
 
@@ -2111,13 +2111,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
     }
 
-    this.postReplayProcessing = function _postReplayProcessing(trace, temporaryStatementIdentifier){
+    this.postReplayProcessing = function _postReplayProcessing(runObject, trace, temporaryStatementIdentifier){
       // we've 'executed' an output statement.  better send a new row to our output
       var cells = [];
       // get all the cells that we'll get from the text relations
       for (var i = 0; i < this.relations.length; i++){
         var relation = this.relations[i];
-        var newCells = relation.getCurrentCellsText();
+        var newCells = relation.getCurrentCellsText(runObject.environment);
         newCells = _.map(newCells, textToMainpanelNodeRepresentation);
         _.each(newCells, function(cell){cell.scraped_attribute = "TEXT";})
         cells = cells.concat(newCells);
@@ -2130,7 +2130,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // cells.push(new Date().getTime()); // might be useful to know the current time.  although not sure if this is how we want to handle it.  todo: better way?
       var displayTextCells = _.map(cells, function(cell){if (cell.scraped_attribute === "LINK"){return cell.link;} else {return cell.text;}});
       RecorderUI.addNewRowToOutput(displayTextCells);
-      ReplayScript.prog.currentDataset.addRow(cells); // todo: is replayscript.prog really the best way to access the prog object so that we can get the current dataset object, save data to server?
+      runObject.dataset.addRow(cells); // todo: is replayscript.prog really the best way to access the prog object so that we can get the current dataset object, save data to server?
       ReplayScript.prog.mostRecentRow = cells;
     };
 
@@ -2179,7 +2179,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       fn2(this);
     };
 
-    this.run = function _run(programObj, rbbcontinuation, rbboptions){
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
       WALconsole.log("run back statement");
 
       // ok, the only thing we're doing right now is trying to run this back button, so the next time we see a tab ask for an id
@@ -2242,7 +2242,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       fn2(this);
     };
 
-    this.run = function _run(programObj, rbbcontinuation, rbboptions){
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
       WALconsole.log("run close statement");
 
       var tabId = this.pageVarCurr.currentTabId();
@@ -2309,7 +2309,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       fn2(this);
     };
 
-    this.run = function _run(programObj, rbbcontinuation, rbboptions){
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
       // fun stuff!  time to flip on the 'continue' flag in our continuations, which the for loop continuation will eventually consume and turn off
       rbboptions.skipMode = true;
       rbbcontinuation(rbboptions);
@@ -2395,9 +2395,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     }
 
-    this.run = function _run(programObj, rbbcontinuation, rbboptions){
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
       // todo: the condition is hard-coded for now, but obviously we should ultimately have real conds
-      if (programObj.environment.envLookup("cases.case_id").indexOf("CVG") !== 0){ // todo: want to check if first scrape statement scrapes something with "CFG" in it
+      if (runObject.environment.envLookup("cases.case_id").indexOf("CVG") !== 0){ // todo: want to check if first scrape statement scrapes something with "CFG" in it
         if (this.bodyStatements.length < 1){
           // ok seriously, why'd you make an if with no body?  come on.
           rbbcontinuation(rbboptions);
@@ -2421,11 +2421,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           else{
             // still working on the body of the current if statement, keep going
             currBodyStatementsIndex += 1;
-            bodyStatements[currBodyStatementsIndex - 1].run(programObj, newContinuation);
+            bodyStatements[currBodyStatementsIndex - 1].run(runObject, newContinuation);
           }
         }
         // actually run that first statement
-        bodyStatements[0].run(programObj, newContinuation);
+        bodyStatements[0].run(runObject, newContinuation);
       }
       else{
         // for now we don't have else body statements for our ifs, so we should just carry on with execution
@@ -2572,18 +2572,18 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.currentTransaction = null;
-    this.run = function _run(programObj, rbbcontinuation, rbboptions){
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
 
       if (rbboptions.ignoreEntityScope){
         // this is the case where we just want to assume there's no duplicate because we're pretending the annotation isn't there
-        programObj.runBasicBlock(entityScope.bodyStatements, rbbcontinuation, rbboptions);
+        runObject.program.runBasicBlock(runObject, entityScope.bodyStatements, rbbcontinuation, rbboptions);
         return;
       }
 
       // if we're not ignoring entityscope, we're in the case where choice depends on whether there's a saved duplicate on server
-      this.currentTransaction = this.singleAnnotationItems();
+      this.currentTransaction = this.singleAnnotationItems(runObject.environment);
       // you only need to talk to the server if you're actually going to act (skip) now on the knowledge of the duplicate
-      var msg = this.serverTransactionRepresentation();
+      var msg = this.serverTransactionRepresentation(runObject);
       MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/transactionexists', msg, function(resp){
         console.log("resp", resp);
         if (resp.exists){
@@ -2593,34 +2593,34 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
         else{
           // no duplicate saved, so just carry on as usual
-          programObj.runBasicBlock(entityScope.bodyStatements, function(){
+          runObject.program.runBasicBlock(runObject, entityScope.bodyStatements, function(){
             // and when we're done with processing the bodystatements, we'll want to commit
             // and then once we've committed, we can go ahead and do the original rbbcontinuation
-            entityScope.commit(programObj, rbbcontinuation, rbboptions);
+            entityScope.commit(runObject, rbbcontinuation, rbboptions);
           }, rbboptions);
         }
       });
     };
 
-    this.commit = function _commit(programObj, rbbcontinuation, rbboptions){
-      var transactionMsg = this.serverTransactionRepresentation();
-      var datasetSliceMsg = ReplayScript.prog.currentDataset.datasetSlice();
+    this.commit = function _commit(runObject, rbbcontinuation, rbboptions){
+      var transactionMsg = this.serverTransactionRepresentation(runObject);
+      var datasetSliceMsg = runObject.dataset.datasetSlice();
       var fullMsg = _.extend(transactionMsg, datasetSliceMsg);
       MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newtransactionwithdata', fullMsg);
       rbbcontinuation(rbboptions);
     };
 
-    this.singleAnnotationItems = function _singleAnnotationItems(){
+    this.singleAnnotationItems = function _singleAnnotationItems(environment){
       var rep = [];
       for (var i = 0; i < this.annotationItems.length; i++){
         var item = this.annotationItems[i];
         var nodeVar = item.nodeVar;
         var val = null;
         if (item.attr === "TEXT"){
-          val = nodeVar.currentText();
+          val = nodeVar.currentText(environment);
         }
         else if (item.attr === "LINK") {
-          val = nodeVar.currentLink();
+          val = nodeVar.currentLink(environment);
         }
         else { 
           WALconsole.warn("yo, we don't know what kind of attr we're looking for: ", item.attr);
@@ -2630,7 +2630,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return rep;
     }
 
-    this.serverTransactionRepresentation = function _serverRepresentation(){
+    this.serverTransactionRepresentation = function _serverRepresentation(runObject){
       var rep = [];
       // build up the whole set of attributes that we use to find a duplicate
       // some from this annotation, but some from any required ancestor annotations
@@ -2640,7 +2640,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       rep = rep.concat(this.currentTransaction);
       console.log("rep", rep);
       // todo: find better way to get prog or get dataset
-      return {dataset: ReplayScript.prog.currentDataset.getId(), transaction_attributes: encodeURIComponent(JSON.stringify(rep)), annotation_id: this.dataset_specific_id};
+      return {dataset: runObject.dataset.getId(), transaction_attributes: encodeURIComponent(JSON.stringify(rep)), annotation_id: this.dataset_specific_id};
     };
 
     this.parameterizeForRelation = function _parameterizeForRelation(relation){
@@ -2829,9 +2829,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.relationNodeVariables = function _relationNodeVariables(){
       return this.relation.nodeVariables();
     }
-    this.updateRelationNodeVariables = function _updateRelationNodeVariables(){
+    this.updateRelationNodeVariables = function _updateRelationNodeVariables(environment){
       WALconsole.log("updateRelationNodeVariables");
-      this.relation.updateNodeVariables(this.pageVar);
+      this.relation.updateNodeVariables(environment, this.pageVar);
     }
 
     this.updateChildStatements = function _updateChildStatements(newChildStatements){
@@ -2916,14 +2916,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.nodeVars;
     }
 
-    this.updateNodeVariables = function _updateNodeVariables(pageVar){
+    this.updateNodeVariables = function _updateNodeVariables(environment, pageVar){
       WALconsole.log("updateNodeVariables TextRelation");
       var nodeVariables = this.nodeVariables();
       var columns = this.columns; // again, nodeVariables and columns must be aligned
       for (var i = 0; i < columns.length; i++){
         var text = this.relation[currentRowsCounter][columns[i].index];
         var currNodeRep = {text: text};
-        nodeVariables[i].setCurrentNodeRep(currNodeRep);
+        nodeVariables[i].setCurrentNodeRep(environment, currNodeRep);
       }
     }
 
@@ -2970,18 +2970,18 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
 
-    this.getCurrentCellsText = function _getCurrentCellsText(pageVar){
+    this.getCurrentCellsText = function _getCurrentCellsText(){
       var cells = [];
       for (var i = 0; i < this.columns.length; i++){
         if (this.columns[i].scraped){
-          var cellText = this.getCurrentText(pageVar, this.columns[i]);
+          var cellText = this.getCurrentText(this.columns[i]);
           cells.push(cellText);
         }
       }
       return cells;
     };
 
-    this.getCurrentText = function _getCurrentText(pageVar, columnObject){
+    this.getCurrentText = function _getCurrentText(columnObject){
       WALconsole.log(currentRowsCounter, "currentRowsCounter");
       return this.relation[currentRowsCounter][columnObject.index];
     };
@@ -2990,16 +2990,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       WALconsole.log("yo, why are you trying to get a link from a text relation???");
       return "";
     };
-
-    this.getCurrentMappingFromVarNamesToValues = function _getCurrentMappingFromVarNamesToValues(pageVar){
-      var map = {};
-      for (var i = 0; i < this.columns.length; i++){
-        var name = this.columns[i].name; // todo: this is going to lead to a lot of shadowing if we have nested text relations!  really need to give text relations names...
-        var value = this.getCurrentText(pageVar, this.columns[i]);
-        map[name] = value;
-      }
-      return map;
-    }
 
     this.clearRunningState = function _clearRunningState(){
       currentRowsCounter = -1;
@@ -3080,23 +3070,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.nodeVars;
     }
 
-        this.getCurrentMappingFromVarNamesToValues = function _getCurrentMappingFromVarNamesToValues(pageVar){
-      var map = {};
-      for (var i = 0; i < this.columns.length; i++){
-        var name = this.name+"."+this.columns[i].name;
-        var value = this.getCurrentText(pageVar, this.columns[i]);
-        map[name] = value;
-      }
-      return map;
-    }
-
-    this.updateNodeVariables = function _updateNodeVariables(pageVar){
+    this.updateNodeVariables = function _updateNodeVariables(environment, pageVar){
       WALconsole.log("updateNodeVariables Relation");
       var nodeVariables = this.nodeVariables();
       var columns = this.columns; // again, nodeVariables and columns must be aligned
       for (var i = 0; i < columns.length; i++){
         var currNodeRep = this.getCurrentNodeRep(pageVar, columns[i]);
-        nodeVariables[i].setCurrentNodeRep(currNodeRep);
+        nodeVariables[i].setCurrentNodeRep(environment, currNodeRep);
       }
       WALconsole.log("updateNodeVariables Relation completed");
     }
@@ -3569,21 +3549,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     }
 
-    this.getCurrentCellsText = function _getCurrentCellsText(pageVar){
-      var cells = [];
-      for (var i = 0; i < this.columns.length; i++){
-        var cellText = this.getCurrentText(pageVar, this.columns[i]);
-        cells.push(cellText);
-      }
-      return cells;
-    }
-
-    this.getCurrentXPath = function _getCurrentXPath(pageVar, columnObject){
-      var prinfo = pageVar.pageRelations[this.name+"_"+this.id]
-      if (prinfo === undefined){ WALconsole.log("Bad!  Shouldn't be calling getCurrentXPath on a pageVar for which we haven't yet called getNextRow."); return null; }
-      return prinfo.currentRows[prinfo.currentRowsCounter][columnObject.index].xpath; // in the current row, xpath at the index associated with nodeName
-    }
-
     this.getCurrentNodeRep = function _getCurrentNodeRep(pageVar, columnObject){
       var prinfo = pageVar.pageRelations[this.name+"_"+this.id]
       if (prinfo === undefined){ WALconsole.log("Bad!  Shouldn't be calling getCurrentLink on a pageVar for which we haven't yet called getNextRow."); return null; }
@@ -3659,25 +3624,25 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.recordedNodeRep.xpath;
     };
 
-    this.setCurrentNodeRep = function _setCurrentNodeRep(nodeRep){
+    this.setCurrentNodeRep = function _setCurrentNodeRep(environment, nodeRep){
       // todo: should be a better way to get env
       WALconsole.log("setCurrentNodeRep", this.name, nodeRep);
-      ReplayScript.prog.environment.envBind(this.name, nodeRep);
+      environment.envBind(this.name, nodeRep);
     };
 
-    this.currentNodeRep = function _currentNodeRep(){
+    this.currentNodeRep = function _currentNodeRep(environment){
       // todo: should be a better way to get env
-      return ReplayScript.prog.environment.envLookup(this.name);
+      return environment.envLookup(this.name);
     };
 
-    this.currentText = function _currentText(){
-      return this.currentNodeRep().text;
+    this.currentText = function _currentText(environment){
+      return this.currentNodeRep(environment).text;
     };
-    this.currentLink = function _currentLink(){
-      return this.currentNodeRep().link;
+    this.currentLink = function _currentLink(environment){
+      return this.currentNodeRep(environment).link;
     };
-    this.currentXPath = function _currentXPath(){
-      return this.currentNodeRep().xpath;
+    this.currentXPath = function _currentXPath(environment){
+      return this.currentNodeRep(environment).xpath;
     };
   };
 
@@ -4096,7 +4061,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 || statement instanceof WebAutomationLanguage.OutputRowStatement);
     }
 
-    this.runBasicBlock = function _runBasicBlock(loopyStatements, callback, options){
+    this.runBasicBlock = function _runBasicBlock(runObject, loopyStatements, callback, options){
       if (options === undefined){options = {};}
       var skipMode = options.skipMode;
       if (skipMode === undefined){ skipMode = false; }
@@ -4106,7 +4071,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // first check if we're supposed to pause, stop execution if yes
       WALconsole.log("RecorderUI.userPaused", RecorderUI.userPaused);
       if (RecorderUI.userPaused){
-        RecorderUI.resumeContinuation = function(){program.runBasicBlock(loopyStatements, callback, options);};
+        RecorderUI.resumeContinuation = function(){program.runBasicBlock(runObject, loopyStatements, callback, options);};
         WALconsole.log("paused");
         return;
       }
@@ -4126,7 +4091,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       else if (loopyStatements[0] instanceof WebAutomationLanguage.LoopStatement){
         if (skipMode){
           // in this case, when we're basically 'continue'ing, it's as if this loop is empty, so skip straight to that
-          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, options);
+          program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
           return;
         }
         WALconsole.log("rbb: loop.");
@@ -4140,7 +4105,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           WALconsole.log("hit the row limit");
           loopStatement.rowsSoFar = 0;
           // once we're done with the loop, have to replay the remainder of the script
-          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, options);
+          program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
           return;
         }
 
@@ -4150,28 +4115,28 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             WALconsole.log("no more rows");
             loopStatement.rowsSoFar = 0;
             // once we're done with the loop, have to replay the remainder of the script
-            program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, options);
+            program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
             return;
           }
           WALconsole.log("we have a row!  let's run");
           // otherwise, should actually run the body
           loopStatement.rowsSoFar += 1;
           // block scope.  let's add a new frame
-          program.environment = program.environment.envExtend(); // add a new frame on there
+          runObject.environment = runObject.environment.envExtend(); // add a new frame on there
           WALconsole.log("envExtend done");
           // and let's give us access to all the loop variables
           // note that for now loopVarsMap includes all columns of the relation.  may some day want to limit it to only the ones used...
-          loopStatement.updateRelationNodeVariables();
+          loopStatement.updateRelationNodeVariables(runObject.environment);
           WALconsole.log("loopyStatements", loopyStatements);
-          program.runBasicBlock(loopStatement.bodyStatements, function(){ // running extra iterations of the for loop is the only time we change the callback
+          program.runBasicBlock(runObject, loopStatement.bodyStatements, function(){ // running extra iterations of the for loop is the only time we change the callback
             // and once we've run the body, we should do the next iteration of the loop
             // but first let's get rid of that last environment frame
             WALconsole.log("rbb: preparing for next loop iteration, popping frame off environment.");
-            program.environment = program.environment.parent;
+            runObject.environment = runObject.environment.parent;
             // and let's run loop cleanup, since we actually ran the body statements
-            program.runBasicBlock(loopStatement.cleanupStatements, function(){
+            program.runBasicBlock(runObject, loopStatement.cleanupStatements, function(){
               // and once we've done that loop body cleanup, then let's finally go ahead and go back to do the loop again!
-              program.runBasicBlock(loopyStatements, callback, options); 
+              program.runBasicBlock(runObject, loopyStatements, callback, options); 
             }, options);
           }, options);
         });
@@ -4183,7 +4148,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
         if (skipMode){
           // in this case, when we're basically 'continue'ing, we should do nothing
-          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, options);
+          program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
           return;
         }
 
@@ -4194,13 +4159,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           if (rbboptions.skipMode){
             // executed a continue statement, better stop going through this loop's statements, get back to the original callback
             options.skipMode = true;
-            program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, options); // set skipMode flag
+            program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options); // set skipMode flag
             return;
           }
           // once we're done with this statement running, have to replay the remainder of the script
-          program.runBasicBlock(loopyStatements.slice(1, loopyStatements.length), callback, options);
+          program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
         };
-        loopyStatements[0].run(program, continuation, options); // todo: program is passed to give access to environment.  may want a better way
+        loopyStatements[0].run(runObject, continuation, options); // todo: program is passed to give access to environment.  may want a better way
         return;
       }
       else {
@@ -4218,7 +4183,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
         if (skipMode){
           // in this case, when we're basically 'continue'ing, we should do nothing, so just go on to the next statement without doing anything else
-          program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
+          program.runBasicBlock(runObject, loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
           return;
         }
 
@@ -4229,7 +4194,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
         basicBlockStatements = markNonTraceContributingStatements(basicBlockStatements);
 
-        var haveAllNecessaryRelationNodes = doWeHaveRealRelationNodesWhereNecessary(basicBlockStatements);
+        var haveAllNecessaryRelationNodes = doWeHaveRealRelationNodesWhereNecessary(basicBlockStatements, runObject.environment);
         if (!haveAllNecessaryRelationNodes){
           // ok, we're going to have to skip this iteration, because we're supposed to open a page and we just won't know how to
           WALconsole.warn("Had to skip an iteration because of lacking the node we'd need to open a new page");
@@ -4238,7 +4203,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // we're essentially done 'replaying', have to replay the remainder of the script
           // and we're doing continue, so set the continue flag to true
           options.skipMode = true;
-          program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
+          program.runBasicBlock(runObject, loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
           return;
         }
 
@@ -4288,10 +4253,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // statements may need to do something as post-processing, even without a replay so go ahead and do any extra processing
           for (var i = 0; i < basicBlockStatements.length; i++){
             WALconsole.log("calling postReplayProcessing on", basicBlockStatements[i]);
-            basicBlockStatements[i].postReplayProcessing([], i);
+            basicBlockStatements[i].postReplayProcessing(runObject, [], i);
           }
           // once we're done replaying, have to replay the remainder of the script
-          program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
+          program.runBasicBlock(runObject, loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
           return;
         }
 
@@ -4302,7 +4267,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var parameterizedTrace = pbv(trace, basicBlockStatements);
         // now that we've run parameterization-by-value, have a function, let's put in the arguments we need for the current run
         WALconsole.log("parameterizedTrace", parameterizedTrace);
-        var runnableTrace = passArguments(parameterizedTrace, basicBlockStatements);
+        var runnableTrace = passArguments(parameterizedTrace, basicBlockStatements, runObject.environment);
         var config = parameterizedTrace.getConfig();
         WALconsole.log("runnableTrace", runnableTrace);
 
@@ -4328,11 +4293,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             // statements may need to do something based on this trace, so go ahead and do any extra processing
             for (var i = 0; i < basicBlockStatements.length; i++){
               WALconsole.log("calling postReplayProcessing on", basicBlockStatements[i]);
-              basicBlockStatements[i].postReplayProcessing(replayObject.record.events, i);
+              basicBlockStatements[i].postReplayProcessing(runObject, replayObject.record.events, i);
             }
 
             // once we're done replaying, have to replay the remainder of the script
-            program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
+            program.runBasicBlock(runObject, loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
           };
           updatePageVars(trace, replayObject.record.events, allPageVarsOk);
 
@@ -4356,7 +4321,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             updatePageVars(trace, replayObject.record.events, function(){
               // in the continuation, we'll do the actual move onto the next statement
               options.skipMode = true;
-              program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
+              runObject.program.runBasicBlock(runObject, loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
             });
 
           }
@@ -4365,14 +4330,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     }
 
-    this.currentDataset = null;
     this.run = function _run(){
       RecorderUI.userPaused = false;
       RecorderUI.userStopped = false;
-      this.currentDataset = new OutputHandler.Dataset();
+      var dataset = new OutputHandler.Dataset();
       this.clearRunningState();
-      this.runBasicBlock(this.loopyStatements, function(){
-        program.currentDataset.closeDataset();
+      var runObject = {program: program, dataset: dataset, environment: Environment.envRoot()};
+      this.runBasicBlock(runObject, this.loopyStatements, function(){
+        dataset.closeDataset();
         WALconsole.log("Done with script execution.");}, {ignoreEntityScope: true});
     };
 
@@ -4381,7 +4346,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       RecorderUI.userPaused = false;
       RecorderUI.userStopped = false;
       this.clearRunningState();
-      this.runBasicBlock(this.loopyStatements, function(){
+      this.runBasicBlock(runObject, this.loopyStatements, function(){
         program.currentDataset.closeDataset();
         WALconsole.log("Done with script execution.");});
     };
@@ -4401,7 +4366,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       _.each(this.relations, function(relation){relation.clearRunningState();});
       _.each(this.pageVars, function(pageVar){pageVar.clearRunningState();});
       _.each(this.loopyStatements, function(statement){statement.clearRunningState();});
-      this.environment = Environment.envRoot();
     };
 
     this.download = function _download(){
@@ -4480,10 +4444,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     }
 
-    function passArguments(pTrace, statements){
+    function passArguments(pTrace, statements, environment){
       for (var i = 0; i < statements.length; i++){
         var statement = statements[i];
-        var args = statement.args();
+        var args = statement.args(environment);
         for (var j = 0; j < args.length; j++){
           var currArg = args[j];
           var pname = paramName(i, currArg.type);
@@ -4625,7 +4589,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return false;
     }
 
-    function doWeHaveRealRelationNodesWhereNecessary(statements){
+    function doWeHaveRealRelationNodesWhereNecessary(statements, environment){
       for (var i = 0; i < statements.length; i++){
         var s = statements[i];
         if (s.outputPageVars && s.outputPageVars.length > 0){
@@ -4634,7 +4598,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             // if the statement is parameterized with the column object of a given relation, this will be non-null
             // also, it means the statement's currentNode will be a NodeVariable, so we can call currentXPath
             // also it means we'll already have assigned to the node variable, so currentXPath should actually have a value
-            var currentXpath = s.currentNode.currentXPath();
+            var currentXpath = s.currentNode.currentXPath(environment);
             if (currentXpath){
               continue;
             }

@@ -2106,7 +2106,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         xpath: null, 
         frame: null, 
         source_url: null,
-        top_frame_source_url: null
+        top_frame_source_url: null,
+        date: null
       };
     }
 

@@ -420,6 +420,29 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
     sendHelper(msg);
   };
 
+  pub.makeNewRecordReplayWindow = function _makeNewRecordReplayWindow(cont){
+    chrome.windows.getCurrent(function (currWindowInfo){
+      var right = currWindowInfo.left + currWindowInfo.width;
+      chrome.system.display.getInfo(function(displayInfoLs){
+        for (var i = 0; i < displayInfoLs.length; i++){
+          var bounds = displayInfoLs[i].bounds;
+          bounds.right = bounds.left + bounds.width;
+          WALconsole.log(bounds);
+          if (bounds.left <= right && bounds.right >= right){
+            // we've found the right display
+            var top = currWindowInfo.top - 40; // - 40 because it doesn't seem to count the menu bar and I'm not looking for a more accurate solution at the moment
+            var left = right; // let's have it adjacent to the control panel
+            chrome.windows.create({url: "pages/newRecordingWindow.html", focused: true, left: left, top: top, width: (bounds.right - right), height: (bounds.top + bounds.height - top)}, function(win){
+              WALconsole.log("new record/replay window created.");
+              //pub.sendCurrentRecordingWindow(); // todo: should probably still send this for some cases
+              cont(win.id);
+            });
+          }
+        }
+      });
+    });
+  };
+
   pub.toBlocklyBoolString = function _toBlocklyBoolString(bool){
     if (bool){
       return 'TRUE';

@@ -81,7 +81,7 @@ document.addEventListener('keyup', RecordingHandlers.updateScraping, true);
  **********************************************************************/
 
 function currentlyRecording(){
-  return recording === RecordState.RECORDING && currentRecordingWindow === windowId; // recording variable is defined in scripts/lib/record-replay/content_script.js, tells whether r+r layer currently recording
+  return recording === RecordState.RECORDING && currentRecordingWindows.indexOf(windowId) > -1; // recording variable is defined in scripts/lib/record-replay/content_script.js, tells whether r+r layer currently recording
 }
 
 function currentlyScraping(){

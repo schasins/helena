@@ -5,7 +5,7 @@ function setUp(){
   //utilities.listenForMessage("content", "mainpanel", "nextButtonData", processNextButtonData);
   //utilities.listenForMessage("content", "mainpanel", "moreItems", moreItems);
   utilities.listenForMessage("content", "mainpanel", "scrapedData", RecorderUI.processScrapedData);
-  utilities.listenForMessage("content", "mainpanel", "requestCurrentRecordingWindow", RecorderUI.sendCurrentRecordingWindow);
+  utilities.listenForMessage("content", "mainpanel", "requestCurrentRecordingWindows", RecorderUI.sendCurrentRecordingWindows);
   
 
   MiscUtilities.useCorrectScrapingConditionStrings("#scraping_instructions", "___SCRAPINGCONDITIONSTRING___", "___LINKSCRAPINGCONDITIONSTRING___"); // important to do this one first, what with everything going all stringy
@@ -23,6 +23,7 @@ $(setUp);
 
 var workspace = null;
 var blocklyLabels = [];
+var recordingWindowIds = [];
 
 /**********************************************************************
  * Guide the user through making a demonstration recording
@@ -48,48 +49,22 @@ var RecorderUI = (function () {
     });
   };
 
-  var recordingWindowId = null;
-  pub.getCurrentRecordingWindow = function _getCurrentRecordingWindow(){
-    return recordingWindowId;
-  }
-
-  var makeNewRecordReplayTab = function makeNewRecordReplayTab(cont){
-    chrome.windows.getCurrent(function (currWindowInfo){
-      var right = currWindowInfo.left + currWindowInfo.width;
-      chrome.system.display.getInfo(function(displayInfoLs){
-        for (var i = 0; i < displayInfoLs.length; i++){
-          var bounds = displayInfoLs[i].bounds;
-          bounds.right = bounds.left + bounds.width;
-          WALconsole.log(bounds);
-          if (bounds.left <= right && bounds.right >= right){
-            // we've found the right display
-            var top = currWindowInfo.top - 40; // - 40 because it doesn't seem to count the menu bar and I'm not looking for a more accurate solution at the moment
-            var left = right; // let's have it adjacent to the control panel
-            chrome.windows.create({url: "pages/newRecordingWindow.html", focused: true, left: left, top: top, width: (bounds.right - right), height: (bounds.top + bounds.height - top)}, function(win){
-              WALconsole.log("new record/replay window created.");
-              recordingWindowId = win.id;
-              pub.sendCurrentRecordingWindow();
-              WALconsole.log("Only recording in window: ", recordingWindowId);
-              cont();
-            });
-          }
-        }
-      });
-    });
-  };
+  var currentRecordingWindow = null;
 
   pub.startRecording = function _startRecording(){
     var div = $("#new_script_content");
     DOMCreationUtilities.replaceContent(div, $("#recording"));
     div.find("#stop_recording").click(RecorderUI.stopRecording);
 
-    makeNewRecordReplayTab(function(){
+    MiscUtilities.makeNewRecordReplayWindow(function(windowId){
+      recordingWindowIds.push(windowId);
+      currentRecordingWindow = windowId;
       SimpleRecord.startRecording();
     });
   };
 
-  pub.sendCurrentRecordingWindow = function _sendCurrentRecordingWindow(){
-    utilities.sendMessage("mainpanel", "content", "currentRecordingWindow", {window_id: recordingWindowId}); // the tabs will check whether they're in the window that's actually recording to figure out what UI stuff to show
+  pub.sendCurrentRecordingWindows = function _sendCurrentRecordingWindow(){
+    utilities.sendMessage("mainpanel", "content", "currentRecordingWindows", {window_ids: recordingWindowIds}); // the tabs will check whether they're in the window that's actually recording to figure out what UI stuff to show
   }
 
   function activateButton(div, selector, handler){
@@ -100,7 +75,11 @@ var RecorderUI = (function () {
 
   pub.stopRecording = function _stopRecording(){
     var trace = SimpleRecord.stopRecording();
-    var program = ReplayScript.setCurrentTrace(trace, recordingWindowId);
+    var program = ReplayScript.setCurrentTrace(trace, currentRecordingWindow);
+
+    // once we're done, remove the window id from the list of windows where we're allowed to record
+    recordingWindowIds = _.without(recordingWindowIds, currentRecordingWindow);
+
     program.relevantRelations(); // now that we have a script, let's set some processing in motion that will figure out likely relations
     pub.showProgramPreview(true); // true because we're currently processing the script, stuff is in progress
   };
@@ -166,17 +145,16 @@ var RecorderUI = (function () {
     readjustFunc();
   };
 
-  pub.run = function _run(){
+  pub.run = function _run(options){
     // run whichever program is currently being displayed (so ReplayScript.prog)
-
-    // let's do this in a fresh window
-    makeNewRecordReplayTab(function(){
-      // actually start the script running
-      WALconsole.log("about to run the program");
-      ReplayScript.prog.run();
-    });
-
+    ReplayScript.prog.run(options);
   };
+
+
+  pub.runWithAndWithoutEntityScopes = function _runWithAndWithoutEntityScopes(){
+    this.run();
+    this.run({ignoreEntityScope:true});
+  }
 
   var scriptRunCounter = 0;
 
@@ -3702,7 +3680,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.name = name;
       this.recordTimeUrl = recordTimeUrl;
       this.pageRelations = {};
-      this.pageStats = freshPageStats();
     }
 
     var that = this;
@@ -3787,6 +3764,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.pageStats = freshPageStats();
       this.clearRelationData();
     };
+
+    this.pageStats = freshPageStats();
 
   };
 
@@ -4300,7 +4279,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
         WALconsole.log("runnableTrace", runnableTrace, config);
 
-        config.targetWindowId = RecorderUI.getCurrentRecordingWindow();
+        config.targetWindowId = runObject.window;
         SimpleRecord.replay(runnableTrace, config, function(replayObject){
           // use what we've observed in the replay to update page variables
           WALconsole.log("replayObject", replayObject);
@@ -4352,28 +4331,37 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     }
 
-    this.run = function _run(){
+    function runInternals(runObject, options){
+      runObject.program.clearRunningState();
+      // ok let's do this in a fresh window
+      MiscUtilities.makeNewRecordReplayWindow(function(windowId){
+        // now let's actually run
+        recordingWindowIds.push(windowId);
+        runObject.window = windowId;
+        runObject.program.runBasicBlock(runObject, runObject.program.loopyStatements, function(){
+          dataset.closeDataset();
+          WALconsole.log("Done with script execution.");
+          recordingWindowIds = _.without(recordingWindowIds, windowId); // take that window back out of the allowable recording set
+        }, options);
+      });
+    }
+
+    this.run = function _run(options){
       var dataset = new OutputHandler.Dataset();
-      this.clearRunningState();
       var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
       var runObject = {program: programCopy, dataset: dataset, environment: Environment.envRoot()};
-      var tab = RecorderUI.newRunTab(runObject);
+      var tab = RecorderUI.newRunTab(runObject); // the mainpanel tab in which we'll preview stuff
       runObject.tab = tab;
-      this.runBasicBlock(runObject, this.loopyStatements, function(){
-        dataset.closeDataset();
-        WALconsole.log("Done with script execution.");}, {ignoreEntityScope: true});
+      runInternals(runObject, options);
     };
 
     this.restartFromBeginning = function _restartFromBeginning(runObjectOld){
       // basically same as above, but store to the same dataset (for now, dataset id also controlls which saved annotations we're looking at)
-      this.clearRunningState();
       var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
       var runObject = {program: programCopy, dataset: runObjectOld.dataset, environment: Environment.envRoot()};
       var tab = RecorderUI.newRunTab(runObject);
       runObject.tab = tab;
-      this.runBasicBlock(runObject, this.loopyStatements, function(){
-        program.currentDataset.closeDataset();
-        WALconsole.log("Done with script execution.");});
+      runInternals(runObject, {});
     };
 
     this.stopRunning = function _stopRunning(runObject){

@@ -9,7 +9,7 @@
 var tabId = "setme";
 var windowId = "setme";
 var tabTopUrl = "setme";
-var currentRecordingWindow = null;
+var currentRecordingWindows = null;
 
 utilities.listenForMessage("background", "content", "tabID", function(msg){
 	tabId = msg.tab_id; 
@@ -21,7 +21,7 @@ utilities.listenForMessage("mainpanel", "content", "getFreshRelationItems", func
 utilities.listenForMessage("mainpanel", "content", "editRelation", function(msg){RelationFinder.editRelation(msg);});
 utilities.listenForMessage("mainpanel", "content", "nextButtonSelector", function(msg){RelationFinder.nextButtonSelector(msg);});
 utilities.listenForMessage("mainpanel", "content", "clearNextButtonSelector", function(msg){RelationFinder.clearNextButtonSelector(msg);});
-utilities.listenForMessage("mainpanel", "content", "currentRecordingWindow", function(msg){currentRecordingWindow = msg.window_id;});
+utilities.listenForMessage("mainpanel", "content", "currentRecordingWindows", function(msg){currentRecordingWindows = msg.window_ids;});
 utilities.listenForMessage("mainpanel", "content", "backButton", function(){history.back();});
 utilities.listenForMessage("mainpanel", "content", "pageStats", function(){ utilities.sendMessage("content", "mainpanel", "pageStats", {"numNodes": $('*').length});});
 utilities.listenForMessage("mainpanel", "content", "runNextInteraction", function(msg){RelationFinder.runNextInteraction(msg);});
@@ -58,8 +58,8 @@ MiscUtilities.repeatUntil(
 		1000);
 // keep trying to figure out which window is currently being recorded until we find out
 MiscUtilities.repeatUntil(
-		function(){utilities.sendMessage("content", "mainpanel", "requestCurrentRecordingWindow", {});},
-		function(){return (currentRecordingWindow !== null);},
+		function(){utilities.sendMessage("content", "mainpanel", "requestCurrentRecordingWindows", {});},
+		function(){return (currentRecordingWindows !== null);},
 		1000);
 
 /**********************************************************************

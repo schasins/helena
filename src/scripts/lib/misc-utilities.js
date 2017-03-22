@@ -443,6 +443,14 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
     });
   };
 
+  pub.currentDateString = function _currentDateString(){
+    return pub.basicDateString(new Date());
+  };
+
+  pub.basicDateString = function _basicDateString(d){
+    return d.getFullYear() + "-" + (d.getMonth()+1) + "-" + d.getDate() + "-" + d.getHours() + ":" + d.getMinutes();
+  };
+
   pub.toBlocklyBoolString = function _toBlocklyBoolString(bool){
     if (bool){
       return 'TRUE';

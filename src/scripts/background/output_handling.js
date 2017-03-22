@@ -1,7 +1,8 @@
 var OutputHandler = (function _OutputHandler() {
   var pub = {};
 
-  pub.Dataset = function _Dataset(id){
+  pub.Dataset = function _Dataset(program, id){
+
   	this.id = id;
 
   	this.fullDatasetLength = 0;
@@ -9,18 +10,39 @@ var OutputHandler = (function _OutputHandler() {
     this.currentDatasetPositionLists = [];
   	this.currentDatasetSliceLength = 0;
 
+    this.name = program.name + "_" + MiscUtilities.currentDateString();
+
   	var dataset = this;
 
+    this.setup = function _setup(){
+      if (!program.id){
+        program.save(function(progId){
+          // ok good, now we have a program id
+          dataset.program_id = progId;
+          // now let's actually make the new dataset on the server
+          if (dataset.id === undefined){
+            // this is a dataset we're about to create, not one that we've already saved
+            dataset.requestNewDatasetId();
+          }
+        });
+      }
+      else{
+        // awesome, we already know the associated program's id, don't need to save it now
+        // although keep in mind this can mean that we'll associate a program with a dataset even though
+        // the db-stored program version may not be the same one used the scrape the dataset
+        if (dataset.id === undefined){
+          dataset.requestNewDatasetId();
+        }
+      }
+    };
+
   	this.requestNewDatasetId = function _requestNewDatasetId(){
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newdatasetsid', {}, function(resp){dataset.handleDatasetId(resp);});
+      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newdatasetsid', {name: this.name, program_id: this.program_id}, function(resp){dataset.handleDatasetId(resp);});
     };
     this.handleDatasetId = function _handleDatasetId(resp){
     	this.id = resp.id;
     };
-    if (this.id === undefined){
-    	// this is a dataset we're about to create, not one that we've already saved
-  		this.requestNewDatasetId();
-    }
+
 
     // how we'll grab out the components in the server
     // nodes = JSON.parse(URI.decode(params[:nodes]))
@@ -97,6 +119,8 @@ var OutputHandler = (function _OutputHandler() {
     this.getId = function _getId(){
       return this.id;
     };
+
+    this.setup();
   };
 
 

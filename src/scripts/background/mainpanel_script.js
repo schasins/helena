@@ -190,7 +190,7 @@ var RecorderUI = (function () {
   };
 
   // for saving a program to the server
-  pub.save = function _save(){
+  pub.save = function _save(continuation){
     var prog = ReplayScript.prog;
     var div = $("#new_script_content");
     var name = div.find("#program_name").get(0).value;
@@ -203,6 +203,9 @@ var RecorderUI = (function () {
     $.post('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg, function(response){
       var progId = response.program.id;
       prog.id = progId;
+      if (continuation && _.isFunction(continuation)){
+        continuation(progId);
+      }
     });
   };
 
@@ -4348,7 +4351,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.run = function _run(options){
-      var dataset = new OutputHandler.Dataset();
+      var dataset = new OutputHandler.Dataset(program);
       var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
       var runObject = {program: programCopy, dataset: dataset, environment: Environment.envRoot()};
       var tab = RecorderUI.newRunTab(runObject); // the mainpanel tab in which we'll preview stuff

@@ -2114,6 +2114,26 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
     }
 
+    function getLoopIterationCountersHelper(s, acc){
+      if (s === null || s === undefined){
+        return acc;
+      }
+      if (s instanceof WebAutomationLanguage.LoopStatement){
+        acc.unshift(s.rowsSoFar);
+      }
+      return getLoopIterationCountersHelper(s.parent, acc);
+    }
+
+    function getLoopIterationCounters(s){
+      return getLoopIterationCountersHelper(s, []);
+    }
+
+    function convertTextArrayToArrayOfTextCells(textArray){
+      newCells = _.map(textArray, textToMainpanelNodeRepresentation);
+      _.each(newCells, function(cell){cell.scraped_attribute = "TEXT";})
+      return newCells;
+    }
+
     this.postReplayProcessing = function _postReplayProcessing(runObject, trace, temporaryStatementIdentifier){
       // we've 'executed' an output statement.  better send a new row to our output
       var cells = [];
@@ -2121,21 +2141,25 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       for (var i = 0; i < this.relations.length; i++){
         var relation = this.relations[i];
         var newCells = relation.getCurrentCellsText(runObject.environment);
-        newCells = _.map(newCells, textToMainpanelNodeRepresentation);
-        _.each(newCells, function(cell){cell.scraped_attribute = "TEXT";})
+        newCells = _.convertTextArrayToArrayOfTextCells(textArray);
         cells = cells.concat(newCells);
       }
       // get all the cells that we'll get from the scrape statements
       _.each(this.scrapeStatements, function(scrapeStatment){
         cells.push(scrapeStatment.currentNodeCurrentValue);
       });
-      // maybe start saving this per-row info with the other per-row info instead of treating it as a cell?
-      // cells.push(new Date().getTime()); // might be useful to know the current time.  although not sure if this is how we want to handle it.  todo: better way?
+
+      // for now we're assuming we always want to show the number of iterations of each loop as the final columns
+      var loopIterationCounterTexts = _.map(getLoopIterationCounters(this), function(i){return i.toString();});
+      var iterationCells = convertTextArrayToArrayOfTextCells(loopIterationCounterTexts);
+      _.each(iterationCells, function(ic){cells.push(ic);});
+
+      runObject.dataset.addRow(cells); // todo: is replayscript.prog really the best way to access the prog object so that we can get the current dataset object, save data to server?
+      runObject.program.mostRecentRow = cells;
+
       var displayTextCells = _.map(cells, function(cell){if (cell.scraped_attribute === "LINK"){return cell.link;} else {return cell.text;}});
       RecorderUI.addNewRowToOutput(runObject.tab, displayTextCells);
-      runObject.dataset.addRow(cells); // todo: is replayscript.prog really the best way to access the prog object so that we can get the current dataset object, save data to server?
       RecorderUI.updateRowsSoFar(runObject.tab, runObject.dataset.fullDatasetLength);
-      runObject.program.mostRecentRow = cells;
     };
 
     if (doInitialize){

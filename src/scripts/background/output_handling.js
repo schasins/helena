@@ -16,15 +16,21 @@ var OutputHandler = (function _OutputHandler() {
 
     this.setup = function _setup(){
       if (!program.id){
-        program.save(function(progId){
-          // ok good, now we have a program id
-          dataset.program_id = progId;
-          // now let's actually make the new dataset on the server
-          if (dataset.id === undefined){
-            // this is a dataset we're about to create, not one that we've already saved
-            dataset.requestNewDatasetId();
-          }
-        });
+        if (program === ReplayScript.prog){
+          RecorderUI.save(function(progId){
+            // ok good, now we have a program id
+            dataset.program_id = progId;
+            // now let's actually make the new dataset on the server
+            if (dataset.id === undefined){
+              // this is a dataset we're about to create, not one that we've already saved
+              dataset.requestNewDatasetId();
+            }
+          });
+        }
+        else{
+          WALconsole.warn("Yo, this is going to fail to save a dataset, because we haven't put in a good way to save a prog (with it's name!) outside of recorderui yet.");
+          // todo: actually do that.  fix that
+        }
       }
       else{
         // awesome, we already know the associated program's id, don't need to save it now
@@ -42,6 +48,22 @@ var OutputHandler = (function _OutputHandler() {
     this.handleDatasetId = function _handleDatasetId(resp){
     	this.id = resp.id;
     };
+
+    this.appendToName = function _appendToName(str){
+      this.name = this.name + str;
+      if (this.id){
+        // ok, we can go ahead and send the update now
+        this.updateDatasetOnServer();
+      }
+      else{
+        // better wait a while until we actually have that id
+        setTimeout(function(){dataset.updateDatasetOnServer();}, 1000);
+      }
+    }
+
+    this.updateDatasetOnServer = function _updateDatasetOnServer(){
+      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/updatedataset', {id: this.id, name: this.name, program_id: this.program_id});
+    }
 
 
     // how we'll grab out the components in the server

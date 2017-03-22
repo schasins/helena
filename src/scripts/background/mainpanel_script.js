@@ -4350,8 +4350,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       });
     }
 
+    function adjustDatasetNameForOptions(dataset, options){
+      if (options.ignoreEntityScope){
+        dataset.appendToName("_ignoreEntityScope");
+      }
+    }
+
     this.run = function _run(options){
       var dataset = new OutputHandler.Dataset(program);
+      adjustDatasetNameForOptions(dataset, options);
       var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
       var runObject = {program: programCopy, dataset: dataset, environment: Environment.envRoot()};
       var tab = RecorderUI.newRunTab(runObject); // the mainpanel tab in which we'll preview stuff

@@ -432,7 +432,14 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
             // we've found the right display
             var top = currWindowInfo.top - 40; // - 40 because it doesn't seem to count the menu bar and I'm not looking for a more accurate solution at the moment
             var left = right; // let's have it adjacent to the control panel
-            chrome.windows.create({url: "pages/newRecordingWindow.html", focused: true, left: left, top: top, width: (bounds.right - right), height: (bounds.top + bounds.height - top)}, function(win){
+	      console.log(bounds.right - right, bounds.top + bounds.height - top);
+	      var width = bounds.right - right;
+	      var height = bounds.top + bounds.height - top;
+	      // for now let's actually make width and height fixed for stability across different ways of running (diff machines, diff panel sizes at start)
+	      // 1419 1185
+	     var width = 1419;
+	     var height = 1185;
+            chrome.windows.create({url: "pages/newRecordingWindow.html", focused: true, left: left, top: top, width: width, height: height}, function(win){
               WALconsole.log("new record/replay window created.");
               //pub.sendCurrentRecordingWindow(); // todo: should probably still send this for some cases
               cont(win.id);

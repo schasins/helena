@@ -4,7 +4,12 @@ from selenium.webdriver.chrome.options import Options
 import time
 
 unpackedExtensionPath = "../src"
-chromeDriverPath = '/Users/schasins/Downloads/chromedriver'
+#chromeDriverPath = '/Users/schasins/Downloads/chromedriver'
+chromeDriverPath = '/home/schasins/Downloads/chromedriver'
+
+#come up with a better way to manage this
+#extensionkey = "bcnlebcnondcgcmmkcnmepgnamoekjnn"
+extensionkey = "clelgfmpjhkenbpdddjihmokjgooedpl"
 
 drivers = []
 def newDriver():
@@ -13,7 +18,7 @@ def newDriver():
 	chrome_options.add_argument("--load-extension=" + unpackedExtensionPath)
 	driver = webdriver.Chrome(chromeDriverPath, chrome_options=chrome_options)
 
-	driver.get("chrome-extension://bcnlebcnondcgcmmkcnmepgnamoekjnn/pages/mainpanel.html")
+	driver.get("chrome-extension://" + extensionkey + "/pages/mainpanel.html")
 
 	drivers.append(driver)
 	return driver
@@ -44,6 +49,7 @@ def runEntityScopeAndNoEntityScopeVersionsInParallel(programId):
 
 def blockingRepeatUntilNonFalseAnswer(lam):
 	ans = lam()
+        # print ans
 	if (not ans):
 		time.sleep(1)
 		return blockingRepeatUntilNonFalseAnswer(lam)
@@ -51,11 +57,11 @@ def blockingRepeatUntilNonFalseAnswer(lam):
 		return ans
 
 def getDatasetIdForDriver(driver):
-	getDatasetId = lambda : driver.execute_script("console.log(datasetsScraped); if (datasetsScraped.length > 0) {return datasetsScraped[0];} else { return false;}")
+	getDatasetId = lambda : driver.execute_script("console.log('datasetsScraped', datasetsScraped); if (datasetsScraped.length > 0) {console.log('realAnswer', datasetsScraped[0]); return datasetsScraped[0];} else { return false;}")
 	return blockingRepeatUntilNonFalseAnswer(getDatasetId)
 
 def getWhetherDone(driver):
-	getHowManyDone = lambda: driver.execute_script("if (scrapingRunsCompleted === 0) {return false;} else {return scrapingRunsCompleted}")
+	getHowManyDone = lambda: driver.execute_script("console.log('scrapingRunsCompleted', scrapingRunsCompleted); if (scrapingRunsCompleted === 0) {return false;} else {return scrapingRunsCompleted}")
 	return blockingRepeatUntilNonFalseAnswer(getHowManyDone)
 
 def entityScopeVsNoEntityScopeFirstRunExperiment(programIdsLs):

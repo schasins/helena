@@ -3495,7 +3495,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                                                 function _getRelationItemsHandler(response) { WALconsole.log("Receiving response: ", frame, response); if (response !== null && response !== undefined) {handleNewRelationItemsFromFrame(response, frame);}}); // when get response, call handleNewRelationItemsFromFrame (defined above) to pick from the frames' answers
           };
           // here's the function for sending the message until we decide we're done with the current attempt to get new rows, or until actually get the answer
-          MiscUtilities.repeatUntil(sendGetRelationItems, function _checkDone(){return doneArray[currentGetRowsCounter] || relationItemsRetrieved[frame];}, 1000, true);
+          MiscUtilities.repeatUntil(sendGetRelationItems, function _checkDone(){return doneArray[currentGetRowsCounter] || relationItemsRetrieved[frame];},function(){}, 1000, true);
         });
         // and let's make sure that after our chosen timeout, we'll stop and just process whatever we have
         var desiredTimeout = 30000;
@@ -3569,7 +3569,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           var currentGetNextRowCounter = getNextRowCounter;
           WALconsole.namedLog("getRelationItems", currentGetNextRowCounter, "requestNext");
           utilities.sendMessage("mainpanel", "content", "runNextInteraction", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);};
-        MiscUtilities.repeatUntil(sendRunNextInteraction, function(){return runningNextInteraction;}, 1000);
+        MiscUtilities.repeatUntil(sendRunNextInteraction, function(){return runningNextInteraction;},function(){}, 1000);
       }
       else {
         // we still have local rows that we haven't used yet.  just advance the counter to change which is our current row
@@ -3746,7 +3746,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         });
         MiscUtilities.repeatUntil(
           function(){utilities.sendMessage("mainpanel", "content", "pageStats", {}, null, null, [tabId], null);}, 
-          function(){return that.currentTabIdPageStatsRetrieved;}, 
+          function(){return that.currentTabIdPageStatsRetrieved;},
+	  function(){},
           1000);
       }
       else{
@@ -4387,12 +4388,18 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.run = function _run(options){
       if (options === undefined){options = {};}
       var dataset = new OutputHandler.Dataset(program);
-      adjustDatasetNameForOptions(dataset, options);
-      var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
-      var runObject = {program: programCopy, dataset: dataset, environment: Environment.envRoot()};
-      var tab = RecorderUI.newRunTab(runObject); // the mainpanel tab in which we'll preview stuff
-      runObject.tab = tab;
-      runInternals(runObject, options);
+      // it's really annoying to go on without having an id, so let's wait till we have one
+      MiscUtilities.repeatUntil(function(){}, 
+		  function(){return dataset.id;},
+		  function(){
+		      adjustDatasetNameForOptions(dataset, options);
+		      var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
+		      var runObject = {program: programCopy, dataset: dataset, environment: Environment.envRoot()};
+		      var tab = RecorderUI.newRunTab(runObject); // the mainpanel tab in which we'll preview stuff
+		      runObject.tab = tab;
+		      runInternals(runObject, options);
+		  },
+		  1000);
     };
 
     this.restartFromBeginning = function _restartFromBeginning(runObjectOld){

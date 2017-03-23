@@ -528,9 +528,10 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
     }
   };
 
-  pub.repeatUntil = function _repeatUntil(repeatFunction, untilFunction, interval, grow){
+  pub.repeatUntil = function _repeatUntil(repeatFunction, untilFunction, afterFunction, interval, grow){
     if (grow === undefined){ grow = false;}
     if (untilFunction()){
+      afterFunction();
       return;
     }
     repeatFunction();
@@ -540,7 +541,7 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
     }
     WALconsole.log("grow", grow);
     WALconsole.log("interval", nextInterval);
-    setTimeout(function(){pub.repeatUntil(repeatFunction, untilFunction, nextInterval, grow);}, interval);
+    setTimeout(function(){pub.repeatUntil(repeatFunction, untilFunction, afterFunction, nextInterval, grow);}, interval);
   };
 
   /* there are some messages that we send repeatedly from the mainpanel because we don't know whether the 

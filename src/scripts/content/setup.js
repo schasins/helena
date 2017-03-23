@@ -55,11 +55,13 @@ utilities.listenForFrameSpecificMessage("mainpanel", "content", "getFreshRelatio
 MiscUtilities.repeatUntil(
 		function(){utilities.sendMessage("content", "background", "requestTabID", {});},
 		function(){return (tabId !== "setme" && windowId !== "setme");},
+                function(){},
 		1000);
 // keep trying to figure out which window is currently being recorded until we find out
 MiscUtilities.repeatUntil(
 		function(){utilities.sendMessage("content", "mainpanel", "requestCurrentRecordingWindows", {});},
 		function(){return (currentRecordingWindows !== null);},
+                function(){},
 		1000);
 
 /**********************************************************************

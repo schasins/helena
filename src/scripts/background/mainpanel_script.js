@@ -4381,6 +4381,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.run = function _run(options){
+      if (options === undefined){options = {};}
       var dataset = new OutputHandler.Dataset(program);
       adjustDatasetNameForOptions(dataset, options);
       var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on

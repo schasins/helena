@@ -25,7 +25,7 @@ var workspace = null;
 var blocklyLabels = [];
 var recordingWindowIds = [];
 var scrapingRunsCompleted = 0;
-var datasetsBeingScrapedNow = [];
+var datasetsScraped = [];
 
 /**********************************************************************
  * Guide the user through making a demonstration recording
@@ -4368,11 +4368,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // now let's actually run
         recordingWindowIds.push(windowId);
         runObject.window = windowId;
-        datasetsBeingScrapedNow.push(runObject.dataset.id);
+        datasetsScraped.push(runObject.dataset.id);
         runObject.program.runBasicBlock(runObject, runObject.program.loopyStatements, function(){
           runObject.dataset.closeDataset();
           scrapingRunsCompleted += 1;
-          datasetsBeingScrapedNow = _.without(datasetsBeingScrapedNow, runObject.dataset.id);
           WALconsole.log("Done with script execution.");
           recordingWindowIds = _.without(recordingWindowIds, windowId); // take that window back out of the allowable recording set
         }, options);

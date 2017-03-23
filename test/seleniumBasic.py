@@ -44,7 +44,6 @@ def runEntityScopeAndNoEntityScopeVersionsInParallel(programId):
 
 def blockingRepeatUntilNonFalseAnswer(lam):
 	ans = lam()
-	print ans
 	if (not ans):
 		time.sleep(1)
 		return blockingRepeatUntilNonFalseAnswer(lam)
@@ -52,7 +51,7 @@ def blockingRepeatUntilNonFalseAnswer(lam):
 		return ans
 
 def getDatasetIdForDriver(driver):
-	getDatasetId = lambda : driver.execute_script("if (datasetsBeingScrapedNow.length > 0) {return datasetsBeingScrapedNow[0];} else { return false;}")
+	getDatasetId = lambda : driver.execute_script("console.log(datasetsScraped); if (datasetsScraped.length > 0) {return datasetsScraped[0];} else { return false;}")
 	return blockingRepeatUntilNonFalseAnswer(getDatasetId)
 
 def getWhetherDone(driver):
@@ -61,12 +60,16 @@ def getWhetherDone(driver):
 
 def entityScopeVsNoEntityScopeFirstRunExperiment(programIdsLs):
 	global drivers
+
+	allDatasets = []
+
 	for programId in programIdsLs:
 		runEntityScopeAndNoEntityScopeVersionsInParallel(programId)
 		datasetIds = []
 		for driver in drivers:
 			datasetIds.append(getDatasetIdForDriver(driver))
 		print datasetIds
+		allDatasets += datasetIds
 		for driver in drivers:
 			getWhetherDone(driver)
 			# note that we'll only get out of this loop once all drivers have finished the scripts they're executing
@@ -74,7 +77,11 @@ def entityScopeVsNoEntityScopeFirstRunExperiment(programIdsLs):
 			driver.close()
 		drivers = []
 
+	print allDatasets
+	for datasetId in allDatasets:
+		print "kaofang.cs.berkeley.edu:8080/downloaddetailed/" + str(datasetId)
+
 def main():
-	entityScopeVsNoEntityScopeFirstRunExperiment([60,45])
+	entityScopeVsNoEntityScopeFirstRunExperiment([60,60])
 
 main()

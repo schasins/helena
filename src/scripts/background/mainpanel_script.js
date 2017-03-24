@@ -1734,7 +1734,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }
         }
         if (matchI === null){
-          this.currentNode.setCurrentNodeRep(runObject.enviornment, null);
+          this.currentNode.setCurrentNodeRep(runObject.environment, null);
         }
 
         // it's not a relation item, so let's start keeping track of the xpaths of the nodes we actually find, so we can figure out if we want to stop running full similarity

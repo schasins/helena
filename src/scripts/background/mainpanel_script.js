@@ -4371,7 +4371,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     }
 
-    function runInternals(runObject, options){
+    function runInternals(program, dataset, options){
+
+      // first let's make the runObject that we'll use for all the rest
+      var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
+      var runObject = {program: programCopy, dataset: dataset, environment: Environment.envRoot()};
+      var tab = RecorderUI.newRunTab(runObject); // the mainpanel tab in which we'll preview stuff
+      runObject.tab = tab;
+
       runObject.program.clearRunningState();
       // ok let's do this in a fresh window
       MiscUtilities.makeNewRecordReplayWindow(function(windowId){
@@ -4396,28 +4403,30 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.run = function _run(options){
       if (options === undefined){options = {};}
-      var dataset = new OutputHandler.Dataset(program);
-      // it's really annoying to go on without having an id, so let's wait till we have one
-      MiscUtilities.repeatUntil(function(){}, 
-		  function(){return dataset.id;},
-		  function(){
-		      adjustDatasetNameForOptions(dataset, options);
-		      var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
-		      var runObject = {program: programCopy, dataset: dataset, environment: Environment.envRoot()};
-		      var tab = RecorderUI.newRunTab(runObject); // the mainpanel tab in which we'll preview stuff
-		      runObject.tab = tab;
-		      runInternals(runObject, options);
-		  },
-		  1000);
+      if (options.dataset_id){
+        // no need to make a new dataset
+        var dataset = new OutputHandler.Dataset(program, options.dataset_id);
+        runInternals(this, dataset, options);
+      }
+      else{
+        // ok, have to make a new dataset
+        var dataset = new OutputHandler.Dataset(program);
+        // it's really annoying to go on without having an id, so let's wait till we have one
+        MiscUtilities.repeatUntil(
+          function(){}, 
+    		  function(){return dataset.id;},
+    		  function(){
+    		      adjustDatasetNameForOptions(dataset, options);
+    		      runInternals(program, dataset, options);
+    		  },
+    		  1000
+        );
+      }
     };
 
     this.restartFromBeginning = function _restartFromBeginning(runObjectOld){
       // basically same as above, but store to the same dataset (for now, dataset id also controlls which saved annotations we're looking at)
-      var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
-      var runObject = {program: programCopy, dataset: runObjectOld.dataset, environment: Environment.envRoot()};
-      var tab = RecorderUI.newRunTab(runObject);
-      runObject.tab = tab;
-      runInternals(runObject, {});
+      runInternals(runObjectOld.program, runObjectOld.dataset, {});
     };
 
     this.stopRunning = function _stopRunning(runObject){

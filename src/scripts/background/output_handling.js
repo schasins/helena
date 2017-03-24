@@ -36,6 +36,7 @@ var OutputHandler = (function _OutputHandler() {
         // awesome, we already know the associated program's id, don't need to save it now
         // although keep in mind this can mean that we'll associate a program with a dataset even though
         // the db-stored program version may not be the same one used the scrape the dataset
+        dataset.program_id = program.id;
         if (dataset.id === undefined){
           dataset.requestNewDatasetId();
         }
@@ -43,7 +44,7 @@ var OutputHandler = (function _OutputHandler() {
     };
 
   	this.requestNewDatasetId = function _requestNewDatasetId(){
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newdatasetsid', {name: this.name, program_id: this.program_id}, function(resp){dataset.handleDatasetId(resp);});
+      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newdatasetsid', {name: dataset.name, program_id: dataset.program_id}, function(resp){dataset.handleDatasetId(resp);});
     };
     this.handleDatasetId = function _handleDatasetId(resp){
     	this.id = resp.id;

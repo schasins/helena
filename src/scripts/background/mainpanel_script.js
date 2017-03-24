@@ -608,6 +608,15 @@ var RecorderUI = (function () {
     });
   };
 
+  pub.loadSavedDataset = function _loadSavedDataset(datasetId){
+    WALconsole.log("loading dataset: ", datasetId);
+    console.log('http://kaofang.cs.berkeley.edu:8080/programfordataset/'+datasetId);
+    $.get('http://kaofang.cs.berkeley.edu:8080/programfordataset/'+datasetId, {}, function(response){
+      var progId = response.program_id;
+      pub.loadSavedProgram(progId);
+    });
+  };
+
   pub.loadSavedProgram = function _loadSavedProgram(progId){
     WALconsole.log("loading program: ", progId);
     $.get('http://kaofang.cs.berkeley.edu:8080/programs/'+progId, {}, function(response){
@@ -618,7 +627,7 @@ var RecorderUI = (function () {
       $("#tabs").tabs("option", "active", 0); // make that first tab (the program running tab) active again
       pub.showProgramPreview(false); // false because we're not currently processing the program (as in, finding relations, something like that)
     });
-  }
+  };
 
   pub.updateRowsSoFar = function _updateRowsSoFar(runTabId, num){
     var div = $("#" + runTabId).find("#running_script_content");

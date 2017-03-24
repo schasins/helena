@@ -2,14 +2,19 @@ from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
 import time
+from sys import platform
 
 unpackedExtensionPath = "../src"
-#chromeDriverPath = '/Users/schasins/Downloads/chromedriver'
-chromeDriverPath = '/home/schasins/Downloads/chromedriver'
 
-#come up with a better way to manage this
-#extensionkey = "bcnlebcnondcgcmmkcnmepgnamoekjnn"
-extensionkey = "clelgfmpjhkenbpdddjihmokjgooedpl"
+
+if platform == "linux" or platform == "linux2":
+	# linux
+	chromeDriverPath = '/home/schasins/Downloads/chromedriver'
+	extensionkey = "clelgfmpjhkenbpdddjihmokjgooedpl"
+elif platform == "darwin":
+	# OS X
+	chromeDriverPath = '/Users/schasins/Downloads/chromedriver'
+	extensionkey = "bcnlebcnondcgcmmkcnmepgnamoekjnn"
 
 drivers = []
 def newDriver():
@@ -49,12 +54,10 @@ def runEntityScopeAndNoEntityScopeVersionsInParallel(programId):
 
 def blockingRepeatUntilNonFalseAnswer(lam):
 	ans = lam()
-        # print ans
-	if (not ans):
+	while (not ans):
 		time.sleep(1)
-		return blockingRepeatUntilNonFalseAnswer(lam)
-	else:
-		return ans
+		ans = lam()
+	return ans
 
 def getDatasetIdForDriver(driver):
 	getDatasetId = lambda : driver.execute_script("console.log('datasetsScraped', datasetsScraped); if (datasetsScraped.length > 0) {console.log('realAnswer', datasetsScraped[0]); return datasetsScraped[0];} else { return false;}")

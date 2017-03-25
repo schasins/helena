@@ -3,6 +3,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
 import time
 from sys import platform
+from multiprocessing import Process
 
 unpackedExtensionPath = "../src"
 
@@ -16,21 +17,19 @@ elif platform == "darwin":
 	chromeDriverPath = '/Users/schasins/Downloads/chromedriver'
 	extensionkey = "bcnlebcnondcgcmmkcnmepgnamoekjnn"
 
-drivers = []
-def newDriver():
-
+def newDriver(profile):
 	chrome_options = Options()
 	chrome_options.add_argument("--load-extension=" + unpackedExtensionPath)
+	chrome_options.add_argument("user-data-dir=profiles/" + profile)
+
 	driver = webdriver.Chrome(chromeDriverPath, chrome_options=chrome_options)
 
 	driver.get("chrome-extension://" + extensionkey + "/pages/mainpanel.html")
-
-	drivers.append(driver)
 	return driver
 
-def runScrapingProgram(progId, optionsStr):
+def runScrapingProgram(profile, progId, optionsStr):
 
-	driver = newDriver()
+	driver = newDriver(profile)
 
 	driver.execute_script("RecorderUI.loadSavedProgram(" + str(progId) + ");")
 
@@ -47,10 +46,7 @@ def runScrapingProgram(progId, optionsStr):
 	repeatUntilReadyToRun();
 	"""
 	driver.execute_script(runCurrentProgramJS)
-
-def runEntityScopeAndNoEntityScopeVersionsInParallel(programId):
-	runScrapingProgram(programId, "")
-	runScrapingProgram(programId, "{ignoreEntityScope: true}")	
+	return driver
 
 def blockingRepeatUntilNonFalseAnswer(lam):
 	ans = lam()
@@ -67,24 +63,27 @@ def getWhetherDone(driver):
 	getHowManyDone = lambda: driver.execute_script("console.log('scrapingRunsCompleted', scrapingRunsCompleted); if (scrapingRunsCompleted === 0) {return false;} else {return scrapingRunsCompleted}")
 	return blockingRepeatUntilNonFalseAnswer(getHowManyDone)
 
+
+allDatasets = []
+def runProgramThread(profile, programId, optionStr):
+	driver = runScrapingProgram(profile, programId, optionStr)
+	datasetId = getDatasetIdForDriver(driver)
+	print datasetId
+	allDatasets.append(datasetId)
+	done = getWhetherDone(driver)
+	print done
+	driver.close()
+	driver.quit()
+
 def entityScopeVsNoEntityScopeFirstRunExperiment(programIdsLs):
-	global drivers
-
-	allDatasets = []
-
 	for programId in programIdsLs:
-		runEntityScopeAndNoEntityScopeVersionsInParallel(programId)
-		datasetIds = []
-		for driver in drivers:
-			datasetIds.append(getDatasetIdForDriver(driver))
-		print datasetIds
-		allDatasets += datasetIds
-		for driver in drivers:
-			getWhetherDone(driver)
-			# note that we'll only get out of this loop once all drivers have finished the scripts they're executing
-		for driver in drivers:
-			driver.close()
-		drivers = []
+		p1 = Process(target=runProgramThread, args=("1",programId,'{}'))
+		p2 = Process(target=runProgramThread, args=("2",programId,'{ignoreEntityScope: true}'))
+		d1 = p1.start()
+		d2 = p2.start()
+		p1.join()
+		p2.join()
+		print "------"
 
 	print allDatasets
 	for datasetId in allDatasets:

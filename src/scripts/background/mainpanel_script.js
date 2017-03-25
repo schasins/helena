@@ -2628,7 +2628,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // you only need to talk to the server if you're actually going to act (skip) now on the knowledge of the duplicate
       var msg = this.serverTransactionRepresentation(runObject);
       MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/transactionexists', msg, function(resp){
-        console.log("resp", resp);
         if (resp.exists){
           // this is a duplicate, current loop iteration already done, so we're ready to skip to the next
           // so actually nothing should happen.  the whole entityscope should be a no-op
@@ -2681,7 +2680,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         rep = rep.concat(this.requiredAncestorAnnotations[i].currentTransaction);
       }
       rep = rep.concat(this.currentTransaction);
-      console.log("rep", rep);
       // todo: find better way to get prog or get dataset
       return {dataset: runObject.dataset.getId(), transaction_attributes: encodeURIComponent(JSON.stringify(rep)), annotation_id: this.dataset_specific_id};
     };

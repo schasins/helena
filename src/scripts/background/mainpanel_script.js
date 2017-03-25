@@ -1317,7 +1317,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock){
       this.block = workspace.newBlock(this.blocklyLabel);
-      this.block.setFieldValue(encodeURIComponent(this.cUrl()), "url");
+      this.block.setFieldValue(encodeURIComponent(this.cUrlString()), "url");
       this.block.setFieldValue(this.outputPageVar.toString(), "page");
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
@@ -2799,7 +2799,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.genBlocklyNode = function _genBlocklyNode(prevBlock){
       this.block = workspace.newBlock(this.blocklyLabel);
       this.block.setFieldValue(this.relation.name, "list");
-      this.block.setFieldValue(this.pageVar.toString(), "page");
+      if (this.pageVar){
+        this.block.setFieldValue(this.pageVar.toString(), "page");
+      }
       attachToPrevBlock(this.block, prevBlock);
 
       // handle the body statements

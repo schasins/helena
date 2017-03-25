@@ -2165,6 +2165,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var iterationCells = convertTextArrayToArrayOfTextCells(loopIterationCounterTexts);
       _.each(iterationCells, function(ic){cells.push(ic);});
 
+      // we're also assuming we always add the start time of the pass (as essentially a pass id)
+      var additionalCells = convertTextArrayToArrayOfTextCells([runObject.pass_start_time]);
+      _.each(additionalCells, function(ic){cells.push(ic);}); // it's just one but whatever
+
       runObject.dataset.addRow(cells); // todo: is replayscript.prog really the best way to access the prog object so that we can get the current dataset object, save data to server?
       runObject.program.mostRecentRow = cells;
 
@@ -4375,7 +4379,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       // first let's make the runObject that we'll use for all the rest
       var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
-      var runObject = {program: programCopy, dataset: dataset, environment: Environment.envRoot()};
+      var runObject = {program: programCopy, dataset: dataset, environment: Environment.envRoot(), pass_start_time: (new Date()).getTime()};
       var tab = RecorderUI.newRunTab(runObject); // the mainpanel tab in which we'll preview stuff
       runObject.tab = tab;
 

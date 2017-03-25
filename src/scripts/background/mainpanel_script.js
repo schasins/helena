@@ -3400,7 +3400,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
           // ok, the content script is supposed to prevent us from getting the same thing that it already sent before
           // but to be on the safe side, let's put in some extra protections so we don't try to advance too early
-          if (prinfo.currentRows && _.isEqual(prinfo.currentRows, data.relation)){
+          // and also so we don't get into a case where we keep getting the same thing over and over and should decide we're done but instead loop forever
+          
+          function extractUserVisibleAttributesFromRelation(rel){
+            return _.map(rel, function(row){ return _.map(row, function(d){return [d.text, d.link];})});
+          }
+
+          if (prinfo.currentRows && _.isEqual(extractUserVisibleAttributesFromRelation(prinfo.currentRows), 
+                                              extractUserVisibleAttributesFromRelation(data.relation))){
             WALconsole.namedLog("getRelationItems", "This really shouldn't happen.  We got the same relation back from the content script that we'd already gotten.");
             WALconsole.namedLog("getRelationItems", prinfo.currentRows);
             missesSoFar[frameId] += 1;

@@ -90,6 +90,6 @@ def entityScopeVsNoEntityScopeFirstRunExperiment(programIdsLs):
 		print "kaofang.cs.berkeley.edu:8080/downloaddetailed/" + str(datasetId)
 
 def main():
-	entityScopeVsNoEntityScopeFirstRunExperiment([60,63,64,65])
+	entityScopeVsNoEntityScopeFirstRunExperiment([64,65])
 
 main()

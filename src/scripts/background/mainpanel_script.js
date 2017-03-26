@@ -2152,7 +2152,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       for (var i = 0; i < this.relations.length; i++){
         var relation = this.relations[i];
         var newCells = relation.getCurrentCellsText(runObject.environment);
-        newCells = _.convertTextArrayToArrayOfTextCells(textArray);
+        newCells = convertTextArrayToArrayOfTextCells(newCells);
         cells = cells.concat(newCells);
       }
       // get all the cells that we'll get from the scrape statements
@@ -4385,8 +4385,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     function runInternals(program, dataset, options){
 
       // first let's make the runObject that we'll use for all the rest
-      var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
-      var runObject = {program: programCopy, dataset: dataset, environment: Environment.envRoot(), pass_start_time: (new Date()).getTime().toString()};
+      // for now the below is commented out to save memory, since only running one per instance
+	// var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
+      var runObject = {program: program, dataset: dataset, environment: Environment.envRoot(), pass_start_time: (new Date()).getTime().toString()};
       var tab = RecorderUI.newRunTab(runObject); // the mainpanel tab in which we'll preview stuff
       runObject.tab = tab;
 

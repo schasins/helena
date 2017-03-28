@@ -340,6 +340,8 @@ var RecorderUI = (function () {
         WALconsole.log("Done with updateDisplayedRelations table");
       })();
     }
+
+    pub.updateDuplicateDetection(); // if the relation gets updated, the preview for the duplicate detection should change
   };
 
   pub.showRelationEditor = function _showRelationEditor(relation, tabId){

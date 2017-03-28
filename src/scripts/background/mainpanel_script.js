@@ -3685,8 +3685,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.currentNodeRep = function _currentNodeRep(environment){
-      // todo: should be a better way to get env
-      return environment.envLookup(this.name);
+      return _.clone(environment.envLookup(this.name)); // don't want to let someone call this and start messing with the enviornment representation, so clone
     };
 
     this.currentText = function _currentText(environment){

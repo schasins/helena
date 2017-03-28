@@ -2645,10 +2645,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.commit = function _commit(runObject, rbbcontinuation, rbboptions){
-      var transactionMsg = this.serverTransactionRepresentation(runObject);
-      var datasetSliceMsg = runObject.dataset.datasetSlice();
-      var fullMsg = _.extend(transactionMsg, datasetSliceMsg);
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newtransactionwithdata', fullMsg);
+      if (!rbboptions.skipCommitInThisIteration){ // it could be that something has happened that will cause us to skip any commits that happen in a particular loop iteration (no node that has all required features, for example)
+        var transactionMsg = this.serverTransactionRepresentation(runObject);
+        var datasetSliceMsg = runObject.dataset.datasetSlice();
+        var fullMsg = _.extend(transactionMsg, datasetSliceMsg);
+        MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newtransactionwithdata', fullMsg);
+      }
       rbbcontinuation(rbboptions);
     };
 
@@ -4185,9 +4187,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             // but first let's get rid of that last environment frame
             WALconsole.log("rbb: preparing for next loop iteration, popping frame off environment.");
             runObject.environment = runObject.environment.parent;
+            // for the next iteration, we'll be back out of skipMode if we were in skipMode
             // and let's run loop cleanup, since we actually ran the body statements
+            // we don't skip things in the cleanup, so time to swap those off
+            options.skipMode = false;
+            options.skipCommitInThisIteration = false;
             program.runBasicBlock(runObject, loopStatement.cleanupStatements, function(){
               // and once we've done that loop body cleanup, then let's finally go ahead and go back to do the loop again!
+              WALconsole.log("Post-cleanupstatements.")
               program.runBasicBlock(runObject, loopyStatements, callback, options); 
             }, options);
           }, options);
@@ -4368,14 +4375,19 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
             // even though couldn't complete the whole trace, still need to do updatePageVars because that's how we figure out which
             // tab is associated with which pagevar, so that we can go ahead and do tab closing and back button pressing at the end
-            var trace = [];
-          _.each(basicBlockStatements, function(statement){trace = trace.concat(statement.trace);}); // want the trace with display data, not the clean trace
-            updatePageVars(trace, replayObject.record.events, function(){
+            
+            var allPageVarsOk = function(){ // this is partly the same as the other allPageVarsOk
               // in the continuation, we'll do the actual move onto the next statement
               options.skipMode = true;
-              runObject.program.runBasicBlock(runObject, loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
-            });
+              // options.skipCommitInThisIteration = true; // for now we'll assume we want to commit even if we can't find a target node
 
+              // once we're done replaying, have to replay the remainder of the script
+              program.runBasicBlock(runObject, loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
+            };
+
+            var trace = [];
+            _.each(basicBlockStatements, function(statement){trace = trace.concat(statement.trace);}); // want the trace with display data, not the clean trace
+            updatePageVars(trace, replayObject.record.events, allPageVarsOk);
           }
         }
         );

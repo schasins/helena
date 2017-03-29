@@ -4380,7 +4380,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             var allPageVarsOk = function(){ // this is partly the same as the other allPageVarsOk
               // in the continuation, we'll do the actual move onto the next statement
               options.skipMode = true;
-              // options.skipCommitInThisIteration = true; // for now we'll assume we want to commit even if we can't find a target node
+              options.skipCommitInThisIteration = true; // for now we'll assume that this means we'd want to try again in future in case something new is added
 
               // once we're done replaying, have to replay the remainder of the script
               program.runBasicBlock(runObject, loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);

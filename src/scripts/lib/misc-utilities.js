@@ -299,6 +299,23 @@ var Revival = (function _Revival(){ var pub = {};
 
 return pub; }());
 
+var Clone = (function _Clone() { var pub = {};
+
+  pub.cloneProgram = function _cloneProgram(origProgram){
+    function replacer(key, value) {
+      // filtering out the blockly block, which we can recreate from the rest of the state
+      if (key === "block") {
+        return undefined;
+      }
+      return value;
+    }
+    var programAttributes = JSOG.parse(JSOG.stringify(origProgram, replacer)); // deepcopy
+    var program = Revival.revive(programAttributes);  // copy all those fields back into a proper Program object
+    return program;
+  };
+
+return pub; }());
+
 var ServerTranslationUtilities = (function _ServerTranslationUtilities() { var pub = {};
 
   // for when we want to send a relation object to the server
@@ -344,15 +361,7 @@ var ServerTranslationUtilities = (function _ServerTranslationUtilities() { var p
 
   pub.JSONifyProgram = function _JSONifyProgram(origProgram){
     // let's start by deep copying so that we can delete stuff and mess around without messing up the real object
-    function replacer(key, value) {
-      // filtering out the blockly block, which we can recreate from the rest of the state
-      if (key === "block") {
-        return undefined;
-      }
-      return value;
-    }
-    programAttributes = JSOG.parse(JSOG.stringify(origProgram, replacer)); // deepcopy
-    var program = Revival.revive(programAttributes); // copy all those fields back into a proper Program object
+    var program = Clone.cloneProgram(origProgram);
     // relations aren't part of a JSONified program, because this is just the string part that will be going into a single db column
     // we want interesting info like what relations it uses to be stored in a structured way so we can reason about it, do interesting stuff with it
     // so blank out relations
@@ -409,6 +418,44 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
         });
     };
     sendHelper(msg);
+  };
+
+  pub.makeNewRecordReplayWindow = function _makeNewRecordReplayWindow(cont){
+    chrome.windows.getCurrent(function (currWindowInfo){
+      var right = currWindowInfo.left + currWindowInfo.width;
+      chrome.system.display.getInfo(function(displayInfoLs){
+        for (var i = 0; i < displayInfoLs.length; i++){
+          var bounds = displayInfoLs[i].bounds;
+          bounds.right = bounds.left + bounds.width;
+          WALconsole.log(bounds);
+          if (bounds.left <= right && bounds.right >= right){
+            // we've found the right display
+            var top = currWindowInfo.top - 40; // - 40 because it doesn't seem to count the menu bar and I'm not looking for a more accurate solution at the moment
+            var left = right; // let's have it adjacent to the control panel
+	      console.log(bounds.right - right, bounds.top + bounds.height - top);
+	      var width = bounds.right - right;
+	      var height = bounds.top + bounds.height - top;
+	      // for now let's actually make width and height fixed for stability across different ways of running (diff machines, diff panel sizes at start)
+	      // 1419 1185
+	     var width = 1419;
+	     var height = 1185;
+            chrome.windows.create({url: "pages/newRecordingWindow.html", focused: true, left: left, top: top, width: width, height: height}, function(win){
+              WALconsole.log("new record/replay window created.");
+              //pub.sendCurrentRecordingWindow(); // todo: should probably still send this for some cases
+              cont(win.id);
+            });
+          }
+        }
+      });
+    });
+  };
+
+  pub.currentDateString = function _currentDateString(){
+    return pub.basicDateString(new Date());
+  };
+
+  pub.basicDateString = function _basicDateString(d){
+    return d.getFullYear() + "-" + (d.getMonth()+1) + "-" + d.getDate() + "-" + d.getHours() + ":" + d.getMinutes();
   };
 
   pub.toBlocklyBoolString = function _toBlocklyBoolString(bool){
@@ -488,9 +535,10 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
     }
   };
 
-  pub.repeatUntil = function _repeatUntil(repeatFunction, untilFunction, interval, grow){
+  pub.repeatUntil = function _repeatUntil(repeatFunction, untilFunction, afterFunction, interval, grow){
     if (grow === undefined){ grow = false;}
     if (untilFunction()){
+      afterFunction();
       return;
     }
     repeatFunction();
@@ -500,7 +548,7 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
     }
     WALconsole.log("grow", grow);
     WALconsole.log("interval", nextInterval);
-    setTimeout(function(){pub.repeatUntil(repeatFunction, untilFunction, nextInterval, grow);}, interval);
+    setTimeout(function(){pub.repeatUntil(repeatFunction, untilFunction, afterFunction, nextInterval, grow);}, interval);
   };
 
   /* there are some messages that we send repeatedly from the mainpanel because we don't know whether the 

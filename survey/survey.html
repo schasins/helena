@@ -1,0 +1,171 @@
+<html>
+<head>
+<title>Finding Duplicate Data Survey</title>
+
+<script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+<link href='https://fonts.googleapis.com/css?family=Montserrat' rel='stylesheet' type='text/css'>
+
+<style>
+table, tr, td {
+	border: 1px solid #DBDBDB;
+	font-family: 'Montserrat', Trebuchet MS,Tahoma,Verdana,Arial,sans-serif;
+	font-size: 11px;
+	background-color: white;
+	padding: 2px;
+}
+table {
+	border-collapse: collapse;
+	margin: 5px;
+}
+body {
+	font-family: 'Montserrat', Trebuchet MS,Tahoma,Verdana,Arial,sans-serif;
+  background-color: #EDEDED;
+}
+.ui-button, .ui-corner-all, .ui-widget {
+	font-family: 'Montserrat', Trebuchet MS,Tahoma,Verdana,Arial,sans-serif;
+}
+#current_question_content{
+	background-color: #E8E8E8;
+	margin: 15px;
+	padding:15px;
+	border: 1px solid #DBDBDB;
+}
+</style>
+
+<script>
+$(function(){ 
+
+	function appendNextRandomizeableButton(div){
+		var button = $("<button>Next</button>");
+		button.button();
+		button.click(pickRandomizeableQuestion);
+		div.append(button);
+	}
+
+	var lastActionTime = (new Date()).getTime();
+	var clickedLink = false;
+	var currRandomizeable = null;
+	var randomizeablesSoFar = 0;
+
+	var randomizeable_question_divs = $(".randomizeable");
+
+	function pickRandomizeableQuestion(){
+		var newTime = (new Date()).getTime();
+		var passedTime = newTime - lastActionTime;
+		lastActionTime = newTime;
+		if (currRandomizeable){
+			console.log(currRandomizeable.data("name"));
+			console.log(randomizeablesSoFar);
+			randomizeablesSoFar += 1;
+		}
+		console.log("passedTime", passedTime);
+		lastUrlClicked = clickedLink;
+		clickedLink = false;
+		console.log("lastUrlClicked", lastUrlClicked);
+		console.log("---------");
+		if (randomizeable_question_divs.length === 0){
+			$("#current_question_content").html("All done!  Thank you so much for your help!");
+		}
+		else{
+			var rand = Math.floor(Math.random() * randomizeable_question_divs.length);
+			var new_question = $(randomizeable_question_divs[rand]);
+			currRandomizeable = new_question;
+			if (new_question.data("url")){
+				var url = new_question.data("url");
+				var link = $("<a href=\""+ url +"\" target=\"_blank\">"+url+"</a>");
+				link.click(function(){clickedLink = true;});
+				var urlDiv = $("<div>You can explore the data source here if you want to see more rows: </div>");
+				urlDiv.append(link);
+				new_question.append(urlDiv);
+			}
+			randomizeable_question_divs.splice(rand, 1); // remove the one we're using
+			var question_div = $("#current_question_content");
+			question_div.html(new_question);
+			appendNextRandomizeableButton(question_div);	
+		}
+	}
+
+	appendNextRandomizeableButton($("#current_question_content"));
+
+});
+
+</script>
+
+</head>
+<body>
+<h3>
+Finding Duplicate Data Survey
+</h3>
+
+	<div id="current_question_content">
+		<div>
+		Are you a programmer?
+		</div>
+		<table>
+		<tr><td>No, I'm not a programmer.</td></tr>
+		<tr><td>Yes, I'm a programmer.</td></tr>
+		</table>
+	</div>
+
+
+<div id="randomizeable_question_divs" style="display:none">
+
+<div class="randomizeable" data-name="twitterfoundations">
+Charitable Foundations
+<table><tbody><tr><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td></tr><tr><td>foundation_rank</td><td>name</td><td>name_alternate</td><td>url</td><td>url_2</td></tr><tr><td>1</td><td>Bill &amp; Melinda Gates Foundation</td><td>Gates Foundation, Bill &amp; Melinda</td><td>https://twitter.com/gatesfoundation/with_replies</td><td>https://twitter.com/gatesfoundation/</td></tr></tbody></table>
+</div>
+
+<div class="randomizeable" data-name="zimride">
+Zimride Carpool Listing
+<table><tbody><tr><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td></tr><tr><td>carpool_endpoints</td><td>user_name</td><td>carpool_times</td><td>driver_or_passenger</td><td>carpool_days</td></tr><tr><td>Bothell<br>To and From<br>Seattle</td><td>Sam V</td><td>Commute MTWTF 6:00am / 4:15pm ±30m</td><td>passenger</td><td>Sam takes this trip every<br>                                                                                                            Mon,                                                                                                                                                Tue,                                                                                                                                                Wed,                                                                                                                                                Thu,                                                                                                                                                Fri</td></tr></tbody></table>
+</div>
+
+<div class="randomizeable" data-name="communityfoundations">
+Community Foundations
+<table><tbody><tr><td><input type="checkbox"></td><td><input type="checkbox"></td></tr><tr><td>foundation_id</td><td>foundation_url</td></tr><tr><td>2</td><td>http://communityfoundationatlas.org/explore/#foundation=2</td></tr></tbody></table>
+</div>
+
+<div class="randomizeable" data-name="restaurants" data-url="https://www.yelp.com/search?find_desc=Restaurants&find_loc=Seattle%2C+WA&ns=1">
+Restaurant
+<table><tbody><tr><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td></tr>
+<tr><td>restaurant_name</td><td>restaurant_link</td><td>phone_number</td><td>featured_quote</td><td>address</td><td>neighborhood</td><td>price_range</td><td>genres</td><td>num_reviews</td><td>average_rating</td></tr>
+<tr><td>Paseo Caribbean Food - Fremont</td><td>https://www.yelp.com/biz/paseo-caribbean-food-fremont-seattle-2?osq=Restaurants</td><td>(206) 545-7440</td><td>It is that good, even for vegetarians. &nbsp;The tofu is perfectly seasoned over a bed of rice with a rich tomato sauce and refreshing salad. The side of black beans is more of a soupy…<br>read more</td><td>4225 Fremont Ave N<br>Seattle, WA 98103</td><td>Fremont</td><td>$</td><td>Caribbean<br>,<br>Cuban<br>,<br>Sandwiches</td><td>4325 reviews</td><td>4.5 star rating</td></tr></tbody></table>
+</div>
+
+------
+
+<div class="randomizeable" data-name="tweets" data-url="https://twitter.com/gatesfoundation?lang=en">
+Tweets
+<table><tbody><tr><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td>
+</tr><tr><td>name text</td><td>name link</td><td>in_text_link text</td><td>in_text_link link</td><td>hearts text</td><td>hearts link</td><td>retweets text</td><td>retweets link</td><td>text text</td><td>text link</td><td>date_posted text</td><td>date_posted link</td><td>username text</td><td>username link</td></tr>
+<tr><td>Gates Foundation</td><td></td><td></td><td></td><td>199</td><td></td><td>163</td><td></td><td>It's<br>#<br>IWD2017<br>and 225 million women in the developing world still don't have access to contraceptives. Four families share why it's so vital<br>pic.twitter.com/P7eS5EjXxh</td><td></td><td>3 h</td><td>https://twitter.com/gatesfoundation/status/839462156013690881</td><td>gatesfoundation</td><td></td></tr></tbody></table>
+</div>
+
+<div class="randomizeable" data-name="reviews" data-url="https://www.yelp.com/biz/paseo-caribbean-food-fremont-seattle-2?osq=Restaurants">
+Restaurant Review
+<table><tbody><tr><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td></tr><tr><td>text text</td><td>text link</td><td>date text</td><td>date link</td><td>rating text</td><td>rating link</td><td>reviewer_city text</td><td>reviewer_city link</td><td>reviewer text</td><td>reviewer link</td></tr><tr><td>It is that good, even for vegetarians.<br>The tofu is perfectly seasoned over a bed of rice with a rich tomato sauce and refreshing salad. The side of black beans is more of a soupy mixture that tastes delicious when drizzled over the rest of the food. Even the corn on the cob was worth eating.<br>Rightly so, the place filled in quickly so plan on getting there during a non-busy hour or taking this to go. Whatever you do, just make sure you get there.</td><td></td><td>3/11/2017</td><td></td><td>5.0 star rating</td><td></td><td>Seattle, WA</td><td></td><td>Katy H.</td><td>https://www.yelp.com/user_details?userid=VGPcMHDu2Ni0qzJtlprNXw</td></tr></tbody></table>
+</div>
+
+<div class="randomizeable" data-name="menuitems" data-url="https://www.yelp.com/menu/paseo-caribbean-food-fremont-seattle-2">
+Menu Item
+<table><tbody><tr><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td></tr><tr><td>photos text</td><td>photos link</td><td>reviews text</td><td>reviews link</td><td>description text</td><td>description link</td><td>price text</td><td>price link</td><td>name text</td><td>name link</td></tr><tr><td>18 photos</td><td>https://www.yelp.com/menu/paseo-caribbean-food-fremont-seattle-2/item/grilled-pork</td><td>130 reviews</td><td>https://www.yelp.com/menu/paseo-caribbean-food-fremont-seattle-2/item/grilled-pork#menu-reviews</td><td>cubed pork loin grilled over lava rocks &amp; basted w/ paseo marinade until golden brown.</td><td></td><td>$8.50</td><td></td><td>Grilled Pork</td><td></td></tr></tbody></table>
+</div>
+
+<div class="randomizeable" data-name="craigslist" data-url="https://seattle.craigslist.org/search/apa">
+Craigslist Listing
+<table><tbody><tr><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td></tr><tr><td>relation_1_item_5 text</td><td>relation_1_item_5 link</td><td>relation_1_item_3 text</td><td>relation_1_item_3 link</td><td>relation_1_item_1 text</td><td>relation_1_item_1 link</td><td>relation_1_item_6 text</td><td>relation_1_item_6 link</td><td>relation_1_item_4 text</td><td>relation_1_item_4 link</td><td>relation_1_item_2 text</td><td>relation_1_item_2 link</td></tr><tr><td>$1465<br>1br -<br>                    580ft<br>2<br>-<br>(Downtown Bellevue)<br>pic<br>map<br>hide this posting<br>restore<br>restore this posting</td><td></td><td>$1465</td><td></td><td>Feb 21</td><td></td><td>(Downtown Bellevue)</td><td></td><td>1br -<br>                    580ft<br>2<br>-</td><td></td><td>Studio w/ Den and Patio! Available March 4th!</td><td>https://seattle.craigslist.org/est/apa/6014028599.html</td></tr></tbody></table>
+</div>
+
+Example Table
+<table>
+	<tr><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td><td><input type="checkbox"></td></tr>
+	<tr><td>name text</td><td>age text</td><td>birthday text</td><td>phone_number text</td></tr>
+	<tr><td>Alice</td><td>38</td><td>Feb 2, 1979</td><td>555-555-5555</td></tr>
+</table>
+
+	</div>
+</body>
+</html>

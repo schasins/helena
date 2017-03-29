@@ -766,6 +766,8 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       if (currentSelectorToEdit.relation.length < 1){
         // ugh, but maybe the page just hasn't really finished loading, so try again in a sec
         setTimeout(editingSetup, 1000);
+	// but also need to send the editing colors just in case
+	// pub.sendSelector(currentSelectorToEdit);
         return;
       }
       pub.highlightSelector(currentSelectorToEdit);
@@ -1264,6 +1266,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       // this check should now be unnecessary.  todo: clean it up!
       // data still looks the same as it looked before.  no new items yet.
       console.log("No new items yet because the data is actualy equal");
+      console.log(crd, relationData);
       return {type: RelationItemsOutputs.NONEWITEMSYET, relation: null};
     }
     // whee, we have some new stuff.  we can update the state

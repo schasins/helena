@@ -781,7 +781,7 @@ var Replay = (function ReplayClosure() {
     },
     /* Given an event, find the corresponding port */
     getMatchingPort: function _getMatchingPort(v) {
-      var gpmdebug = true;
+      var gpmdebug = false;
       if (gpmdebug) {console.log("gpm: _getMatchingPort: ",v);}
       var portMapping = this.portMapping;
       var tabMapping = this.tabMapping;

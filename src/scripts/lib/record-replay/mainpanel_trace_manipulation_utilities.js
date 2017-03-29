@@ -4,7 +4,9 @@ var ReplayTraceManipulation = (function() { var pub = {};
 		targetXpath = targetXpath.toUpperCase();
 		for (var i = 0; i< trace.length; i++){
 			if (trace[i].type !== "dom"){ continue;}
-			xpath = trace[i].target.xpath.toUpperCase();
+			var xpathStr = trace[i].target.xpath
+			if (! xpathStr.toUpperCase){ continue;} // sometimes it's a parameterized node, not a normal node
+			var xpath = xpathStr.toUpperCase();
 			if (xpath === targetXpath){
 				WALconsole.log("requiring stability of feature", feature, targetXpath);
 				if (!trace[i].target.requiredFeatures){

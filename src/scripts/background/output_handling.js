@@ -1,7 +1,8 @@
 var OutputHandler = (function _OutputHandler() {
   var pub = {};
 
-  pub.Dataset = function _Dataset(id){
+  pub.Dataset = function _Dataset(program, id){
+
   	this.id = id;
 
   	this.fullDatasetLength = 0;
@@ -9,18 +10,62 @@ var OutputHandler = (function _OutputHandler() {
     this.currentDatasetPositionLists = [];
   	this.currentDatasetSliceLength = 0;
 
+    this.name = program.name + "_" + MiscUtilities.currentDateString();
+
   	var dataset = this;
 
+    this.setup = function _setup(){
+      if (!program.id){
+        if (program === ReplayScript.prog){
+          RecorderUI.save(function(progId){
+            // ok good, now we have a program id
+            dataset.program_id = progId;
+            // now let's actually make the new dataset on the server
+            if (dataset.id === undefined){
+              // this is a dataset we're about to create, not one that we've already saved
+              dataset.requestNewDatasetId();
+            }
+          });
+        }
+        else{
+          WALconsole.warn("Yo, this is going to fail to save a dataset, because we haven't put in a good way to save a prog (with it's name!) outside of recorderui yet.");
+          // todo: actually do that.  fix that
+        }
+      }
+      else{
+        // awesome, we already know the associated program's id, don't need to save it now
+        // although keep in mind this can mean that we'll associate a program with a dataset even though
+        // the db-stored program version may not be the same one used the scrape the dataset
+        dataset.program_id = program.id;
+        if (dataset.id === undefined){
+          dataset.requestNewDatasetId();
+        }
+      }
+    };
+
   	this.requestNewDatasetId = function _requestNewDatasetId(){
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newdatasetsid', {}, function(resp){dataset.handleDatasetId(resp);});
+      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newdatasetsid', {name: dataset.name, program_id: dataset.program_id}, function(resp){dataset.handleDatasetId(resp);});
     };
     this.handleDatasetId = function _handleDatasetId(resp){
     	this.id = resp.id;
     };
-    if (this.id === undefined){
-    	// this is a dataset we're about to create, not one that we've already saved
-  		this.requestNewDatasetId();
+
+    this.appendToName = function _appendToName(str){
+      this.name = this.name + str;
+      if (this.id){
+        // ok, we can go ahead and send the update now
+        this.updateDatasetOnServer();
+      }
+      else{
+        // better wait a while until we actually have that id
+        setTimeout(function(){dataset.updateDatasetOnServer();}, 1000);
+      }
     }
+
+    this.updateDatasetOnServer = function _updateDatasetOnServer(){
+      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/updatedataset', {id: this.id, name: this.name, program_id: this.program_id});
+    }
+
 
     // how we'll grab out the components in the server
     // nodes = JSON.parse(URI.decode(params[:nodes]))
@@ -56,7 +101,6 @@ var OutputHandler = (function _OutputHandler() {
     	}
     	this.currentDatasetSliceLength += 1;
     	this.fullDatasetLength += 1;
-      RecorderUI.updateRowsSoFar(this.fullDatasetLength);
     	if (this.currentDatasetSliceLength % 10 === 0){
         // note that the inclusion of this sendDatasetSlice call means that if we have a transaction with 10 output calls, we can actually save output without
         // committing.  this definitely undermines the current stated semantics of output in the presence of transactions/entityScope construct.
@@ -98,6 +142,8 @@ var OutputHandler = (function _OutputHandler() {
     this.getId = function _getId(){
       return this.id;
     };
+
+    this.setup();
   };
 
 

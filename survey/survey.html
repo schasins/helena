@@ -157,6 +157,26 @@ $(function(){
 			navigation_div.html("");
 			appendNextButton(navigation_div);	
 			question_div.html($("#programmer_question").html());
+
+			if (isProgrammer){
+				question_div.find("#programmer_i").attr("checked", true);
+			}
+			else{
+				question_div.find("#nonprogrammer_i").attr("checked", true);
+			}
+
+			question_div.find("#nonprogrammer").click(function(){
+				isProgrammer = false;
+				question_div.find("#programmer_i").attr("checked", false);
+				question_div.find("#nonprogrammer_i").attr("checked", true);
+				console.log(isProgrammer);
+			});
+			question_div.find("#programmer").click(function(){
+				isProgrammer = true;
+				question_div.find("#nonprogrammer_i").attr("checked", false);
+				question_div.find("#programmer_i").attr("checked", true);
+				console.log(isProgrammer);
+			});
 			return;
 		}
 
@@ -250,8 +270,8 @@ Finding Duplicate Data Survey
 	Are you a programmer?
 	</div>
 	<table>
-	<tr><td>No, I'm not a programmer.</td></tr>
-	<tr><td>Yes, I'm a programmer.</td></tr>
+	<tr id="nonprogrammer"><td><input id="nonprogrammer_i" type="radio" name="programmer" value="nonprogrammer"> No, I'm not a programmer.</td></tr>
+	<tr id="programmer"><td><input id="programmer_i" type="radio" name="programmer" value="programmer"> Yes, I'm a programmer.</td></tr>
 	</table>
 </div>	
 

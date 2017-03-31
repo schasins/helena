@@ -2647,6 +2647,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.commit = function _commit(runObject, rbbcontinuation, rbboptions){
+      console.log("are we skipping this commit?", rbboptions.skipCommitInThisIteration);
       if (!rbboptions.skipCommitInThisIteration){ // it could be that something has happened that will cause us to skip any commits that happen in a particular loop iteration (no node that has all required features, for example)
         var transactionMsg = this.serverTransactionRepresentation(runObject);
         var datasetSliceMsg = runObject.dataset.datasetSlice();

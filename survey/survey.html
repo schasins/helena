@@ -80,7 +80,7 @@ $(function(){
 	var lastClicked = false;
 	var times = [];
 	var clickedLink = [];
-	var currentRandomizableIndex = -1; // -1 corresponds to the programmer question
+	var currentRandomizableIndex = -3; // -3 is consent, -2 corresponds to the programmer question, -1 is directions
 	var isProgrammer = false;
 
 	var randomizeable_question_divs = $(".randomizeable");
@@ -153,6 +153,12 @@ $(function(){
 		var navigation_div = $("#navigation");
 
 		if (index === -1){
+			navigation_div.html("");
+			appendNextButton(navigation_div);
+			question_div.html("Consent stuff.");
+		}
+
+		if (index === -2){
 			// put the question about programmer, not programmer back in
 			navigation_div.html("");
 			appendNextButton(navigation_div);	
@@ -178,6 +184,12 @@ $(function(){
 				console.log(isProgrammer);
 			});
 			return;
+		}
+
+		if (index === -3){
+			navigation_div.html("");
+			appendNextButton(navigation_div);
+			question_div.html($("#tutorial").html());
 		}
 
 		if (index >= jqueryDivs.length){

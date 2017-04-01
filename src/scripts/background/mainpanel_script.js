@@ -4415,6 +4415,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           runObject.dataset.closeDataset();
           scrapingRunsCompleted += 1;
           WALconsole.log("Done with script execution.");
+          var timeScraped = runObject.pass_start_time - (new Date()).getTime();
+          console.log(runObject.dataset.id, timeScraped);
           recordingWindowIds = _.without(recordingWindowIds, windowId); // take that window back out of the allowable recording set
         }, options);
       });

@@ -2453,7 +2453,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var currBodyStatementsIndex = 1;
         var bodyStatmentsLength = this.bodyStatements.length;
         var newContinuation = function(rbboptions){ // remember that rbbcontinuations must always handle options.skipMode
-          if (rbboptions.skipMode){
+          if (rbboptions.skipMode || rbboptions.breakMode){
             // executed a continue statement, so don't carry on with this if
             rbbcontinuation(rbboptions);
             return;
@@ -2534,6 +2534,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.clearRunningState = function _clearRunningState(){
+      this.currentTransaction = null;
+      this.duplicatesInARow = 0;
       return;
     }
 
@@ -2616,7 +2618,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       fn2(this);
     };
 
+    this.endOfLoopCleanup = function _endOfLoopCleanup(){
+      this.currentTransaction = null;
+      this.duplicatesInARow = 0;
+    };
+
     this.currentTransaction = null;
+    this.duplicatesInARow = 0; // make sure to set this to 0 at the beginning of a loop!
     this.run = function _run(runObject, rbbcontinuation, rbboptions){
 
       if (rbboptions.ignoreEntityScope){
@@ -2633,9 +2641,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         if (resp.exists){
           // this is a duplicate, current loop iteration already done, so we're ready to skip to the next
           // so actually nothing should happen.  the whole entityscope should be a no-op
+          entityScope.duplicatesInARow += 1;
+          if (rbboptions.breakAfterXDuplicatesInARow && entityScope.duplicatesInARow >= rbboptions.breakAfterXDuplicatesInARow){
+            // ok, we're actually in a special case, because not only are we not doing the body of the entityScope, we're actually breaking out of this loop
+            rbboptions.breakMode = true;
+          }
           rbbcontinuation(rbboptions);
         }
         else{
+          entityScope.duplicatesInARow = 0;
           // no duplicate saved, so just carry on as usual
           runObject.program.runBasicBlock(runObject, entityScope.bodyStatements, function(){
             // and when we're done with processing the bodystatements, we'll want to commit
@@ -4121,6 +4135,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var skipMode = options.skipMode;
       if (skipMode === undefined){ skipMode = false; }
       var ignoreEntityScope = options.ignoreEntityScope;
+      var breakMode = options.breakMode;
+      if (breakMode === undefined){ breakMode = false; }
       if (ignoreEntityScope === undefined){ ignoreEntityScope = false; }
       WALconsole.log("rbb", loopyStatements.length, loopyStatements);
       // first check if we're supposed to pause, stop execution if yes
@@ -4154,11 +4170,32 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var loopStatement = loopyStatements[0];
         var relation = loopStatement.relation;
 
+        function cleanupAfterLoopEnd(){
+          loopStatement.rowsSoFar = 0;
+
+          // time to run end-of-loop-cleanup on the various bodyStatements
+          loopStatement.traverse(function(statement){
+            if (statement.endOfLoopCleanup){
+              statement.endOfLoopCleanup();
+            }
+          }, function(){});
+        }
+
+        // are we actually breaking out of the loop?
+        if (breakMode){
+          WALconsole.warn("breaking out of the loop");
+          options.breakMode = false; // if we were in break mode, we're done w loop, so turn off break mode
+          cleanupAfterLoopEnd();
+          // once we're done with the loop, have to replay the remainder of the script
+          program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
+          return;
+        }
+
         // have we hit the maximum number of iterations we want to do?
         if (loopStatement.maxRows !== null && loopStatement.rowsSoFar >= loopStatement.maxRows){
           // hey, we're done!
           WALconsole.log("hit the row limit");
-          loopStatement.rowsSoFar = 0;
+          cleanupAfterLoopEnd();
           // once we're done with the loop, have to replay the remainder of the script
           program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
           return;
@@ -4168,7 +4205,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           if (!moreRows){
             // hey, we're done!
             WALconsole.log("no more rows");
-            loopStatement.rowsSoFar = 0;
+            cleanupAfterLoopEnd();
             // once we're done with the loop, have to replay the remainder of the script
             program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
             return;
@@ -4193,6 +4230,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             // we don't skip things in the cleanup, so time to swap those off
             options.skipMode = false;
             options.skipCommitInThisIteration = false;
+
+            // the main way we clean up is by running the cleanupStatements
             program.runBasicBlock(runObject, loopStatement.cleanupStatements, function(){
               // and once we've done that loop body cleanup, then let's finally go ahead and go back to do the loop again!
               WALconsole.log("Post-cleanupstatements.")
@@ -4206,7 +4245,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       else if (!ringerBased(loopyStatements[0])){
         WALconsole.log("rbb: non-Ringer-based statement.");
 
-        if (skipMode){
+        if (skipMode || breakMode){
           // in this case, when we're basically 'continue'ing, we should do nothing
           program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
           return;
@@ -4216,16 +4255,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var continuation = function(rbboptions){ 
         // remember that rbbcontinuations passed to run methods must always handle rbboptions
         // rbboptions includes skipMode to indicate whether we're continuing
-          if (rbboptions.skipMode){
-            // executed a continue statement, better stop going through this loop's statements, get back to the original callback
-            options.skipMode = true;
-            program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options); // set skipMode flag
-            return;
-          }
           // once we're done with this statement running, have to replay the remainder of the script
-          program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
+          program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, rbboptions);
         };
-        loopyStatements[0].run(runObject, continuation, options); // todo: program is passed to give access to environment.  may want a better way
+        loopyStatements[0].run(runObject, continuation, options);
         return;
       }
       else {
@@ -4241,7 +4274,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           basicBlockStatements.push(loopyStatements[i]);
         }
 
-        if (skipMode){
+        if (skipMode || breakMode){
           // in this case, when we're basically 'continue'ing, we should do nothing, so just go on to the next statement without doing anything else
           program.runBasicBlock(runObject, loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
           return;
@@ -4428,8 +4461,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     }
 
+    var recognizedOptions = ["dataset_id", "ignoreEntityScope", "breakAfterXDuplicatesInARow"];
     this.run = function _run(options){
       if (options === undefined){options = {};}
+      for (var prop in options){
+        if (recognizedOptions.indexOf(prop) < 0){
+          // woah, bad, someone thinks they're providing an option that will affect us, but we don't know what to do with it
+          // don't let them think everything's ok, especially since they probably just mispelled
+          WALconsole.warn("Woah, woah, woah.  Tried to provide option " + prop + " to program run, but we don't know what to do with it.");
+          return;
+        }
+      }
       if (options.dataset_id){
         // no need to make a new dataset
         var dataset = new OutputHandler.Dataset(program, options.dataset_id);

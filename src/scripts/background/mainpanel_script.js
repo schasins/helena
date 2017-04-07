@@ -1245,6 +1245,21 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     return foundFirstNonNull;
   }
 
+
+  function getLoopIterationCountersHelper(s, acc){
+    if (s === null || s === undefined){
+      return acc;
+    }
+    if (s instanceof WebAutomationLanguage.LoopStatement){
+      acc.unshift(s.rowsSoFar);
+    }
+    return getLoopIterationCountersHelper(s.parent, acc);
+  }
+
+  function getLoopIterationCounters(s){
+    return getLoopIterationCountersHelper(s, []);
+  }
+
   // the actual statements
 
   pub.LoadStatement = function _LoadStatement(trace){
@@ -2125,20 +2140,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         top_frame_source_url: null,
         date: null
       };
-    }
-
-    function getLoopIterationCountersHelper(s, acc){
-      if (s === null || s === undefined){
-        return acc;
-      }
-      if (s instanceof WebAutomationLanguage.LoopStatement){
-        acc.unshift(s.rowsSoFar);
-      }
-      return getLoopIterationCountersHelper(s.parent, acc);
-    }
-
-    function getLoopIterationCounters(s){
-      return getLoopIterationCountersHelper(s, []);
     }
 
     function convertTextArrayToArrayOfTextCells(textArray){
@@ -4201,6 +4202,34 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           return;
         }
 
+        // if we're going to simulate an error at any point, is this the point?
+        if (options.simulateError){
+          var targetIterations = options.simulateError;
+          var currentIterations = getLoopIterationCounters(loopStatement); // gets the iterations of this loop and any ancestor loops
+          // first make sure we're actually on the right loop.  no need to check if we're still on the outermost loop but breaking in the innermost
+          if (currentIterations.length >= targetIterations.length){
+            // ok, that last loop is the one we're about to run, including upping the rowsSoFar counter, so up that now.  no need to fetch row if we're supposed to error now
+            currentIterations[currentIterations.length - 1] = currentIterations[currentIterations.length - 1] + 1;
+            // now that we know we're at the right loop or deeper, let's check...
+            var timeToError = true;
+            for (var i = 0; i < targetIterations.length; i++){
+              if (currentIterations[i] < targetIterations[i]){
+                timeToError = false; // ok, we're not there yet
+                break;
+              }
+            }
+            // at this point, only if all loops were greater than or equal to the target number of iterations will timeToError be true
+            if (timeToError){
+              // remember, when we rerun, don't error anymore!  don't want an infinite loop.
+              options.simulateError = false;
+              // all other options should be the same, except that we shouldn't simulate the error anymore and must make sure to use the same dataset
+              options.dataset_id = runObject.dataset.id;
+              runObject.program.run(options); 
+              return; // don't run any of the callbacks for this old run!  we're done with it!
+            }
+          }
+        }
+
         loopStatement.relation.getNextRow(loopStatement.pageVar, function(moreRows){
           if (!moreRows){
             // hey, we're done!
@@ -4459,9 +4488,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (options.ignoreEntityScope){
         dataset.appendToName("_ignoreEntityScope");
       }
+      if (options.nameAddition){
+        dataset.appendToName(options.nameAddition); // just for scripts that want more control of how it's saved
+      }
     }
 
-    var recognizedOptions = ["dataset_id", "ignoreEntityScope", "breakAfterXDuplicatesInARow"];
+    var internalOptions = ["skipMode", "breakMode", "skipCommitInThisIteration"];
+    var recognizedOptions = ["dataset_id", "ignoreEntityScope", "breakAfterXDuplicatesInARow", "nameAddition", "simulateError"];
     this.run = function _run(options){
       if (options === undefined){options = {};}
       for (var prop in options){
@@ -4469,7 +4502,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // woah, bad, someone thinks they're providing an option that will affect us, but we don't know what to do with it
           // don't let them think everything's ok, especially since they probably just mispelled
           WALconsole.warn("Woah, woah, woah.  Tried to provide option " + prop + " to program run, but we don't know what to do with it.");
-          return;
+          if (internalOptions.indexOf(prop) > -1){
+            // ok, well an internal prop sneaking in is ok, so we'll just provide a warning.  otherwise we're actually going to stop
+            WALconsole.warn("Ok, we're allowing it because it's an internal option, but we're not happy about it.");
+          }
+          else{
+            return;
+          }
         }
       }
       if (options.dataset_id){
@@ -4494,7 +4533,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.restartFromBeginning = function _restartFromBeginning(runObjectOld){
-      // basically same as above, but store to the same dataset (for now, dataset id also controlls which saved annotations we're looking at)
+      // basically same as above, but store to the same dataset (for now, dataset id also controls which saved annotations we're looking at)
       runInternals(runObjectOld.program, runObjectOld.dataset, {});
     };
 

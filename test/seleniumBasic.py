@@ -68,10 +68,10 @@ allDatasets = []
 def runProgramThread(profile, programId, optionStr):
 	driver = runScrapingProgram(profile, programId, optionStr)
 	datasetId = getDatasetIdForDriver(driver)
-	print datasetId
+	print programId, datasetId
 	allDatasets.append(datasetId)
 	done = getWhetherDone(driver)
-	print done
+	print programId, done
 	driver.close()
 	driver.quit()
 
@@ -89,7 +89,34 @@ def entityScopeVsNoEntityScopeFirstRunExperiment(programIdsLs):
 	for datasetId in allDatasets:
 		print "kaofang.cs.berkeley.edu:8080/downloaddetailed/" + str(datasetId)
 
+def recoveryExperiment(programIdsLs, simulatedErrorLocs):
+	for j in range(3): # do three runs
+		for programId in programIdsLs:
+			for i in range(len(simulatedErrorLocs[programId])):
+				errorLoc = simulatedErrorLocs[programId][i]
+				simulateErrorIndexesStr = str(errorLoc)
+
+				p1 = Process(target=runProgramThread, args=("1",programId,'{nameAddition: "+naive+loc'+str(i)+'+run'+str(j)+'", ignoreEntityScope: true, simulateError:'+ simulateErrorIndexesStr + '}')) # naive recovery strategy
+				p2 = Process(target=runProgramThread, args=("2",programId,'{nameAddition: "+escope+loc'+str(i)+'+run'+str(j)+'", simulateError:'+ simulateErrorIndexesStr + '}')) # our recovery strategy
+				p3 = Process(target=runProgramThread, args=("1",programId,'{nameAddition: "+ideal+loc'+str(i)+'+run'+str(j)+'"}')) # the perfect ideal recovery strategy, won't encounter simulated error
+				d1 = p1.start()
+				d2 = p2.start()
+				d3 = p3.start()
+				p1.join()
+				p2.join()
+				p3.join()
+				print "------"
+
+	print allDatasets
+	for datasetId in allDatasets:
+		print "kaofang.cs.berkeley.edu:8080/downloaddetailed/" + str(datasetId)
+
+
 def main():
-	entityScopeVsNoEntityScopeFirstRunExperiment([64,65])
+	programIds = [127]
+	simulatedErrorLocs = {
+		127: [[1,30], [2,50], [5,10]]
+	}
+	recoveryExperiment(programIds, simulatedErrorLocs)
 
 main()

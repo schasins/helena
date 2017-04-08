@@ -4493,7 +4493,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     }
 
-    var internalOptions = ["skipMode", "breakMode", "skipCommitInThisIteration"];
+    var internalOptions = ["skipMode", "breakMode", "skipCommitInThisIteration"]; // wonder if these shouldn't be moved to runObject instead of options.  yeah.  should do that.
     var recognizedOptions = ["dataset_id", "ignoreEntityScope", "breakAfterXDuplicatesInARow", "nameAddition", "simulateError"];
     this.run = function _run(options){
       if (options === undefined){options = {};}

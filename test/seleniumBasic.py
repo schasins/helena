@@ -134,9 +134,12 @@ def recoveryExperiment(programIdsLs, simulatedErrorLocs):
                                 print "------"
 
 def main():
-	programIds = [127]
+	programIds = [128,\ # community foundations
+                      129,\ # twitter
+        ]
 	simulatedErrorLocs = {
-		127: [[1,30], [1,50], [1,70]]
+		128: [[27], [54], [81]],
+                129: [[1,608], [2,409], [3,192]]
 	}
 	recoveryExperiment(programIds, simulatedErrorLocs)
 

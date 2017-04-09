@@ -12,6 +12,8 @@ var OutputHandler = (function _OutputHandler() {
 
     this.name = program.name + "_" + MiscUtilities.currentDateString();
 
+    this.pass_start_time = (new Date()).getTime();
+
   	var dataset = this;
 
     this.setup = function _setup(){
@@ -114,7 +116,7 @@ var OutputHandler = (function _OutputHandler() {
 
     // note!  calling this doesn't just get the server representation of the current slice.  it also clears out the current cache
     this.datasetSlice = function _datasetSlice(){
-      var msg = {id: this.id, position_lists: JSON.stringify(this.currentDatasetPositionLists), nodes: encodeURIComponent(JSON.stringify(this.currentDatasetNodes))};
+      var msg = {id: this.id, pass_start_time: this.pass_start_time, position_lists: JSON.stringify(this.currentDatasetPositionLists), nodes: encodeURIComponent(JSON.stringify(this.currentDatasetNodes))};
       this.currentDatasetNodes = [];
       this.currentDatasetPositionLists = [];
       this.currentDatasetSliceLength = 0;

@@ -2168,10 +2168,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var iterationCells = convertTextArrayToArrayOfTextCells(loopIterationCounterTexts);
       _.each(iterationCells, function(ic){cells.push(ic);});
 
-      // we're also assuming we always add the start time of the pass (as essentially a pass id)
-      var additionalCells = convertTextArrayToArrayOfTextCells([runObject.pass_start_time]);
-      _.each(additionalCells, function(ic){cells.push(ic);}); // it's just one but whatever
-
       runObject.dataset.addRow(cells); // todo: is replayscript.prog really the best way to access the prog object so that we can get the current dataset object, save data to server?
       runObject.program.mostRecentRow = cells;
 
@@ -4462,7 +4458,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // first let's make the runObject that we'll use for all the rest
       // for now the below is commented out to save memory, since only running one per instance
 	// var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
-      var runObject = {program: program, dataset: dataset, environment: Environment.envRoot(), pass_start_time: (new Date()).getTime().toString()};
+      var runObject = {program: program, dataset: dataset, environment: Environment.envRoot()};
       var tab = RecorderUI.newRunTab(runObject); // the mainpanel tab in which we'll preview stuff
       runObject.tab = tab;
 
@@ -4477,7 +4473,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           runObject.dataset.closeDataset();
           scrapingRunsCompleted += 1;
           WALconsole.log("Done with script execution.");
-          var timeScraped = parseInt(runObject.pass_start_time) - (new Date()).getTime();
+          var timeScraped = parseInt(dataset.pass_start_time) - (new Date()).getTime();
           console.log(runObject.dataset.id, timeScraped);
           recordingWindowIds = _.without(recordingWindowIds, windowId); // take that window back out of the allowable recording set
         }, options);

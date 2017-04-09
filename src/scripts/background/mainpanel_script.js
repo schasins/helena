@@ -147,9 +147,9 @@ var RecorderUI = (function () {
     readjustFunc();
   };
 
-  pub.run = function _run(options){
+  pub.run = function _run(){
     // run whichever program is currently being displayed (so ReplayScript.prog)
-    ReplayScript.prog.run(options);
+    ReplayScript.prog.run({});
   };
 
 

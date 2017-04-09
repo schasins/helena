@@ -4530,7 +4530,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.restartFromBeginning = function _restartFromBeginning(runObjectOld){
       // basically same as above, but store to the same dataset (for now, dataset id also controls which saved annotations we're looking at)
-      runInternals(runObjectOld.program, runObjectOld.dataset, {});
+      runObjectOld.program.run({dataset_id: runObjectOld.dataset});
     };
 
     this.stopRunning = function _stopRunning(runObject){

@@ -6,6 +6,7 @@ from sys import platform
 from multiprocessing import Process, Queue
 import traceback
 import logging
+import numpy as np
 
 unpackedExtensionPath = "../src"
 
@@ -106,6 +107,7 @@ class RunProgramProcess(Process):
                 super(RunProgramProcess, self).terminate()
                 
 
+"""
 def entityScopeVsNoEntityScopeFirstRunExperiment(programIdsLs):
 	for programId in programIdsLs:
                 allDatasets = Queue()
@@ -120,6 +122,27 @@ def entityScopeVsNoEntityScopeFirstRunExperiment(programIdsLs):
 	print allDatasets
 	for datasetId in allDatasets:
 		print "kaofang.cs.berkeley.edu:8080/downloaddetailed/" + str(datasetId)
+
+"""
+
+def joinProcesses(procs, timeoutInSeconds):
+        pnum = len(procs)
+        bool_list = [True]*pnum
+        start = time.time()
+        while time.time() - start <= timeoutInSeconds:
+                for i in range(pnum):
+                        bool_list[i] = procs[i].is_alive()
+                if np.any(bool_list):
+                        time.sleep(1)
+                else:
+                        return True
+        else:
+                print "timed out, killing all processes", time.time() - start
+                for p in procs:
+                        p.terminate()
+                        p.join()
+                        return False
+   
 
 def recoveryExperiment(programIdsLs, simulatedErrorLocs):
         allDatasetsAllIterations = []
@@ -137,25 +160,13 @@ def recoveryExperiment(programIdsLs, simulatedErrorLocs):
                                         p2 = RunProgramProcess(allDatasets,"2",programId,'{nameAddition: "+escope+loc'+str(i)+'+run'+str(j)+'", simulateError:'+ simulateErrorIndexesStr + '}') # our recovery strategy
                                         p3 = RunProgramProcess(allDatasets,"3",programId,'{nameAddition: "+ideal+loc'+str(i)+'+run'+str(j)+'"}') # the perfect ideal recovery strategy, won't encounter simulated error
                                         p4 = RunProgramProcess(allDatasets,"4",programId,'{nameAddition: "+ideal+loc'+str(i)+'+run'+str(j)+'", ignoreEntityScope: true}') # an alternative perfect ideal recovery strategy, won't encounter simulated error, but also won't use entityScope
-                                        for p in [p1,p2,p3,p4]:
+                               
+                                        procs = [p1,p2,p3,p4]
+                                        for p in procs:
                                                 p.start()
-
-                                        p1.join(timeout=2600)
-                                        p2.join(timeout=0)
-                                        p3.join(timeout=0)
-                                        p4.join(timeout=0)
-
-                                        noErrorsRunComplete = True
-                                        for p in [p1,p2,p3,p4]:
-                                                if (p.is_alive()):
-                                                        noErrorsRunComplete = False
-                                                        
-                                                        for p2 in [p1,p2,p3,p4]:
-                                                                if (p2.is_alive()):
-                                                                        p2.terminate()
-                                                        # go back and try again
-                                                        print "ugh, one of them ran too long.  we'll try again."
-                                                        break
+                                        
+                                        # below will be true if all complete within the time limit, else false
+                                        noErrorsRunComplete = joinProcesses(procs, 4000)
 
 				print "------"
 
@@ -163,7 +174,7 @@ def recoveryExperiment(programIdsLs, simulatedErrorLocs):
                                 for i in range(4):
                                         newDatasetId = allDatasets.get()
                                         allDatasetsAllIterations.append(newDatasetId)
-                                        f.write("kaofang.cs.berkeley.edu:8080/downloaddetailedmultipass/" + str(newDatasetId))
+                                        f.write("kaofang.cs.berkeley.edu:8080/downloaddetailedmultipass/" + str(newDatasetId) + "\n")
                                 f.close()
 
                                 for datasetId in allDatasetsAllIterations:
@@ -172,12 +183,14 @@ def recoveryExperiment(programIdsLs, simulatedErrorLocs):
                                 print "------"
 
 def main():
-	programIds = [128, \
-                      129, \
+	programIds = [138, \
+                      137, \
+                      128, \
         ]
 	simulatedErrorLocs = {
 		128: [[27], [54], [81]], # community foundations
-                129: [[1,608], [2,409], [3,192]] # twitter
+                137: [[1,525], [2,350], [3,175]], # twitter
+                138: [[10], [20], [30]] # craigslist
 	}
 	recoveryExperiment(programIds, simulatedErrorLocs)
 

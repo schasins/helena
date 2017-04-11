@@ -4457,8 +4457,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       // first let's make the runObject that we'll use for all the rest
       // for now the below is commented out to save memory, since only running one per instance
-	// var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
-      var runObject = {program: program, dataset: dataset, environment: Environment.envRoot()};
+	    var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
+      var runObject = {program: programCopy, dataset: dataset, environment: Environment.envRoot()};
       var tab = RecorderUI.newRunTab(runObject); // the mainpanel tab in which we'll preview stuff
       runObject.tab = tab;
 

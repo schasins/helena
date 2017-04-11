@@ -4500,7 +4500,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           WALconsole.warn("Woah, woah, woah.  Tried to provide option " + prop + " to program run, but we don't know what to do with it.");
           if (internalOptions.indexOf(prop) > -1){
             // ok, well an internal prop sneaking in is ok, so we'll just provide a warning.  otherwise we're actually going to stop
-            WALconsole.warn("Ok, we're allowing it because it's an internal option, but we're not happy about it.");
+            WALconsole.warn("Ok, we're allowing it because it's an internal option, but we're not happy about it and we're setting it to false.");
+	    options.prop = false;
           }
           else{
             return;
@@ -4547,7 +4548,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.clearRunningState = function _clearRunningState(){
       _.each(this.relations, function(relation){relation.clearRunningState();});
       _.each(this.pageVars, function(pageVar){pageVar.clearRunningState();});
-      _.each(this.loopyStatements, function(statement){statement.traverse(function(){clearRunningState();})});
+      this.traverse(function(statement){statement.clearRunningState();});
     };
 
     function paramName(statementIndex, paramType){ // assumes we can't have more than one of a single paramtype from a single statement.  should be true

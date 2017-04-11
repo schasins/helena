@@ -4471,11 +4471,24 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         datasetsScraped.push(runObject.dataset.id);
         runObject.program.runBasicBlock(runObject, runObject.program.loopyStatements, function(){
           runObject.dataset.closeDataset();
-          scrapingRunsCompleted += 1;
-          WALconsole.log("Done with script execution.");
-          var timeScraped = parseInt(dataset.pass_start_time) - (new Date()).getTime();
-          console.log(runObject.dataset.id, timeScraped);
-          recordingWindowIds = _.without(recordingWindowIds, windowId); // take that window back out of the allowable recording set
+
+          function whatToDoWhenWereDone(){
+            scrapingRunsCompleted += 1;
+            console.log("scrapingRunsCompleted", scrapingRunsCompleted);
+            WALconsole.log("Done with script execution.");
+            var timeScraped = parseInt(dataset.pass_start_time) - (new Date()).getTime();
+            console.log(runObject.dataset.id, timeScraped);
+            recordingWindowIds = _.without(recordingWindowIds, windowId); // take that window back out of the allowable recording set
+          }
+
+          // ok, now keep in mind we're not truly finished until all our data is stored, which means the dataset must have no outstanding requests
+          runObject.dataset.outstandingDataSaveRequests
+          MiscUtilities.repeatUntil(
+            function(){}, // repeatFunc is nothing.  just wait
+            function(){return runObject.dataset.outstandingDataSaveRequests === 0;}, 
+            whatToDoWhenWereDone, 
+            1000, false);
+
         }, options);
       });
     }

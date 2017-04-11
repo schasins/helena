@@ -9,6 +9,7 @@ var OutputHandler = (function _OutputHandler() {
   	this.currentDatasetNodes = [];
     this.currentDatasetPositionLists = [];
   	this.currentDatasetSliceLength = 0;
+    this.outstandingDataSaveRequests = 0;
 
     this.name = program.name + "_" + MiscUtilities.currentDateString();
 
@@ -17,6 +18,7 @@ var OutputHandler = (function _OutputHandler() {
   	var dataset = this;
 
     this.setup = function _setup(){
+      this.outstandingDataSaveRequests = 0;
       if (!program.id){
         if (program === ReplayScript.prog){
           RecorderUI.save(function(progId){
@@ -125,12 +127,19 @@ var OutputHandler = (function _OutputHandler() {
 
     this.sendDatasetSlice = function _sendDatasetSlice(handler){
       if (handler === undefined){ handler = function(){}};
+      var realHandler = function(){
+        // console.log("moving dataset.outstandingDataSaveRequests from" + dataset.outstandingDataSaveRequests + " to " + (dataset.outstandingDataSaveRequests - 1)); 
+        dataset.outstandingDataSaveRequests -= 1;
+        // and now call the user's provided handler
+        handler();
+      };
       if (this.currentDatasetSliceLength === 0){
         handler();
         return; // no need to send/save rows if we have no rows
       }
       var msg = this.datasetSlice();
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/datasetslice', msg, handler);
+      this.outstandingDataSaveRequests += 1;
+      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/datasetslice', msg, realHandler);
     };
 
     this.closeDataset = function _closeDataset(){

@@ -4209,10 +4209,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             // now that we know we're at the right loop or deeper, let's check...
             var timeToError = true;
             for (var i = 0; i < targetIterations.length; i++){
+              if (currentIterations[i] > targetIterations[i]){
+                timeToError = true; // ok, it's time.  need this case if we never hit the iteration on an inner loop, so we do the error at the start of the next loop
+                break;
+              }
               if (currentIterations[i] < targetIterations[i]){
                 timeToError = false; // ok, we're not there yet
                 break;
               }
+              // if it's equal, check the next nested loop
             }
             // at this point, only if all loops were greater than or equal to the target number of iterations will timeToError be true
             if (timeToError){

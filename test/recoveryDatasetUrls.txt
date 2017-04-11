@@ -126,3 +126,7 @@ kaofang.cs.berkeley.edu:8080/downloaddetailedmultipass/2222
 kaofang.cs.berkeley.edu:8080/downloaddetailedmultipass/2221
 kaofang.cs.berkeley.edu:8080/downloaddetailedmultipass/2223
 kaofang.cs.berkeley.edu:8080/downloaddetailedmultipass/2224
+kaofang.cs.berkeley.edu:8080/downloaddetailedmultipass/2254
+kaofang.cs.berkeley.edu:8080/downloaddetailedmultipass/2253
+kaofang.cs.berkeley.edu:8080/downloaddetailedmultipass/2255
+kaofang.cs.berkeley.edu:8080/downloaddetailedmultipass/2256

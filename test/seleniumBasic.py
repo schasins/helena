@@ -135,6 +135,7 @@ def joinProcesses(procs, timeoutInSeconds):
                 if np.any(bool_list):
                         time.sleep(1)
                 else:
+                        print "time to finish: ", time.time() - start
                         return True
         else:
                 print "timed out, killing all processes", time.time() - start
@@ -144,57 +145,73 @@ def joinProcesses(procs, timeoutInSeconds):
                         return False
    
 
+def oneConfigRun(programId, i, j, allDatasetsAllIterations, simulatedErrorLocs):
+	noErrorsRunComplete = False
+	allDatasets = None
+	while (not noErrorsRunComplete):
+		allDatasets = Queue()
+		errorLoc = simulatedErrorLocs[programId][i]
+		simulateErrorIndexesStr = str(errorLoc)
+
+		p1 = RunProgramProcess(allDatasets,"1",programId,'{nameAddition: "+naive+loc'+str(i)+'+run'+str(j)+'", ignoreEntityScope: true, simulateError:'+ simulateErrorIndexesStr + '}') # naive recovery strategy
+		p2 = RunProgramProcess(allDatasets,"2",programId,'{nameAddition: "+escope+loc'+str(i)+'+run'+str(j)+'", simulateError:'+ simulateErrorIndexesStr + '}') # our recovery strategy
+		p3 = RunProgramProcess(allDatasets,"3",programId,'{nameAddition: "+ideal+loc'+str(i)+'+run'+str(j)+'"}') # the perfect ideal recovery strategy, won't encounter simulated error
+		p4 = RunProgramProcess(allDatasets,"4",programId,'{nameAddition: "+ideal+loc'+str(i)+'+run'+str(j)+'", ignoreEntityScope: true}') # an alternative perfect ideal recovery strategy, won't encounter simulated error, but also won't use entityScope
+       
+		procs = [p1,p2,p3,p4]
+		for p in procs:
+			p.start()
+		
+		# below will be true if all complete within the time limit, else false
+		noErrorsRunComplete = joinProcesses(procs, 4000)
+
+	print "------"
+
+	f = open("recoveryDatasetUrls.txt", "a")
+	for i in range(4):
+		newDatasetId = allDatasets.get()
+		allDatasetsAllIterations.append(newDatasetId)
+		f.write("kaofang.cs.berkeley.edu:8080/downloaddetailedmultipass/" + str(newDatasetId) + "\n")
+	f.close()
+
+	for datasetId in allDatasetsAllIterations:
+		print "kaofang.cs.berkeley.edu:8080/downloaddetailedmultipass/" + str(datasetId)
+
+	print "------"
+
 def recoveryExperiment(programIdsLs, simulatedErrorLocs):
         allDatasetsAllIterations = []
 	for j in range(3): # do three runs
 		for programId in programIdsLs:
 			for i in range(len(simulatedErrorLocs[programId])):
-                                noErrorsRunComplete = False
-                                allDatasets = None
-                                while (not noErrorsRunComplete):
-                                        allDatasets = Queue()
-                                        errorLoc = simulatedErrorLocs[programId][i]
-                                        simulateErrorIndexesStr = str(errorLoc)
+                                 oneConfigRun(programId, i, j, allDatasetsAllIterations, simulatedErrorLocs)
 
-                                        p1 = RunProgramProcess(allDatasets,"1",programId,'{nameAddition: "+naive+loc'+str(i)+'+run'+str(j)+'", ignoreEntityScope: true, simulateError:'+ simulateErrorIndexesStr + '}') # naive recovery strategy
-                                        p2 = RunProgramProcess(allDatasets,"2",programId,'{nameAddition: "+escope+loc'+str(i)+'+run'+str(j)+'", simulateError:'+ simulateErrorIndexesStr + '}') # our recovery strategy
-                                        p3 = RunProgramProcess(allDatasets,"3",programId,'{nameAddition: "+ideal+loc'+str(i)+'+run'+str(j)+'"}') # the perfect ideal recovery strategy, won't encounter simulated error
-                                        p4 = RunProgramProcess(allDatasets,"4",programId,'{nameAddition: "+ideal+loc'+str(i)+'+run'+str(j)+'", ignoreEntityScope: true}') # an alternative perfect ideal recovery strategy, won't encounter simulated error, but also won't use entityScope
-                               
-                                        procs = [p1,p2,p3,p4]
-                                        for p in procs:
-                                                p.start()
-                                        
-                                        # below will be true if all complete within the time limit, else false
-                                        noErrorsRunComplete = joinProcesses(procs, 4000)
+def shortRecoveryTest(programIdsLs, simulatedErrorLocs):
+        allDatasetsAllIterations = []
+        for programId in programIdsLs:
+                oneConfigRun(programId, 0, 0, allDatasetsAllIterations, simulatedErrorLocs)
 
-				print "------"
-
-                                f = open("recoveryDatasetUrls.txt", "a")
-                                for i in range(4):
-                                        newDatasetId = allDatasets.get()
-                                        allDatasetsAllIterations.append(newDatasetId)
-                                        f.write("kaofang.cs.berkeley.edu:8080/downloaddetailedmultipass/" + str(newDatasetId) + "\n")
-                                f.close()
-
-                                for datasetId in allDatasetsAllIterations:
-                                        print "kaofang.cs.berkeley.edu:8080/downloaddetailedmultipass/" + str(datasetId)
-
-                                print "------"
 
 def main():
 	programIds = [\
+                      #147, \
                       #138, \
-                      143, \
                       #128, \
-                      139,
+                      149, \
+                      145, \
+                      146, \
+                      143 \
         ]
 	simulatedErrorLocs = {
 		128: [[27], [54], [81]], # community foundations
                 143: [[1,525], [2,350], [3,175]], # twitter
                 138: [[10], [20], [30]], # craigslist
-                139: [[1, 3038], [9, 193], [15, 66]], # yelp reviews
+                149: [[1, 3038], [9, 193], [15, 66]], # yelp reviews
+                145: [[12], [25], [37]], # yelp restaurant features
+                146: [[12,17],[25,15],[37,4]], # yelp menu items
+                147: [[13],[25],[37]] # zimride listings
 	}
-	recoveryExperiment(programIds, simulatedErrorLocs)
+	#recoveryExperiment(programIds, simulatedErrorLocs)
+        shortRecoveryTest(programIds, simulatedErrorLocs)
 
 main()

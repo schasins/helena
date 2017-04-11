@@ -4547,7 +4547,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.clearRunningState = function _clearRunningState(){
       _.each(this.relations, function(relation){relation.clearRunningState();});
       _.each(this.pageVars, function(pageVar){pageVar.clearRunningState();});
-      _.each(this.loopyStatements, function(statement){statement.clearRunningState();});
+      _.each(this.loopyStatements, function(statement){statement.traverse(function(){clearRunningState();})});
     };
 
     function paramName(statementIndex, paramType){ // assumes we can't have more than one of a single paramtype from a single statement.  should be true

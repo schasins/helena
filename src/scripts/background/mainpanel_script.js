@@ -2167,11 +2167,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var loopIterationCounterTexts = _.map(getLoopIterationCounters(this), function(i){return i.toString();});
       var iterationCells = convertTextArrayToArrayOfTextCells(loopIterationCounterTexts);
       _.each(iterationCells, function(ic){cells.push(ic);});
+      
+	// todo: why are there undefined things in here!!!!????  get rid of them.  seriously, fix that
+	cells = _.filter(cells, function(cell){return cell;});
 
       runObject.dataset.addRow(cells); // todo: is replayscript.prog really the best way to access the prog object so that we can get the current dataset object, save data to server?
       runObject.program.mostRecentRow = cells;
 
-      var displayTextCells = _.map(cells, function(cell){if (cell.scraped_attribute === "LINK"){return cell.link;} else {return cell.text;}});
+      var displayTextCells = _.map(cells, function(cell){if (!cell){return "NULL";} if (cell.scraped_attribute === "LINK"){return cell.link;} else {return cell.text;}});
       RecorderUI.addNewRowToOutput(runObject.tab, displayTextCells);
       RecorderUI.updateRowsSoFar(runObject.tab, runObject.dataset.fullDatasetLength);
     };

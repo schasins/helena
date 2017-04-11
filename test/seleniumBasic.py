@@ -142,7 +142,7 @@ def joinProcesses(procs, timeoutInSeconds):
                 for p in procs:
                         p.terminate()
                         p.join()
-                        return False
+                return False
    
 
 def oneConfigRun(programId, i, j, allDatasetsAllIterations, simulatedErrorLocs):
@@ -194,24 +194,24 @@ def shortRecoveryTest(programIdsLs, simulatedErrorLocs):
 
 def main():
 	programIds = [\
+                      143, \
+                      #151, \
                       #147, \
-                      #138, \
-                      #128, \
-                      149, \
-                      145, \
-                      146, \
-                      143 \
+                      138, \
+                      128, \
+                      #149, \
+                      145 \
         ]
 	simulatedErrorLocs = {
 		128: [[27], [54], [81]], # community foundations
                 143: [[1,525], [2,350], [3,175]], # twitter
                 138: [[10], [20], [30]], # craigslist
-                149: [[1, 3038], [9, 193], [15, 66]], # yelp reviews
-                145: [[12], [25], [37]], # yelp restaurant features
-                146: [[12,17],[25,15],[37,4]], # yelp menu items
+                149: [[1, 1903], [1, 3805], [7, 1005]], # yelp reviews
+                145: [[10], [20], [30]], # yelp restaurant features
+                151: [[12,20],[22,4],[35,7]], # yelp menu items
                 147: [[13],[25],[37]] # zimride listings
 	}
-	#recoveryExperiment(programIds, simulatedErrorLocs)
-        shortRecoveryTest(programIds, simulatedErrorLocs)
+	recoveryExperiment(programIds, simulatedErrorLocs)
+        #shortRecoveryTest(programIds, simulatedErrorLocs)
 
 main()

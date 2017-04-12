@@ -1902,7 +1902,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.toStringLines = function _toStringLines(){
       if (!this.onlyKeyups && !this.onlyKeydowns){
         // normal processing, for when there's actually a typed string
-        var stringRep = this.typedString();
+        var stringRep = this.stringRep();
         return [outputPagesRepresentation(this)+"type("+this.pageVar.toString()+", "+stringRep+")"];
       }
       else{

@@ -7,6 +7,7 @@ from multiprocessing import Process, Queue
 import traceback
 import logging
 import numpy as np
+import random
 
 unpackedExtensionPath = "../src"
 
@@ -28,12 +29,25 @@ def newDriver(profile):
 	driver = webdriver.Chrome(chromeDriverPath, chrome_options=chrome_options)
 
 	driver.get("chrome-extension://" + extensionkey + "/pages/mainpanel.html")
+	driver.execute_script("$(window.open('https://weblogin.washington.edu/'))")
+	time.sleep(10)
+	print "ready to run"
 	return driver
 
 def runScrapingProgram(profile, progId, optionsStr):
 
 	driver = newDriver(profile)
+	runScrapingProgramHelper(driver, progId, optionsStr)
 
+	return driver
+	
+def runScrapingProgramHelper(driver, progId, optionsStr):
+	driver.find_element_by_tag_name('body').send_keys(Keys.COMMAND + 't')
+	driver.get("chrome-extension://" + extensionkey + "/pages/mainpanel.html")
+	randWait = random.randint(12,17)
+	print "waiting", randWait
+	time.sleep(randWait) # ugh, bad
+	print "waited for load"
 	driver.execute_script("RecorderUI.loadSavedProgram(" + str(progId) + ");")
 
 	runCurrentProgramJS = """
@@ -49,7 +63,7 @@ def runScrapingProgram(profile, progId, optionsStr):
 	repeatUntilReadyToRun();
 	"""
 	driver.execute_script(runCurrentProgramJS)
-	return driver
+	
 
 def blockingRepeatUntilNonFalseAnswer(lam):
 	ans = lam()
@@ -68,7 +82,7 @@ def getWhetherDone(driver):
 
 class RunProgramProcess(Process):
 
-        def __init__(self, allDatasets, profile, programId, optionStr, numTriesSoFar=0):
+        def __init__(self, allDatasets, i, profile, programId, optionStr, numTriesSoFar=0):
                 super(RunProgramProcess,self).__init__()
 
                 self.allDatasets = allDatasets
@@ -76,15 +90,16 @@ class RunProgramProcess(Process):
                 self.programId = programId
                 self.optionStr = optionStr
                 self.numTriesSoFar = numTriesSoFar
-
+		self.driver = newDriver(self.profile)
                 # below is bad, but I'm going to do it anyway for time being
-                self.driver = runScrapingProgram(self.profile, self.programId, self.optionStr)
+                #self.driver = runScrapingProgram(self.profile, self.programId, self.optionStr)
 
         def run(self):
                 self.runInternals()
 
         def runInternals(self):
                 try:
+			runScrapingProgramHelper(self.driver, self.programId, self.optionStr)
                         datasetId = getDatasetIdForDriver(self.driver)
                         print self.programId, datasetId
                         self.allDatasets.put(datasetId)
@@ -153,10 +168,10 @@ def oneConfigRun(programId, i, j, allDatasetsAllIterations, simulatedErrorLocs):
 		errorLoc = simulatedErrorLocs[programId][i]
 		simulateErrorIndexesStr = str(errorLoc)
 
-		p1 = RunProgramProcess(allDatasets,"1",programId,'{nameAddition: "+naive+loc'+str(i)+'+run'+str(j)+'", ignoreEntityScope: true, simulateError:'+ simulateErrorIndexesStr + '}') # naive recovery strategy
-		p2 = RunProgramProcess(allDatasets,"2",programId,'{nameAddition: "+escope+loc'+str(i)+'+run'+str(j)+'", simulateError:'+ simulateErrorIndexesStr + '}') # our recovery strategy
-		p3 = RunProgramProcess(allDatasets,"3",programId,'{nameAddition: "+ideal+loc'+str(i)+'+run'+str(j)+'"}') # the perfect ideal recovery strategy, won't encounter simulated error
-		p4 = RunProgramProcess(allDatasets,"4",programId,'{nameAddition: "+ideal+loc'+str(i)+'+run'+str(j)+'", ignoreEntityScope: true}') # an alternative perfect ideal recovery strategy, won't encounter simulated error, but also won't use entityScope
+		p1 = RunProgramProcess(allDatasets,1, "1",programId,'{nameAddition: "+naive+loc'+str(i)+'+run'+str(j)+'", ignoreEntityScope: true, simulateError:'+ simulateErrorIndexesStr + '}') # naive recovery strategy
+		p2 = RunProgramProcess(allDatasets,2, "2",programId,'{nameAddition: "+escope+loc'+str(i)+'+run'+str(j)+'", simulateError:'+ simulateErrorIndexesStr + '}') # our recovery strategy
+		p3 = RunProgramProcess(allDatasets,3, "3",programId,'{nameAddition: "+ideal+loc'+str(i)+'+run'+str(j)+'"}') # the perfect ideal recovery strategy, won't encounter simulated error
+		p4 = RunProgramProcess(allDatasets,4, "4",programId,'{nameAddition: "+ideal+loc'+str(i)+'+run'+str(j)+'", ignoreEntityScope: true}') # an alternative perfect ideal recovery strategy, won't encounter simulated error, but also won't use entityScope
        
 		procs = [p1,p2,p3,p4]
 		for p in procs:
@@ -194,13 +209,13 @@ def shortRecoveryTest(programIdsLs, simulatedErrorLocs):
 
 def main():
 	programIds = [\
-                      143, \
+                      #143, \
                       #151, \
-                      #147, \
-                      138, \
-                      128, \
+                      152, \
+                      #138, \
+                      #128, \
                       #149, \
-                      145 \
+                      #145 \
         ]
 	simulatedErrorLocs = {
 		128: [[27], [54], [81]], # community foundations
@@ -209,7 +224,7 @@ def main():
                 149: [[1, 1903], [1, 3805], [7, 1005]], # yelp reviews
                 145: [[10], [20], [30]], # yelp restaurant features
                 151: [[12,20],[22,4],[35,7]], # yelp menu items
-                147: [[13],[25],[37]] # zimride listings
+                152: [[13],[25],[37]] # zimride listings
 	}
 	recoveryExperiment(programIds, simulatedErrorLocs)
         #shortRecoveryTest(programIds, simulatedErrorLocs)

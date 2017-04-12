@@ -4226,6 +4226,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             if (timeToError){
               // remember, when we rerun, don't error anymore!  don't want an infinite loop.
               options.simulateError = false;
+              // first close the old dataset object in order to flush all its data to the server
+              runObject.dataset.closeDataset();
+              // now restart
               // all other options should be the same, except that we shouldn't simulate the error anymore and must make sure to use the same dataset
               options.dataset_id = runObject.dataset.id;
               runObject.program.run(options); 

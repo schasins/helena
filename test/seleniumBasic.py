@@ -90,6 +90,7 @@ class RunProgramProcess(Process):
 
         def runInternals(self):
                 try:
+			print self.optionStr
 			runScrapingProgramHelper(self.driver, self.programId, self.optionStr)
                         datasetId = getDatasetIdForDriver(self.driver)
                         print self.programId, datasetId
@@ -158,6 +159,7 @@ def oneConfigRun(programId, i, j, allDatasetsAllIterations, simulatedErrorLocs):
 		allDatasets = Queue()
 		errorLoc = simulatedErrorLocs[programId][i]
 		simulateErrorIndexesStr = str(errorLoc)
+		print simulateErrorIndexesStr
 
 		p2 = RunProgramProcess(allDatasets,2, "2",programId,'{nameAddition: "+escope+loc'+str(i)+'+run'+str(j)+'", simulateError:'+ simulateErrorIndexesStr + '}') # our recovery strategy
 		p3 = RunProgramProcess(allDatasets,3, "3",programId,'{nameAddition: "+ideal+loc'+str(i)+'+run'+str(j)+'"}') # the perfect ideal recovery strategy, won't encounter simulated error
@@ -186,9 +188,9 @@ def oneConfigRun(programId, i, j, allDatasetsAllIterations, simulatedErrorLocs):
 
 	print "------"
 
-def recoveryExperiment(programIdsLs, simulatedErrorLocs):
+def recoveryExperiment(programIdsLs, simulatedErrorLocs, rounds):
         allDatasetsAllIterations = []
-	for j in range(3): # do three runs
+	for j in range(rounds): # do three runs
 		for programId in programIdsLs:
 			for i in range(len(simulatedErrorLocs[programId])):
                                  oneConfigRun(programId, i, j, allDatasetsAllIterations, simulatedErrorLocs)
@@ -202,9 +204,9 @@ def shortRecoveryTest(programIdsLs, simulatedErrorLocs):
 def main():
 	programIds = [\
                       #143, \
-                      #145, \
+                      145, \
                       #151, \
-                      152 \
+                      #152 \
                       #138, \
                       #128 \
                       #149, \
@@ -214,12 +216,13 @@ def main():
                 143: [[1,525], [2,350], [3,175]], # twitter
                 138: [[10], [20], [30]], # craigslist
                 149: [[1, 1903], [1, 3805], [7, 1005]], # yelp reviews
-                145: [[10], [20], [30]], # yelp restaurant features
+                #145: [[10], [20], [30]], # yelp restaurant features
+                145: [[10]], # yelp restaurant features the correction run
                 151: [[12,20],[22,4],[35,7]], # yelp menu items
                 #152: [[13],[25],[37]] # zimride listings
 		152: [[8]] # zimride correction run
 	}
-	recoveryExperiment(programIds, simulatedErrorLocs)
+	recoveryExperiment(programIds, simulatedErrorLocs, 3)
         #shortRecoveryTest(programIds, simulatedErrorLocs)
 
 main()

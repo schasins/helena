@@ -29,9 +29,6 @@ def newDriver(profile):
 	driver = webdriver.Chrome(chromeDriverPath, chrome_options=chrome_options)
 
 	driver.get("chrome-extension://" + extensionkey + "/pages/mainpanel.html")
-	driver.execute_script("$(window.open('https://weblogin.washington.edu/'))")
-	time.sleep(10)
-	print "ready to run"
 	return driver
 
 def runScrapingProgram(profile, progId, optionsStr):
@@ -42,12 +39,6 @@ def runScrapingProgram(profile, progId, optionsStr):
 	return driver
 	
 def runScrapingProgramHelper(driver, progId, optionsStr):
-	driver.find_element_by_tag_name('body').send_keys(Keys.COMMAND + 't')
-	driver.get("chrome-extension://" + extensionkey + "/pages/mainpanel.html")
-	randWait = random.randint(12,17)
-	print "waiting", randWait
-	time.sleep(randWait) # ugh, bad
-	print "waited for load"
 	driver.execute_script("RecorderUI.loadSavedProgram(" + str(progId) + ");")
 
 	runCurrentProgramJS = """
@@ -168,17 +159,18 @@ def oneConfigRun(programId, i, j, allDatasetsAllIterations, simulatedErrorLocs):
 		errorLoc = simulatedErrorLocs[programId][i]
 		simulateErrorIndexesStr = str(errorLoc)
 
-		p1 = RunProgramProcess(allDatasets,1, "1",programId,'{nameAddition: "+naive+loc'+str(i)+'+run'+str(j)+'", ignoreEntityScope: true, simulateError:'+ simulateErrorIndexesStr + '}') # naive recovery strategy
 		p2 = RunProgramProcess(allDatasets,2, "2",programId,'{nameAddition: "+escope+loc'+str(i)+'+run'+str(j)+'", simulateError:'+ simulateErrorIndexesStr + '}') # our recovery strategy
 		p3 = RunProgramProcess(allDatasets,3, "3",programId,'{nameAddition: "+ideal+loc'+str(i)+'+run'+str(j)+'"}') # the perfect ideal recovery strategy, won't encounter simulated error
 		p4 = RunProgramProcess(allDatasets,4, "4",programId,'{nameAddition: "+ideal+loc'+str(i)+'+run'+str(j)+'", ignoreEntityScope: true}') # an alternative perfect ideal recovery strategy, won't encounter simulated error, but also won't use entityScope
-       
-		procs = [p1,p2,p3,p4]
+		p1 = RunProgramProcess(allDatasets,1, "1",programId,'{nameAddition: "+naive+loc'+str(i)+'+run'+str(j)+'", ignoreEntityScope: true, simulateError:'+ simulateErrorIndexesStr + '}') # naive recovery strategy
+		
+		procs = [p2,p3,p4,p1]
 		for p in procs:
+			time.sleep(3) # don't overload; also, wait for thing to load
 			p.start()
 		
 		# below will be true if all complete within the time limit, else false
-		noErrorsRunComplete = joinProcesses(procs, 4000)
+		noErrorsRunComplete = joinProcesses(procs, 3600)
 
 	print "------"
 
@@ -210,12 +202,12 @@ def shortRecoveryTest(programIdsLs, simulatedErrorLocs):
 def main():
 	programIds = [\
                       #143, \
+                      #145, \
                       #151, \
-                      152, \
+                      152 \
                       #138, \
-                      #128, \
+                      #128 \
                       #149, \
-                      #145 \
         ]
 	simulatedErrorLocs = {
 		128: [[27], [54], [81]], # community foundations
@@ -224,7 +216,8 @@ def main():
                 149: [[1, 1903], [1, 3805], [7, 1005]], # yelp reviews
                 145: [[10], [20], [30]], # yelp restaurant features
                 151: [[12,20],[22,4],[35,7]], # yelp menu items
-                152: [[13],[25],[37]] # zimride listings
+                #152: [[13],[25],[37]] # zimride listings
+		152: [[8]] # zimride correction run
 	}
 	recoveryExperiment(programIds, simulatedErrorLocs)
         #shortRecoveryTest(programIds, simulatedErrorLocs)

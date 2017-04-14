@@ -152,6 +152,20 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   };
 
   pub.interpretRelationSelector = function _interpretRelationSelector(selector){
+    if (selector.selector.constructor === Array){
+      var selectorArray = selector.selector;
+      for (var i = 0; i < selectorArray.length; i++){
+        var possibleSelector = selectorArray[i];
+        selector.selector = possibleOutput;
+        var possibleOutput = pub.interpretRelationSelector(possibleOutput);
+        if (possibleOutput.length > 0){
+          selector.selector = selectorArray;
+          return possibleOutput;
+        }
+      }
+      WALconsole.warn("None of our possible selectors seems to work.");
+      return [];
+    }
     if (selector.selector.table === true){
       // let's go ahead and sidetrack off to the table extraction routine
       return pub.interpretTableSelector(selector.selector, selector.exclude_first, selector.columns);
@@ -751,6 +765,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
  **********************************************************************/
 
   var currentSelectorToEdit = null;
+  var initialSelectorEmptyOnThisPage = false;
   pub.editRelation = function _editRelation(msg){
     if (currentSelectorToEdit !== null){
       // we've already set up to edit a selector, and we should never use the same tab to edit multiples
@@ -767,8 +782,9 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         // ugh, but maybe the page just hasn't really finished loading, so try again in a sec
         //setTimeout(editingSetup, 1000);
 	// but also need to send the editing colors just in case
-	pub.sendSelector(currentSelectorToEdit);
-        //return;
+	       pub.sendSelector(currentSelectorToEdit);
+         initialSelectorEmptyOnThisPage = true;
+        return;
       }
       pub.highlightSelector(currentSelectorToEdit);
       // start with the assumption that the first row should definitely be included
@@ -856,6 +872,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     return ancestor_xpath_nodes[0];
   }
 
+  var targetsSoFar = [];
   function editingClick(event){
     if (listeningForNextButtonClick){
       // don't want to do normal editing click...
@@ -868,11 +885,19 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
     var target = event.target;
 
-    if (!currentSelectorToEdit.selector){
+    if (initialSelectorEmptyOnThisPage){
       // ok, it's empty right now, need to make a new one
-      currentSelectorToEdit.selector = pub.synthesizeFromSingleRow([target]);
-      currentSelectorToEdit = newSelector;
+      if (!currentSelectorToEdit.selectorArr){
+        currentSelectorToEdit.selectorArr = [currentSelectorToEdit.selector]
+      }
+      targetsSoFar.push(target);
+      var newSelector = pub.synthesizeFromSingleRow(targetsSoFar);
+      currentSelectorToEdit.currentIndividualSelector = newSelector
+      currentSelectorToEdit.selector = [newSelector].concat(currentSelectorToEdit.selectorArr)
+      //currentSelectorToEdit = newSelector;
       pub.newSelectorGuess(currentSelectorToEdit);
+      // and let's go back to using .selector as the current one we want to edit and play with
+      currentSelectorToEdit.selector = currentSelectorToEdit.currentIndividualSelector;
       return;
     }
 

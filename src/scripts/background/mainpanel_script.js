@@ -3632,15 +3632,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     var tabReached = false;
+    var bestLengthSoFar = 0;
     this.editSelector = function _editSelector(){
       // show the UI for editing the selector
       // we need to open up the new tab that we'll use for showing and editing the relation, and we need to set up a listener to update the selector associated with this relation, based on changes the user makes over at the content script
       tabReached = false;
+      bestLengthSoFar = 0;
       chrome.tabs.create({url: this.url, active: true}, function(tab){
         RecorderUI.showRelationEditor(relation, tab.id);
         var sendSelectorInfo = function(){utilities.sendMessage("mainpanel", "content", "editRelation", relation.messageRelationRepresentation(), null, null, [tab.id]);};
         var sendSelectorInfoUntilAnswer = function(){
-          if (tabReached){ return; } 
           sendSelectorInfo(); 
           setTimeout(sendSelectorInfoUntilAnswer, 1000);
         }
@@ -3655,9 +3656,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.selectorFromContentScript = function _selectorFromContentScript(msg){
       tabReached = true;
-      this.setNewAttributes(msg.selector, msg.selector_version, msg.exclude_first, msg.columns, msg.demonstration_time_relation, msg.num_rows_in_demo, msg.next_type, msg.next_button_selector);
-      RecorderUI.updateDisplayedRelation(this);
-      RecorderUI.setColumnColors(msg.colors, msg.columns, msg.tab_id);
+      if (msg.demonstration_time_relation.length >= bestLengthSoFar){
+        bestLengthSoFar = msg.demonstration_time_relation.length;
+        this.setNewAttributes(msg.selector, msg.selector_version, msg.exclude_first, msg.columns, msg.demonstration_time_relation, msg.num_rows_in_demo, msg.next_type, msg.next_button_selector);
+        RecorderUI.updateDisplayedRelation(this);
+        RecorderUI.setColumnColors(msg.colors, msg.columns, msg.tab_id);
+      }
     };
 
     this.clearRunningState = function _clearRunningState(){

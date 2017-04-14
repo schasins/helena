@@ -765,10 +765,10 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       pub.setRelation(currentSelectorToEdit);
       if (currentSelectorToEdit.relation.length < 1){
         // ugh, but maybe the page just hasn't really finished loading, so try again in a sec
-        setTimeout(editingSetup, 1000);
+        //setTimeout(editingSetup, 1000);
 	// but also need to send the editing colors just in case
-	// pub.sendSelector(currentSelectorToEdit);
-        return;
+	pub.sendSelector(currentSelectorToEdit);
+        //return;
       }
       pub.highlightSelector(currentSelectorToEdit);
       // start with the assumption that the first row should definitely be included

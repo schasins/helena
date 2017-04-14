@@ -3536,7 +3536,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           MiscUtilities.repeatUntil(sendGetRelationItems, function _checkDone(){return doneArray[currentGetRowsCounter] || relationItemsRetrieved[frame];},function(){}, 1000, true);
         });
         // and let's make sure that after our chosen timeout, we'll stop and just process whatever we have
-        var desiredTimeout = 90000;
+        var desiredTimeout = 30000;
         setTimeout(
           function _reachedTimeoutHandler(){
             WALconsole.namedLog("getRelationItems", "Reached timeout", currentGetRowsCounter);
@@ -4449,7 +4449,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             var allPageVarsOk = function(){ // this is partly the same as the other allPageVarsOk
               // in the continuation, we'll do the actual move onto the next statement
               options.skipMode = true;
-              options.skipCommitInThisIteration = true; // for now we'll assume that this means we'd want to try again in future in case something new is added
+              //options.skipCommitInThisIteration = true; // for now we'll assume that this means we'd want to try again in future in case something new is added
 
               // once we're done replaying, have to replay the remainder of the script
               program.runBasicBlock(runObject, loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);

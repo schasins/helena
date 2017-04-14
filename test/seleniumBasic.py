@@ -108,9 +108,12 @@ class RunProgramProcess(Process):
                                 logging.error(traceback.format_exc())
 
         def terminate(self):
-                if (self.driver):
-                        self.driver.close()
-                        self.driver.quit()
+		try:
+		    if (self.driver):
+			    self.driver.close()
+			    self.driver.quit()
+		except: # catch *all* exceptions
+		    print "tried to close driver but no luck. probably already closed"
                 super(RunProgramProcess, self).terminate()
                 
 
@@ -172,7 +175,7 @@ def oneConfigRun(programId, i, j, allDatasetsAllIterations, simulatedErrorLocs):
 			p.start()
 		
 		# below will be true if all complete within the time limit, else false
-		noErrorsRunComplete = joinProcesses(procs, 3600)
+		noErrorsRunComplete = joinProcesses(procs, 4000)
 
 	print "------"
 
@@ -190,8 +193,8 @@ def oneConfigRun(programId, i, j, allDatasetsAllIterations, simulatedErrorLocs):
 
 def recoveryExperiment(programIdsLs, simulatedErrorLocs, rounds):
         allDatasetsAllIterations = []
-	for j in range(rounds): # do three runs
-		for programId in programIdsLs:
+	for programId in programIdsLs:
+		for j in range(rounds): # do three runs
 			for i in range(len(simulatedErrorLocs[programId])):
                                  oneConfigRun(programId, i, j, allDatasetsAllIterations, simulatedErrorLocs)
 
@@ -203,22 +206,28 @@ def shortRecoveryTest(programIdsLs, simulatedErrorLocs):
 
 def main():
 	programIds = [\
-                      #143, \
-                      145, \
-                      #151, \
+                      #145, \
                       #152 \
                       #138, \
-                      #128 \
+                      #128, \
+                      #143, \
+                      #151, \
                       #149, \
+		      #154,
+		      #155
+		      158,
+		      155
         ]
 	simulatedErrorLocs = {
 		128: [[27], [54], [81]], # community foundations
-                143: [[1,525], [2,350], [3,175]], # twitter
+                #143: [[1,525], [2,350], [3,175]], # old twitter
+		155: [[2,100],[3,200],[4,300]], # new twitter
                 138: [[10], [20], [30]], # craigslist
-                149: [[1, 1903], [1, 3805], [7, 1005]], # yelp reviews
+                #149: [[1, 1903], [1, 3805], [7, 1005]], # old yelp reviews
+		154: [[4,225], [8,150], [12,75]], # new yelp reviews
                 #145: [[10], [20], [30]], # yelp restaurant features
                 145: [[10]], # yelp restaurant features the correction run
-                151: [[12,20],[22,4],[35,7]], # yelp menu items
+                158: [[10,20],[20,4],[30,7]], # yelp menu items
                 #152: [[13],[25],[37]] # zimride listings
 		152: [[8]] # zimride correction run
 	}

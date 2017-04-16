@@ -215,8 +215,9 @@ def main():
                       #149, \
 		      #154,
 		      #155
-		      158,
-		      155
+		      #158,
+		      #155,
+		      159
         ]
 	simulatedErrorLocs = {
 		128: [[27], [54], [81]], # community foundations
@@ -228,6 +229,7 @@ def main():
                 #145: [[10], [20], [30]], # yelp restaurant features
                 145: [[10]], # yelp restaurant features the correction run
                 158: [[10,20],[20,4],[30,7]], # yelp menu items
+                159: [[10,20],[20,4],[30,7]], # yelp menu items (the mac version)
                 #152: [[13],[25],[37]] # zimride listings
 		152: [[8]] # zimride correction run
 	}

@@ -437,8 +437,8 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
 	      var height = bounds.top + bounds.height - top;
 	      // for now let's actually make width and height fixed for stability across different ways of running (diff machines, diff panel sizes at start)
 	      // 1419 1185
-	     var width = 1419;
-	     var height = 1185;
+	     //var width = 1419;
+	     //var height = 1185;
             chrome.windows.create({url: "pages/newRecordingWindow.html", focused: true, left: left, top: top, width: width, height: height}, function(win){
               WALconsole.log("new record/replay window created.");
               //pub.sendCurrentRecordingWindow(); // todo: should probably still send this for some cases

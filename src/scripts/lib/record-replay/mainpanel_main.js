@@ -171,7 +171,7 @@ var PortManager = (function PortManagerClosure() {
             }
           }
         } else {
-          portLog.error('Cannot find information about tab:', tabId, tabInfo);
+          portLog.log('Cannot find information about tab:', tabId, tabInfo);
         }
       });
     }

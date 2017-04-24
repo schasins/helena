@@ -1070,11 +1070,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   function nodeRepresentation(statement, linkScraping){
     if (linkScraping === undefined){ linkScraping = false; }
     if (statement.currentNode instanceof WebAutomationLanguage.NodeVariable){
-      var nodeRep = statement.currentNode.toString();
+      var nodeRep = "<img src='"+statement.trace[0].additional.visualization+"' style='max-height: 150px; max-width: 350px;'>";
+      var strName = statement.currentNode.toString();
       if (linkScraping){
         nodeRep += ".link";
       }
-      return nodeRep;
+      return nodeRep + ", " + strName;
     }
     if (statement.trace[0].additional.visualization === "whole page"){
       return "whole page";
@@ -1887,10 +1888,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.toStringLines = function _toStringLines(){
       if (!this.onlyKeyups && !this.onlyKeydowns){
         // normal processing, for when there's actually a typed string
-        var stringRep = this.typedString();
+        var stringRep = this.stringRep();
         return [outputPagesRepresentation(this)+"type("+this.pageVar.toString()+", "+stringRep+")"];
       }
       else{
+        return [];
         var charsDict = {16: "SHIFT", 17: "CTRL", 18: "ALT", 91: "CMD"}; // note that 91 is the command key in Mac; on Windows, I think it's the Windows key; probably ok to use cmd for both
         var chars = [];
         _.each(this.keyEvents, function(ev){

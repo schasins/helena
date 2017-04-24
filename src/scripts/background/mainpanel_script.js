@@ -3536,7 +3536,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           MiscUtilities.repeatUntil(sendGetRelationItems, function _checkDone(){return doneArray[currentGetRowsCounter] || relationItemsRetrieved[frame];},function(){}, 1000, true);
         });
         // and let's make sure that after our chosen timeout, we'll stop and just process whatever we have
-        var desiredTimeout = 30000;
+        var desiredTimeout = 90000;
         setTimeout(
           function _reachedTimeoutHandler(){
             WALconsole.namedLog("getRelationItems", "Reached timeout", currentGetRowsCounter);
@@ -3607,7 +3607,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           var currentGetNextRowCounter = getNextRowCounter;
           WALconsole.namedLog("getRelationItems", currentGetNextRowCounter, "requestNext");
           utilities.sendMessage("mainpanel", "content", "runNextInteraction", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);};
-        MiscUtilities.repeatUntil(sendRunNextInteraction, function(){return runningNextInteraction;},function(){}, 1000);
+        MiscUtilities.repeatUntil(sendRunNextInteraction, function(){return runningNextInteraction;},function(){}, 1000, true);
       }
       else {
         // we still have local rows that we haven't used yet.  just advance the counter to change which is our current row
@@ -3789,7 +3789,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           function(){utilities.sendMessage("mainpanel", "content", "pageStats", {}, null, null, [tabId], null);}, 
           function(){return that.currentTabIdPageStatsRetrieved;},
 	  function(){},
-          1000);
+          1000, true);
       }
       else{
         continuation();
@@ -4552,7 +4552,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     		      adjustDatasetNameForOptions(dataset, options);
     		      runInternals(program, dataset, options);
     		  },
-    		  1000
+    		  1000, true
         );
       }
     };

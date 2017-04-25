@@ -62,12 +62,22 @@ function getFeatures(element){
   var text = element.textContent;
   info.textContent = text;
   var trimmedText = text.trim();
-  info.firstWord = trimmedText.slice(0,trimmedText.indexOf(" "));
-  info.lastWord = trimmedText.slice(trimmedText.lastIndexOf(" "),trimmedText.length);
+
+  var firstSpaceInd = trimmedText.indexOf(" ");
+  if (firstSpaceInd > -1){
+      info.firstWord = trimmedText.slice(0,firstSpaceInd);
+      var secondSpaceInd = trimmedText.indexOf(" ", firstSpaceInd + 1);
+      info.firstTwoWords = trimmedText.slice(0,secondSpaceInd);
+      var thirdSpaceInd = trimmedText.indexOf(" ", secondSpaceInd + 1);
+      info.firstThreeWords = trimmedText.slice(0,thirdSpaceInd);
+      info.lastWord = trimmedText.slice(trimmedText.lastIndexOf(" "),trimmedText.length);
+  }
+
   var colonIndex = trimmedText.indexOf(":")
   if (colonIndex > -1){
     info.preColonText = trimmedText.slice(0,colonIndex);
   }
+  
   var children = element.childNodes;
   var l = children.length;
   for (var i = 0; i< l; i++){

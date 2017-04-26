@@ -460,8 +460,28 @@ var RecorderUI = (function () {
     program.displayBlockly();
 
     // we also want to update the section that lets the user say what loop iterations are duplicates
-    // used for data that changes alignment during scraping and for recovering from failures
+    // used for data in relations get shuffled during scraping and for recovering from failures. also incremental scraping.
     pub.updateDuplicateDetection();
+    // we also want to make sure the user can tell us which features are required for each node that we find using similarity approach
+    pub.updateNodeRequiredFeaturesUI();
+
+    if (program.name){
+      $("#new_script_content").find("#program_name").get(0).value = program.name;
+    }
+  };
+
+  pub.updateDisplayedScriptAfterBlocklyChange = function _updateDisplayedScriptAfterBlocklyChange(){
+    WALconsole.log("updateDisplayedScriptAfterBlocklyChange");
+    var program = ReplayScript.prog;
+    var scriptString = program.toString();
+    var scriptPreviewDiv = $("#new_script_content").find("#program_representation");
+    DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
+
+    // we also want to update the section that lets the user say what loop iterations are duplicates
+    // used for data in relations get shuffled during scraping and for recovering from failures. also incremental scraping.
+    pub.updateDuplicateDetection();
+    // we also want to make sure the user can tell us which features are required for each node that we find using similarity approach
+    pub.updateNodeRequiredFeaturesUI();
 
     if (program.name){
       $("#new_script_content").find("#program_name").get(0).value = program.name;
@@ -518,6 +538,28 @@ var RecorderUI = (function () {
         $div.append(addAnnotationButton);
       })();
     }
+  };
+
+  pub.updateNodeRequiredFeaturesUI = function _updateNodeRequiredFeaturesUI(){
+    var similarityNodes = ReplayScript.prog.getNodesFoundWithSimilarity();
+
+    $div = $("#new_script_content").find("#require_features_container_content");
+
+    if (similarityNodes.length > 0){
+      $div.html("");
+      for (var i = 0; i < similarityNodes.length; i++){
+        (function(){
+          var oneNodeData = similarityNodes[i];
+          console.log(oneNodeData);
+          var nodeDiv = $("<div>"+oneNodeData.toString()+"</div>");
+          $div.append(nodeDiv);
+        })();
+      }
+    }
+    else{
+      $div.html("All of this script's cells come from tables.  If you're not happy with the table cells, you might try using the `Edit This Table' buttons above.");
+    }
+
   };
 
   pub.addNewRowToOutput = function _addNewRowToOutput(runTabId, listOfCellTexts){
@@ -1095,6 +1137,21 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     return "<img src='"+statement.trace[0].additional.visualization+"' style='max-height: 150px; max-width: 350px;'>";
   }
 
+  function makeNodeVariableForTrace(trace){
+    var recordTimeNode = null;
+    var recordTimeNodeSnapshot = null;
+    if (trace.length > 0){ // may get 0-length trace if we're just adding a scrape statement by editing (as for a known column in a relation)
+      for (var i = 0; i <  trace.length; i++){
+        if (trace[i].additional && trace[i].additional.scrape){
+          recordTimeNode = trace[i].additional.scrape;
+          recordTimeNodeSnapshot = trace[i].target.snapshot;
+          break;
+        }
+      }
+    }
+    return new WebAutomationLanguage.NodeVariable(null, recordTimeNode, recordTimeNodeSnapshot, NodeSources.RINGER); // null bc no preferred name
+  }
+
   function outputPagesRepresentation(statement){
     var prefix = "";
     if (statement.outputPageVars.length > 0){
@@ -1125,7 +1182,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           statement.relation = relation;
           var name = relation.columns[i].name;
           var nodeRep = nodeRepresentations[i];
-          statement.currentNode = new WebAutomationLanguage.NodeVariable(name, nodeRep); // note that this means the elements in the firstRowXPaths and the elements in columns must be aligned!
+          statement.currentNode = new WebAutomationLanguage.NodeVariable(name, nodeRep, null, NodeSources.RELATIONEXTRACTOR); // note that this means the elements in the firstRowXPaths and the elements in columns must be aligned!
           
           // the statement should track whether it's currently parameterized for a given relation and column obj
           statement.relation = relation;
@@ -1380,7 +1437,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // ok, we want to parameterize
           this.relation = relation;
           var name = relation.columns[i].name;
-          this.currentUrl = new WebAutomationLanguage.NodeVariable(name, firstRowNodeRepresentations[i]);
+          this.currentUrl = new WebAutomationLanguage.NodeVariable(name, firstRowNodeRepresentations[i], null, NodeSources.RELATIONEXTRACTOR);
           return relation.columns[i];
         }
       }
@@ -1423,13 +1480,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
       this.outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
       // for now, assume the ones we saw at record time are the ones we'll want at replay
-      this.currentNode = this.node;
+      // this.currentNode = this.node;
       this.origNode = this.node;
 
       // we may do clicks that should open pages in new tabs but didn't open new tabs during recording
       // todo: may be worth going back to the ctrl approach, but there are links that refuse to open that way, so for now let's try back buttons
       // proposeCtrlAdditions(this);
       this.cleanTrace = cleanTrace(this.trace);
+
+      // actually we want the currentNode to be a nodeVariable so we have a name for the scraped node
+      this.currentNode = makeNodeVariableForTrace(trace);
     }
 
     this.remove = function _remove(){
@@ -1522,13 +1582,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   pub.ScrapeStatementFromRelationCol = function _ScrapeStatementFromRelationCol(relation, colObj, pageVar){
     var statement = new pub.ScrapeStatement([]);
-    statement.currentNode = new WebAutomationLanguage.NodeVariable(colObj.name, relation.firstRowNodeRepresentation(colObj));
+    statement.currentNode = new WebAutomationLanguage.NodeVariable(colObj.name, relation.firstRowNodeRepresentation(colObj), null, NodeSources.RELATIONEXTRACTOR);
     statement.pageVar = pageVar;
     statement.relation = relation;
     statement.columnObj = colObj;
     return statement;
   }
-  var scrapeStatementCounter = 0;
 
   pub.ScrapeStatement = function _ScrapeStatement(trace){
     Revival.addRevivalLabel(this);
@@ -1552,12 +1611,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
         // are we scraping a link or just the text?
         this.scrapeLink = false;
-        this.recordTimeNode = null;
         for (var i = 0; i <  trace.length; i++){
           if (trace[i].additional && trace[i].additional.scrape){
-            if (trace[i].additional.scrape){
-              this.recordTimeNode = trace[i].additional.scrape;
-            }
             if (trace[i].additional.scrape.linkScraping){
               this.scrapeLink = true;
               break;
@@ -1566,13 +1621,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
       }
 
-      scrapeStatementCounter += 1;
-      this.defaultVarNameText = "thing_" + scrapeStatementCounter;
-
-      var name = this.defaultVarNameText;
-      if (this.varName){ name = this.varName;}
       // actually we want the currentNode to be a nodeVariable so we have a name for the scraped node
-      this.currentNode = new WebAutomationLanguage.NodeVariable(name, this.recordTimeNode);
+      this.currentNode = makeNodeVariableForTrace(trace);
+      this.varName = this.currentNode.getName();
+      this.defaultVarNameText = this.varName;
     }
 
     this.remove = function _remove(){
@@ -1640,6 +1692,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             if (newName !== this.WALStatement.defaultVarNameText){
               this.WALStatement.varName = newName;
               this.WALStatement.currentNode.setName(newName);
+              // new name so update all our program display stuff
+              RecorderUI.updateDisplayedScriptAfterBlocklyChange();
             }
         }
       };
@@ -1887,6 +1941,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         this.keyEvents = textEntryEvents;
         this.keyCodes = _.map(this.keyEvents, function(ev){ return ev.data.keyCode; });
       }
+      else{
+        // if we're actually typing something in a given textbox, we'll want a proper nodeVar to represent the currentNode
+        this.currentNode = makeNodeVariableForTrace(trace);
+      }
     };
 
 
@@ -2001,7 +2059,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             if (left.length > 0){
               components.push(left)
             }
-            components.push(new WebAutomationLanguage.NodeVariable(columns[i].name, firstRowNodeRepresentations[i]));
+            components.push(new WebAutomationLanguage.NodeVariable(columns[i].name, firstRowNodeRepresentations[i]), null, NodeSources.RELATIONEXTRACTOR);
             var right = text.slice(startIndex + this.typedString.length, text.length);
             if (right.length > 0){
               components.push(right)
@@ -2981,7 +3039,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (!this.nodeVars){
         this.nodeVars = [];
         for (var i = 0; i < this.columns.length; i++){
-          this.nodeVars.push(new WebAutomationLanguage.NodeVariable(this.columns[i].name, firstRowNodeReps[i]));
+          this.nodeVars.push(new WebAutomationLanguage.NodeVariable(this.columns[i].name, firstRowNodeReps[i]), null, NodeSources.RELATIONEXTRACTOR);
         }
       }
       return this.nodeVars;
@@ -3135,7 +3193,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var nodeReps = this.firstRowNodeRepresentations();
         for (var i = 0; i < nodeReps.length; i++){
           var name = this.columns[i].name;
-          this.nodeVars.push(new WebAutomationLanguage.NodeVariable(name, nodeReps[i]));
+          this.nodeVars.push(new WebAutomationLanguage.NodeVariable(name, nodeReps[i], null, NodeSources.RELATIONEXTRACTOR));
         }
       }
       return this.nodeVars;
@@ -3679,11 +3737,27 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
   }
 
-  pub.NodeVariable = function _NodeVariable(name, recordedNodeRep){
+  var NodeSources = {
+    RELATIONEXTRACTOR: 1,
+    RINGER: 2
+  };
+
+  var nodeVariablesCounter = 0;
+
+  pub.NodeVariable = function _NodeVariable(name, recordedNodeRep, recordedNodeSnapshot, source){
+    console.log(name, recordedNodeRep, recordedNodeSnapshot, source);
     Revival.addRevivalLabel(this);
+
+    if (!name){
+      nodeVariablesCounter += 1;
+      name = "thing_" + nodeVariablesCounter;
+    }
+    console.log('name', name);
 
     this.name = name;
     this.recordedNodeRep = recordedNodeRep;
+    this.recordedNodeSnapshot = recordedNodeSnapshot;
+    this.nodeSource = source;
 
     this.toString = function _toString(){
       return this.name;
@@ -3725,6 +3799,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.currentXPath = function _currentXPath(environment){
       return this.currentNodeRep(environment).xpath;
     };
+
+    this.getSource = function(){
+      return this.nodeSource;
+    }
   };
 
   function outlier(sortedList, potentialItem){ // note that first arg should be SortedArray not just sorted array
@@ -4043,6 +4121,17 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
       });
       return loopData;
+    };
+
+    this.getNodesFoundWithSimilarity = function _getNodesFoundWithSimilarity(){
+      var nodeData = [];
+      this.traverse(function(statement){
+        if (statement.currentNode && statement.currentNode instanceof WebAutomationLanguage.NodeVariable && statement.currentNode.getSource() === NodeSources.RINGER){
+          //var statementData = {name: statement.currentNode}
+          nodeData.push(statement.currentNode);
+        }
+      });
+      return nodeData;
     };
 
     this.updateChildStatements = function _updateChildStatements(newChildStatements){

@@ -140,6 +140,16 @@ var RecorderUI = (function () {
     activateButton(div, '#relation_upload', RecorderUI.uploadRelation);
     activateButton(div, '#relation_demonstration', RecorderUI.demonstrateRelation);
 
+    var troubleshootingDivs = $(".troubleshooting_option");
+    for (var i = 0; i < troubleshootingDivs.length; i++){
+      (function(){
+        var d = $(troubleshootingDivs[i]);
+        var controllingDiv = d.find(".troubleshooting_description");
+        var childDiv = d.find(".troubleshooting_option_expansion");
+        controllingDiv.click(function(){DOMCreationUtilities.toggleDisplay(childDiv);});  
+      })();
+    }
+
     var readjustFunc = handleBlocklyEditorResizing();
 
     RecorderUI.updateDisplayedScript();

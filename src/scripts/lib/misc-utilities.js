@@ -218,7 +218,7 @@ var DOMCreationUtilities = (function _DOMCreationUtilities() { var pub = {};
         $tr.append($td);
       }
       return $tr;
-    }
+    };
 
   pub.arrayOfArraysToTable = function _arrayOfArraysToTable(arrayOfArrays){
       var $table = $("<table></table>");
@@ -228,7 +228,17 @@ var DOMCreationUtilities = (function _DOMCreationUtilities() { var pub = {};
         $table.append($tr);
       }
       return $table;
+    };
+
+  pub.toggleDisplay = function _toggleDisplay(node){
+    console.log(node);
+    if (node.css("display") === "none"){
+      node.css("display", "inline");
     }
+    else{
+      node.css("display", "none");
+    }
+  };
 
 return pub; }());
 

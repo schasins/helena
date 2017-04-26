@@ -160,3 +160,16 @@ h4 {
 .hoverable:hover{
 	background-color: DBDBDB;
 }
+
+.troubleshooting_option{
+	background-color: #ffffff;
+	padding: 5px;
+	margin: 5px;
+}
+.troubleshooting_option:hover{
+	background-color: #f9f9f9;
+}
+
+.troubleshooting_option_expansion{
+	display: none;
+}

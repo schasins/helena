@@ -99,7 +99,8 @@ var Tooltip = (function _Tooltip() { var pub = {};
     if(tooltipColor === undefined) { tooltipColor = tooltipColorDefault;}
     if(tooltipBorderColor === undefined) { tooltipBorderColor = tooltipBorderColorDefault;}
     var $node = $(node);
-    var nodeText = MiscUtilities.scrapeConditionString+" to scrape:<br>"+NodeRep.nodeToText(node)+"<br>"+MiscUtilities.scrapeConditionLinkString+" to scrape:<br>"+NodeRep.nodeToLink(node);
+    // var nodeText = MiscUtilities.scrapeConditionString+" to scrape:<br>"+NodeRep.nodeToText(node)+"<br>"+MiscUtilities.scrapeConditionLinkString+" to scrape:<br>"+NodeRep.nodeToLink(node);
+    var nodeText = NodeRep.nodeToText(node);
     var offset = $node.offset();
     var boundingBox = node.getBoundingClientRect();
     var newDiv = $('<div>'+nodeText+'<div/>');

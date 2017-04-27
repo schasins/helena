@@ -23,6 +23,7 @@ $(setUp);
 
 var workspace = null;
 var blocklyLabels = [];
+var blocklyReadjustFunc = null;
 var recordingWindowIds = [];
 var scrapingRunsCompleted = 0;
 var datasetsScraped = [];
@@ -87,6 +88,7 @@ var RecorderUI = (function () {
   };
 
   pub.updateBlocklyToolbox = function _updateBlocklyToolbox(){
+    WALconsole.log("updateBlocklyToolbox");
     // before we can use the toolbox, we have to actually have all the relevant blocks
     ReplayScript.prog.updateBlocklyBlocks();
 
@@ -101,6 +103,7 @@ var RecorderUI = (function () {
   }
 
   function handleBlocklyEditorResizing(){
+    WALconsole.log("handleBlocklyEditorResizing");
     var $toolboxDiv = $("#new_script_content").find("#toolbox");
     // handle the actual editor resizing
     var blocklyArea = document.getElementById('blockly_area');
@@ -150,11 +153,10 @@ var RecorderUI = (function () {
       })();
     }
 
-    var readjustFunc = handleBlocklyEditorResizing();
+    blocklyReadjustFunc = handleBlocklyEditorResizing();
 
     RecorderUI.updateDisplayedScript();
     RecorderUI.updateDisplayedRelations(inProgress);
-    readjustFunc();
   };
 
   pub.run = function _run(){
@@ -404,6 +406,7 @@ var RecorderUI = (function () {
   };
 
   pub.updateDisplayedRelation = function _updateDisplayedRelation(relationObj){
+    WALconsole.log("updateDisplayedRelation");
     var $relDiv = $("#new_script_content").find("#output_preview");
     $relDiv.html("");
 
@@ -448,34 +451,31 @@ var RecorderUI = (function () {
     }
   };
 
-  pub.updateDisplayedScript = function _updateDisplayedScript(){
+  pub.updateDisplayedScript = function _updateDisplayedScript(updateBlockly){
+    if (updateBlockly === undefined){ updateBlockly = true; }
     WALconsole.log("updateDisplayedScript");
     var program = ReplayScript.prog;
     var scriptString = program.toString();
     var scriptPreviewDiv = $("#new_script_content").find("#program_representation");
     DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
 
-    // first make sure we have all the up to date blocks.  for instance, if we have relations available, we'll add loops to toolbox
-    pub.updateBlocklyToolbox();
-    program.displayBlockly();
-
-    // we also want to update the section that lets the user say what loop iterations are duplicates
-    // used for data in relations get shuffled during scraping and for recovering from failures. also incremental scraping.
-    pub.updateDuplicateDetection();
-    // we also want to make sure the user can tell us which features are required for each node that we find using similarity approach
-    pub.updateNodeRequiredFeaturesUI();
-
-    if (program.name){
-      $("#new_script_content").find("#program_name").get(0).value = program.name;
+    // sometimes prog preview and stuff will have changed size, changing the shape of the div to which blockly should conform, so run the adjustment func
+    blocklyReadjustFunc();
+    // unfortunately the data urls used for node 'snapshots' don't show up right away
+    // when they don't, blockly thinks it can be higher up in the page than it should be, because the images load and extend the top div
+    var imgs = scriptPreviewDiv.find("img");
+    for (var i = 0; i < imgs.length; i++){
+      var img = imgs[i];
+      img.onload = function(){
+        blocklyReadjustFunc(); 
+      }
     }
-  };
-
-  pub.updateDisplayedScriptAfterBlocklyChange = function _updateDisplayedScriptAfterBlocklyChange(){
-    WALconsole.log("updateDisplayedScriptAfterBlocklyChange");
-    var program = ReplayScript.prog;
-    var scriptString = program.toString();
-    var scriptPreviewDiv = $("#new_script_content").find("#program_representation");
-    DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
+    
+    if (updateBlockly){
+      // first make sure we have all the up to date blocks.  for instance, if we have relations available, we'll add loops to toolbox
+      pub.updateBlocklyToolbox();
+      program.displayBlockly();
+    }
 
     // we also want to update the section that lets the user say what loop iterations are duplicates
     // used for data in relations get shuffled during scraping and for recovering from failures. also incremental scraping.
@@ -489,6 +489,7 @@ var RecorderUI = (function () {
   };
 
   pub.updateDuplicateDetection = function _updateDuplicateDetection(){
+    WALconsole.log("updateDuplicateDetection");
     var duplicateDetectionData = ReplayScript.prog.getDuplicateDetectionData();
 
     $div = $("#new_script_content").find("#duplicates_container_content");
@@ -541,6 +542,7 @@ var RecorderUI = (function () {
   };
 
   pub.updateNodeRequiredFeaturesUI = function _updateNodeRequiredFeaturesUI(){
+    WALconsole.log("updateNodeRequiredFeaturesUI");
     var similarityNodes = ReplayScript.prog.getNodesFoundWithSimilarity();
 
     $div = $("#new_script_content").find("#require_features_container_content");
@@ -1122,7 +1124,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   function nodeRepresentation(statement, linkScraping){
     if (linkScraping === undefined){ linkScraping = false; }
     if (statement.currentNode instanceof WebAutomationLanguage.NodeVariable){
-      var nodeRep = statement.currentNode.toString();
+      var nodeRep = statement.currentNode.toString(statement.pageVar);
       if (linkScraping){
         nodeRep += ".link";
       }
@@ -1140,16 +1142,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   function makeNodeVariableForTrace(trace){
     var recordTimeNode = null;
     var recordTimeNodeSnapshot = null;
+    var imgData = null;
     if (trace.length > 0){ // may get 0-length trace if we're just adding a scrape statement by editing (as for a known column in a relation)
-      for (var i = 0; i <  trace.length; i++){
-        if (trace[i].additional && trace[i].additional.scrape){
-          recordTimeNode = trace[i].additional.scrape;
-          recordTimeNodeSnapshot = trace[i].target.snapshot;
-          break;
-        }
-      }
+      var i = 0; // 0 bc this is the first ev that prompted us to turn it into the given statement, so must use the right node
+      recordTimeNode = trace[i].additional.scrape;
+      recordTimeNodeSnapshot = trace[i].target.snapshot;
+      imgData = trace[i].additional.visualization;
     }
-    return new WebAutomationLanguage.NodeVariable(null, recordTimeNode, recordTimeNodeSnapshot, NodeSources.RINGER); // null bc no preferred name
+    return new WebAutomationLanguage.NodeVariable(null, recordTimeNode, recordTimeNodeSnapshot, imgData, NodeSources.RINGER); // null bc no preferred name
   }
 
   function outputPagesRepresentation(statement){
@@ -1182,7 +1182,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           statement.relation = relation;
           var name = relation.columns[i].name;
           var nodeRep = nodeRepresentations[i];
-          statement.currentNode = new WebAutomationLanguage.NodeVariable(name, nodeRep, null, NodeSources.RELATIONEXTRACTOR); // note that this means the elements in the firstRowXPaths and the elements in columns must be aligned!
+          statement.currentNode = new WebAutomationLanguage.NodeVariable(name, nodeRep, null, null, NodeSources.RELATIONEXTRACTOR); // note that this means the elements in the firstRowXPaths and the elements in columns must be aligned!
           
           // the statement should track whether it's currently parameterized for a given relation and column obj
           statement.relation = relation;
@@ -1440,7 +1440,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // ok, we want to parameterize
           this.relation = relation;
           var name = relation.columns[i].name;
-          this.currentUrl = new WebAutomationLanguage.NodeVariable(name, firstRowNodeRepresentations[i], null, NodeSources.RELATIONEXTRACTOR);
+          this.currentUrl = new WebAutomationLanguage.NodeVariable(name, firstRowNodeRepresentations[i], null, null, NodeSources.RELATIONEXTRACTOR);
           return relation.columns[i];
         }
       }
@@ -1511,7 +1511,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.toStringLines = function _toStringLines(){
       var nodeRep = nodeRepresentation(this);
-      return [outputPagesRepresentation(this)+"click("+this.pageVar.toString()+", "+nodeRep+")"];
+      return [outputPagesRepresentation(this)+"click("+nodeRep+")"];
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
@@ -1586,7 +1586,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   pub.ScrapeStatementFromRelationCol = function _ScrapeStatementFromRelationCol(relation, colObj, pageVar){
     var statement = new pub.ScrapeStatement([]);
-    statement.currentNode = new WebAutomationLanguage.NodeVariable(colObj.name, relation.firstRowNodeRepresentation(colObj), null, NodeSources.RELATIONEXTRACTOR);
+    statement.currentNode = new WebAutomationLanguage.NodeVariable(colObj.name, relation.firstRowNodeRepresentation(colObj), null, null, NodeSources.RELATIONEXTRACTOR);
     statement.pageVar = pageVar;
     statement.relation = relation;
     statement.columnObj = colObj;
@@ -1651,12 +1651,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.toStringLines = function _toStringLines(){
+      var alreadyBound = this.currentNode.alreadyBound();
+      if (alreadyBound){
+        return ["scrape(" + this.currentNode.getName() + ")"];
+      }
       var nodeRep = nodeRepresentation(this, this.scrapeLink);
       var sString = "scrape(";
       //if (this.scrapeLink){
       //  sString = "scrapeLink(";
       //}
-      return [sString+this.pageVar.toString()+", "+nodeRep+")"];
+      return [nodeRep+", "+this.currentNode.getName()+")"];
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
@@ -1703,7 +1707,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               this.WALStatement.varName = newName;
               this.WALStatement.currentNode.setName(newName);
               // new name so update all our program display stuff
-              RecorderUI.updateDisplayedScriptAfterBlocklyChange();
+              RecorderUI.updateDisplayedScript(false);
             }
         }
       };
@@ -1986,6 +1990,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         return [outputPagesRepresentation(this)+"type("+this.pageVar.toString()+", "+stringRep+")"];
       }
       else{
+        return [];
+        /*
         var charsDict = {16: "SHIFT", 17: "CTRL", 18: "ALT", 91: "CMD"}; // note that 91 is the command key in Mac; on Windows, I think it's the Windows key; probably ok to use cmd for both
         var chars = [];
         _.each(this.keyEvents, function(ev){
@@ -1999,6 +2005,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           act = "let up"
         }
         return [act + " " + charsString + " on " + this.pageVar.toString()];
+        */
       }
     };
 
@@ -2021,12 +2028,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock){
-      this.block = workspace.newBlock(this.blocklyLabel);
-      this.block.setFieldValue(this.stringRep(), "text");
-      this.block.setFieldValue(this.pageVar.toString(), "page");
-      attachToPrevBlock(this.block, prevBlock);
-      this.block.WALStatement = this;
-      return this.block;
+      if (!this.onlyKeyups && !this.onlyKeydowns){
+        this.block = workspace.newBlock(this.blocklyLabel);
+        this.block.setFieldValue(this.stringRep(), "text");
+        this.block.setFieldValue(this.pageVar.toString(), "page");
+        attachToPrevBlock(this.block, prevBlock);
+        this.block.WALStatement = this;
+        return this.block;
+      }
+      return null;
     };
 
     this.traverse = function _traverse(fn, fn2){
@@ -2071,7 +2081,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             if (left.length > 0){
               components.push(left)
             }
-            components.push(new WebAutomationLanguage.NodeVariable(columns[i].name, firstRowNodeRepresentations[i]), null, NodeSources.RELATIONEXTRACTOR);
+            components.push(new WebAutomationLanguage.NodeVariable(columns[i].name, firstRowNodeRepresentations[i]), null, null, NodeSources.RELATIONEXTRACTOR);
             var right = text.slice(startIndex + this.typedString.length, text.length);
             if (right.length > 0){
               components.push(right)
@@ -2158,9 +2168,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.toStringLines = function _toStringLines(){
       var textRelationRepLs = _.reduce(this.relations, function(acc,relation){return acc.concat(relation.scrapedColumnNames());}, []);
       var nodeRepLs = _.map(this.scrapeStatements, function(statement){return nodeRepresentation(statement, statement.scrapeLink);});
-      var allNames = textRelationRepLs.concat(nodeRepLs).concat(["time"]);
+      var allNames = textRelationRepLs.concat(nodeRepLs);
       WALconsole.log("outputRowStatement", textRelationRepLs, nodeRepLs);
-      return ["addOutputRow(["+allNames.join(",")+"])"];
+      return ["addOutputRow(["+allNames.join(", ")+"])"];
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
@@ -3069,7 +3079,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (!this.nodeVars){
         this.nodeVars = [];
         for (var i = 0; i < this.columns.length; i++){
-          this.nodeVars.push(new WebAutomationLanguage.NodeVariable(this.columns[i].name, firstRowNodeReps[i]), null, NodeSources.RELATIONEXTRACTOR);
+          this.nodeVars.push(new WebAutomationLanguage.NodeVariable(this.columns[i].name, firstRowNodeReps[i]), null, null, NodeSources.RELATIONEXTRACTOR);
         }
       }
       return this.nodeVars;
@@ -3223,7 +3233,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var nodeReps = this.firstRowNodeRepresentations();
         for (var i = 0; i < nodeReps.length; i++){
           var name = this.columns[i].name;
-          this.nodeVars.push(new WebAutomationLanguage.NodeVariable(name, nodeReps[i], null, NodeSources.RELATIONEXTRACTOR));
+          this.nodeVars.push(new WebAutomationLanguage.NodeVariable(name, nodeReps[i], null, null, NodeSources.RELATIONEXTRACTOR));
         }
       }
       return this.nodeVars;
@@ -3774,7 +3784,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   var nodeVariablesCounter = 0;
 
-  pub.NodeVariable = function _NodeVariable(name, recordedNodeRep, recordedNodeSnapshot, source){
+  pub.NodeVariable = function _NodeVariable(name, recordedNodeRep, recordedNodeSnapshot, imgData, source){
     Revival.addRevivalLabel(this);
 
     if (!name){
@@ -3785,10 +3795,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.name = name;
     this.recordedNodeRep = recordedNodeRep;
     this.recordedNodeSnapshot = recordedNodeSnapshot;
+    this.imgData = imgData;
     this.nodeSource = source;
 
-    this.toString = function _toString(){
-      return this.name;
+    this.toString = function _toString(pageVar){
+      if (this.alreadyBound()){
+        return this.name;
+      }
+      return pageVar.toString()+".<img src='"+this.imgData+"' style='max-height: 150px; max-width: 350px;'>";
     };
 
     this.getName = function _getName(){
@@ -3828,7 +3842,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return this.currentNodeRep(environment).xpath;
     };
 
-    this.getSource = function(){
+    this.getSource = function _getSource(){
       return this.nodeSource;
     };
 
@@ -3845,6 +3859,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.unrequireFeature = function _unrequireFeature(feature){
       this.requiredFeatures = _.without(this.requiredFeatures, feature);
     };
+
+    this.alreadyBound = function _alreadyBound(){
+      // this is wrong!  things can be already bound even if they weren't scraped by a relation extractor!  but this is easiest for now
+      // todo: fix this
+      return this.nodeSource === NodeSources.RELATIONEXTRACTOR;
+    }
   };
 
   function outlier(sortedList, potentialItem){ // note that first arg should be SortedArray not just sorted array
@@ -4048,7 +4068,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         statementLs = this.statements;
       }
       var scriptString = "";
-      _.each(statementLs, function(statement){scriptString += statement.toStringLines().join("<br>") + "<br>";});
+      _.each(statementLs, function(statement){
+        var strLines = statement.toStringLines();
+        if (strLines.length > 0){
+          scriptString += strLines.join("<br>") + "<br>";
+        }});
       return scriptString;
     };
 

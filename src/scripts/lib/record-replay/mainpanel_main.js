@@ -781,8 +781,8 @@ var Replay = (function ReplayClosure() {
     },
     /* Given an event, find the corresponding port */
     getMatchingPort: function _getMatchingPort(v) {
-      var gpmdebug = false;
-      if (gpmdebug) {console.log("gpm: _getMatchingPort: ",v);}
+      var gpmdebug = true;
+      // if (gpmdebug) {console.log("gpm: _getMatchingPort: ",v);}
       var portMapping = this.portMapping;
       var tabMapping = this.tabMapping;
 
@@ -795,7 +795,7 @@ var Replay = (function ReplayClosure() {
       /* we have already seen this port, reuse existing mapping */
       if (port in portMapping) {
         replayPort = portMapping[port];
-        if (gpmdebug) {console.log("gpm: port in portMapping", portMapping);}
+        //if (gpmdebug) {console.log("gpm: port in portMapping", portMapping);}
         replayLog.log('port already seen', replayPort);
 
       /* we have already seen this tab, find equivalent port for tab
@@ -831,7 +831,7 @@ var Replay = (function ReplayClosure() {
               unusedTabs.push(tabId);
             }
         }
-        if (gpmdebug) {console.log("gpm: unusedTabs", unusedTabs, unusedTabs.lengths);}
+        if (gpmdebug) {console.log("gpm: unusedTabs", unusedTabs, unusedTabs.length);}
 
         /* if this is not the first event, and there is exactly one unmapped
          * tab, then lets assume this new tab should match */
@@ -935,27 +935,31 @@ var Replay = (function ReplayClosure() {
         this.setNextTimeout(1000);
         // unless...we've been seeing this a lot, in which case this looks like a real failure
         this.currentPortMappingFailures += 1;
+        // below is commented out because now we give up after 120
+        /*
         if (this.currentPortMappingFailures >= 10){
           // ok, this is getting ridiculous. seems like the right port isn't arriving...
           this.setNextTimeout(60000);
           console.log("We're going to slow the port checking waaaaaaay down, since this doesn't seem to be working.");
         }
-        if (this.currentPortMappingFailures === 10){ // === rather than > because we don't want to call handler a bunch of times, only once
+        */
+        if (this.currentPortMappingFailures === 120){ // === rather than > because we don't want to call handler a bunch of times, only once
           if (this.errorConts && this.errorConts.portFailure){
             var that = this;
             var continuation = function(){
               that.currentPortMappingFailures = 0; // because the higher-level tool should have fixed it with the portFailure handler!
               that.setNextTimeout(0);
             }
-            this.errorConts.portFailure(continuation);
+            this.stopReplay();
+            this.errorConts.portFailure(this, continuation);
           }
         }
         if (gpmdebug) {console.log("gpm: not returning real port");}
         return null;
       }
-      if (gpmdebug) {console.log(replayPort);}
+      //if (gpmdebug) {console.log(replayPort);}
       this.currentPortMappingFailures = 0;
-      if (gpmdebug) {console.log("gpm: returning real port");}
+      //if (gpmdebug) {console.log("gpm: returning real port");}
       return replayPort;
     },
     /* Given the frame information from the recorded trace, find a 

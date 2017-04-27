@@ -479,11 +479,20 @@ function simulate(events, startIndex) {
       target = getTarget(targetInfo);
     }
 
+    // for debugging purposes it's sometimes helpful to fake node finding failures
+    /*
+    if (Math.random() < 0.1){
+      port.postMessage({type: 'nodeFindingWithUserRequiredFeaturesFailure', value: null, state: recording});
+      setRetry(events, i, params.replay.defaultWait);
+      return;
+    }
+    */
+
     /* if no target exists, lets try to dispatch this event a little bit in
      *the future, and hope the page changes */
-    if (!target || target === "TIMEDOUTNODE") {
+    if (!target || target === "TIMEDOUTNODE" || target === "REQUIREDFEATUREFAILURE") {
       if (checkTimeout(events, i) || target === "TIMEDOUTNODE") {
-        if (eventRecord.target.requiredFeatures){
+        if (target === "REQUIREDFEATUREFAILURE"){
           // this is a special case, because the user has insisted on a few special features, and we want
           // the top-level tool to be allowed to decide what happens if node addressing fails in this case
           // so there will be a special error handler at the mainpanel for this

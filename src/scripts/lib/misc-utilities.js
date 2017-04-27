@@ -3,7 +3,7 @@ var WALconsole = (function _WALconsole() { var pub = {};
 
   pub.debugging = false;
   pub.showWarnings = true;
-  pub.namedDebugging = [];//["getRelationItems", "nextInteraction"];
+  pub.namedDebugging = []; //["rbb"];//["getRelationItems", "nextInteraction"];
   pub.styleMinimal = true;
 
   function callerName(origArgs){

@@ -358,7 +358,7 @@ function getFeatures(element){
     // but we need to filter based on the user-provided filterFeatures (the ones required to be stable) first
     var userFilteredCandidates = null;
     if (filterFeatures.length === 0){
-      userFilteredCandidates = unfilteredCandidates
+      userFilteredCandidates = unfilteredCandidates;
     }
     else{
       userFilteredCandidates = [];
@@ -371,6 +371,9 @@ function getFeatures(element){
     }
     //console.log("userFilteredCandidates", userFilteredCandidates.length, userFilteredCandidates);
     // this is a case where, because user can require features that no longer appear, we can get zero matches!
+    if (unfilteredCandidates.length > 0 && userFilteredCandidates.length === 0){
+      return "REQUIREDFEATUREFAILURE";
+    }
     if (userFilteredCandidates.length === 0){
       //console.log("After filtering on user-selected features, no candidates qualify.");
       return null;

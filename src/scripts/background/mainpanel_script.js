@@ -2373,6 +2373,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.run = function _run(runObject, rbbcontinuation, rbboptions){
+      console.log("run close statement");
       WALconsole.log("run close statement");
 
       var tabId = this.pageVarCurr.currentTabId();
@@ -4282,9 +4283,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var breakMode = options.breakMode;
       if (breakMode === undefined){ breakMode = false; }
       if (ignoreEntityScope === undefined){ ignoreEntityScope = false; }
-      WALconsole.log("rbb", loopyStatements.length, loopyStatements);
+      WALconsole.namedLog("rbb", loopyStatements.length, loopyStatements);
       // first check if we're supposed to pause, stop execution if yes
-      WALconsole.log("runObject.userPaused", runObject.userPaused);
+      WALconsole.namedLog("rbb", "runObject.userPaused", runObject.userPaused);
       if (runObject.userPaused){
         runObject.resumeContinuation = function(){program.runBasicBlock(runObject, loopyStatements, callback, options);};
         WALconsole.log("paused");
@@ -4298,7 +4299,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
 
       if (loopyStatements.length < 1){
-        WALconsole.log("rbb: empty loopystatments.");
+        WALconsole.namedLog("rbb", "rbb: empty loopystatments.");
         callback(options);
         return;
       }
@@ -4309,7 +4310,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
           return;
         }
-        WALconsole.log("rbb: loop.");
+        WALconsole.namedLog("rbb", "rbb: loop.");
 
         var loopStatement = loopyStatements[0];
         var relation = loopStatement.relation;
@@ -4338,7 +4339,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // have we hit the maximum number of iterations we want to do?
         if (loopStatement.maxRows !== null && loopStatement.rowsSoFar >= loopStatement.maxRows){
           // hey, we're done!
-          WALconsole.log("hit the row limit");
+          WALconsole.namedLog("rbb", "hit the row limit");
           cleanupAfterLoopEnd();
           // once we're done with the loop, have to replay the remainder of the script
           program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
@@ -4384,26 +4385,26 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         loopStatement.relation.getNextRow(loopStatement.pageVar, function(moreRows){
           if (!moreRows){
             // hey, we're done!
-            WALconsole.log("no more rows");
+            WALconsole.namedLog("rbb", "no more rows");
             cleanupAfterLoopEnd();
             // once we're done with the loop, have to replay the remainder of the script
             program.runBasicBlock(runObject, loopyStatements.slice(1, loopyStatements.length), callback, options);
             return;
           }
-          WALconsole.log("we have a row!  let's run");
+          WALconsole.namedLog("rbb", "we have a row!  let's run");
           // otherwise, should actually run the body
           loopStatement.rowsSoFar += 1;
           // block scope.  let's add a new frame
           runObject.environment = runObject.environment.envExtend(); // add a new frame on there
-          WALconsole.log("envExtend done");
+          WALconsole.namedLog("rbb", "envExtend done");
           // and let's give us access to all the loop variables
           // note that for now loopVarsMap includes all columns of the relation.  may some day want to limit it to only the ones used...
           loopStatement.updateRelationNodeVariables(runObject.environment);
-          WALconsole.log("loopyStatements", loopyStatements);
+          WALconsole.namedLog("rbb", "loopyStatements", loopyStatements);
           program.runBasicBlock(runObject, loopStatement.bodyStatements, function(){ // running extra iterations of the for loop is the only time we change the callback
             // and once we've run the body, we should do the next iteration of the loop
             // but first let's get rid of that last environment frame
-            WALconsole.log("rbb: preparing for next loop iteration, popping frame off environment.");
+            WALconsole.namedLog("rbb", "rbb: preparing for next loop iteration, popping frame off environment.");
             runObject.environment = runObject.environment.parent;
             // for the next iteration, we'll be back out of skipMode if we were in skipMode
             // and let's run loop cleanup, since we actually ran the body statements
@@ -4414,7 +4415,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             // the main way we clean up is by running the cleanupStatements
             program.runBasicBlock(runObject, loopStatement.cleanupStatements, function(){
               // and once we've done that loop body cleanup, then let's finally go ahead and go back to do the loop again!
-              WALconsole.log("Post-cleanupstatements.")
+              WALconsole.namedLog("rbb", "Post-cleanupstatements.")
               program.runBasicBlock(runObject, loopyStatements, callback, options); 
             }, options);
           }, options);
@@ -4423,7 +4424,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
       // also need special processing for back statements, if statements, continue statements, whatever isn't ringer-based
       else if (!ringerBased(loopyStatements[0])){
-        WALconsole.log("rbb: non-Ringer-based statement.");
+        WALconsole.namedLog("rbb", "rbb: non-Ringer-based statement.");
 
         if (skipMode || breakMode){
           // in this case, when we're basically 'continue'ing, we should do nothing
@@ -4442,7 +4443,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         return;
       }
       else {
-        WALconsole.log("rbb: r+r.");
+        WALconsole.namedLog("rbb", "rbb: r+r.");
         // the fun stuff!  we get to run a basic block with the r+r layer
         var basicBlockStatements = [];
         var nextBlockStartIndex = loopyStatements.length;
@@ -4461,7 +4462,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         }
 
         if (nextBlockStartIndex === 0){
-          WALconsole.log("nextBlockStartIndex was 0!  this shouldn't happen!", loopyStatements);
+          WALconsole.namedLog("rbb", "nextBlockStartIndex was 0!  this shouldn't happen!", loopyStatements);
           throw("nextBlockStartIndex 0");
         }
 
@@ -4525,7 +4526,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
           // statements may need to do something as post-processing, even without a replay so go ahead and do any extra processing
           for (var i = 0; i < basicBlockStatements.length; i++){
-            WALconsole.log("calling postReplayProcessing on", basicBlockStatements[i]);
+            WALconsole.namedLog("rbb", "calling postReplayProcessing on", basicBlockStatements[i]);
             basicBlockStatements[i].postReplayProcessing(runObject, [], i);
           }
           // once we're done replaying, have to replay the remainder of the script
@@ -4536,25 +4537,25 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // now that we have the trace, let's figure out how to parameterize it
         // note that this should only be run once the current___ variables in the statements have been updated!  otherwise won't know what needs to be parameterized, will assume nothing
         // should see in future whether this is a reasonable way to do it
-        WALconsole.log("trace", trace);
+        WALconsole.namedLog("rbb", "trace", trace);
         var parameterizedTrace = pbv(trace, basicBlockStatements);
         // now that we've run parameterization-by-value, have a function, let's put in the arguments we need for the current run
-        WALconsole.log("parameterizedTrace", parameterizedTrace);
+        WALconsole.namedLog("rbb", "parameterizedTrace", parameterizedTrace);
         var runnableTrace = passArguments(parameterizedTrace, basicBlockStatements, runObject.environment);
         var config = parameterizedTrace.getConfig();
-        WALconsole.log("runnableTrace", runnableTrace);
+        WALconsole.namedLog("rbb", "runnableTrace", runnableTrace);
 
         // the above works because we've already put in VariableUses for statement arguments that use relation items, for all statements within a loop, so currNode for those statements will be a variableuse that uses the relation
         // however, because we're only running these basic blocks, any uses of relation items (in invisible events) that happen before the for loop will not get parameterized, 
         // since their statement arguments won't be changed, and they won't be part of the trace that does have statement arguments changed (and thus get the whole trace parameterized for that)
         // I don't see right now how this could cause issues, but it's worth thinking about
 
-        WALconsole.log("runnableTrace", runnableTrace, config);
+        WALconsole.namedLog("rbb", "runnableTrace", runnableTrace, config);
 
         config.targetWindowId = runObject.window;
         SimpleRecord.replay(runnableTrace, config, function(replayObject){
           // use what we've observed in the replay to update page variables
-          WALconsole.log("replayObject", replayObject);
+          WALconsole.namedLog("rbb", "replayObject", replayObject);
 
           // based on the replay object, we need to update any pagevars involved in the trace;
           var trace = [];
@@ -4565,7 +4566,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           var allPageVarsOk = function(){
             // statements may need to do something based on this trace, so go ahead and do any extra processing
             for (var i = 0; i < basicBlockStatements.length; i++){
-              WALconsole.log("calling postReplayProcessing on", basicBlockStatements[i]);
+              WALconsole.namedLog("rbb", "calling postReplayProcessing on", basicBlockStatements[i]);
               basicBlockStatements[i].postReplayProcessing(runObject, replayObject.record.events, i);
             }
 
@@ -4585,7 +4586,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             // essentially want the continue action, so we want the callback that's supposed to happen at the end of running the rest of the script for this iteration
             // so we'll skip doing  program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback) (as above)
             // instead we'll just do the callback
-            WALconsole.log("rbb: couldn't find a node based on user-required features.  skipping the rest of this row.");
+            WALconsole.warn("rbb: couldn't find a node based on user-required features.  skipping the rest of this row.");
 
             // even though couldn't complete the whole trace, still need to do updatePageVars because that's how we figure out which
             // tab is associated with which pagevar, so that we can go ahead and do tab closing and back button pressing at the end
@@ -4596,7 +4597,31 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               //options.skipCommitInThisIteration = true; // for now we'll assume that this means we'd want to try again in future in case something new is added
 
               // once we're done replaying, have to replay the remainder of the script
-              program.runBasicBlock(runObject, loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
+              // want to skip the rest of the loop body, so go straight to callback
+              callback();
+            };
+
+            var trace = [];
+            _.each(basicBlockStatements, function(statement){trace = trace.concat(statement.trace);}); // want the trace with display data, not the clean trace
+            updatePageVars(trace, replayObject.record.events, allPageVarsOk);
+          },
+          portFailure: function(replayObject, ringerContinuation){
+            // for now I haven't seen enough of these failures in person to know a good way to fix them
+            // for now just treat them like a node finding failure and continue
+
+            WALconsole.warn("rbb: port failure.  ugh.");
+
+            // even though couldn't complete the whole trace, still need to do updatePageVars because that's how we figure out which
+            // tab is associated with which pagevar, so that we can go ahead and do tab closing and back button pressing at the end
+            
+            var allPageVarsOk = function(){ // this is partly the same as the other allPageVarsOk
+              // in the continuation, we'll do the actual move onto the next statement
+              options.skipMode = true;
+              //options.skipCommitInThisIteration = true; // for now we'll assume that this means we'd want to try again in future in case something new is added
+
+              // once we're done replaying, have to replay the remainder of the script
+              // want to skip the rest of the loop body, so go straight to callback
+              callback();
             };
 
             var trace = [];

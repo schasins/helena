@@ -1267,9 +1267,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
   }
 
-  function requireFeature(statement, featureName){
-    ReplayTraceManipulation.requireFeature(statement.trace, statement.node, featureName); // note that statement.node stores the xpath of the original node
-    ReplayTraceManipulation.requireFeature(statement.cleanTrace, statement.node, featureName);
+  function requireFeatures(statement, featureNames){
+    ReplayTraceManipulation.requireFeatures(statement.trace, statement.node, featureNames); // note that statement.node stores the xpath of the original node
+    ReplayTraceManipulation.requireFeatures(statement.cleanTrace, statement.node, featureNames);
   }
 
   function setBlocklyLabel(obj, label){
@@ -1353,6 +1353,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.parent.removeChild(this);
     }
 
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
     this.clearRunningState = function _clearRunningState(){
       return;
     }
@@ -1496,6 +1499,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.parent.removeChild(this);
     }
 
+    this.prepareToRun = function _prepareToRun(){
+      if (this.currentNode instanceof WebAutomationLanguage.NodeVariable){
+        var feats = this.currentNode.getRequiredFeatures();
+        requireFeatures(this, feats);
+      }
+    };
     this.clearRunningState = function _clearRunningState(){
       return;
     }
@@ -1566,11 +1575,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return;
     };
 
-    this.requireFeature = function _requireFeature(featureName){
-      requireFeature(this, featureName); // todo: put this method in all the other statements that have orig xpath in this.node
-    };
-
-
     this.currentRelation = function _currentRelation(){
       return this.relation;
     };
@@ -1634,6 +1638,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     }
 
+    this.prepareToRun = function _prepareToRun(){
+      if (this.currentNode instanceof WebAutomationLanguage.NodeVariable){
+        var feats = this.currentNode.getRequiredFeatures();
+        requireFeatures(this, feats);
+      }
+    };
     this.clearRunningState = function _clearRunningState(){
       this.xpaths = [];
       this.preferredXpath = null;
@@ -1891,10 +1901,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.currentColumnObj = function _currentColumnObj(){
       return this.columnObj;
     };   
-
-    this.requireFeature = function _requireFeature(featureName){
-      requireFeature(this, featureName); // todo: put this method in all the other statements that have orig xpath in this.node
-    }; 
   };
 
   pub.TypeStatement = function _TypeStatement(trace){
@@ -1952,6 +1958,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.parent.removeChild(this);
     };
 
+    this.prepareToRun = function _prepareToRun(){
+      if (this.currentNode instanceof WebAutomationLanguage.NodeVariable){
+        var feats = this.currentNode.getRequiredFeatures();
+        requireFeatures(this, feats);
+      }
+    };
     this.clearRunningState = function _clearRunningState(){
       return;
     };
@@ -2095,10 +2107,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return;
     };
 
-    this.requireFeature = function _requireFeature(featureName){
-      requireFeature(this, featureName); // todo: put this method in all the other statements that have orig xpath in this.node
-    };
-
     this.currentRelation = function _currentRelation(){
       return this.relation;
     };
@@ -2140,6 +2148,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.scrapeStatements = _.without(this.scrapeStatements, scrapeStatement);
     }
 
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
     this.clearRunningState = function _clearRunningState(){
       return;
     }
@@ -2269,6 +2280,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.parent.removeChild(this);
     }
 
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
     this.clearRunningState = function _clearRunningState(){
       return;
     }
@@ -2331,6 +2345,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.parent.removeChild(this);
     }
 
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
     this.clearRunningState = function _clearRunningState(){
       return;
     }
@@ -2388,6 +2405,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.parent.removeChild(this);
     }
 
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
     this.clearRunningState = function _clearRunningState(){
       return;
     }
@@ -2465,6 +2485,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.updateChildStatements(newChildStatements);
     };
 
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
     this.clearRunningState = function _clearRunningState(){
       return;
     }
@@ -2601,6 +2624,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     }
 
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
     this.clearRunningState = function _clearRunningState(){
       this.currentTransaction = null;
       this.duplicatesInARow = 0;
@@ -2829,6 +2855,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.updateChildStatements(newChildStatements);
     };
 
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
     this.clearRunningState = function _clearRunningState(){
       this.rowsSoFar = 0;
       return;
@@ -3745,14 +3774,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   var nodeVariablesCounter = 0;
 
   pub.NodeVariable = function _NodeVariable(name, recordedNodeRep, recordedNodeSnapshot, source){
-    console.log(name, recordedNodeRep, recordedNodeSnapshot, source);
     Revival.addRevivalLabel(this);
 
     if (!name){
       nodeVariablesCounter += 1;
       name = "thing_" + nodeVariablesCounter;
     }
-    console.log('name', name);
 
     this.name = name;
     this.recordedNodeRep = recordedNodeRep;
@@ -3802,7 +3829,21 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.getSource = function(){
       return this.nodeSource;
-    }
+    };
+
+    this.requiredFeatures = [];
+    this.getRequiredFeatures = function _getRequiredFeatures(){
+      return this.requiredFeatures;
+    };
+    this.setRequiredFeatures = function _setRequiredFeatures(featureSet){
+      this.requiredFeatures = featureSet;
+    };
+    this.requireFeature = function _requireFeature(feature){
+      this.requiredFeatures.push(feature);
+    };
+    this.unrequireFeature = function _unrequireFeature(feature){
+      this.requiredFeatures = _.without(this.requiredFeatures, feature);
+    };
   };
 
   function outlier(sortedList, potentialItem){ // note that first arg should be SortedArray not just sorted array
@@ -4577,6 +4618,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       runObject.tab = tab;
 
       runObject.program.clearRunningState();
+      runObject.program.prepareToRun();
       // ok let's do this in a fresh window
       MiscUtilities.makeNewRecordReplayWindow(function(windowId){
         // now let's actually run
@@ -4676,6 +4718,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       _.each(this.relations, function(relation){relation.clearRunningState();});
       _.each(this.pageVars, function(pageVar){pageVar.clearRunningState();});
       this.traverse(function(statement){statement.clearRunningState();});
+    };
+
+    this.prepareToRun = function _prepareToRun(){
+      this.traverse(function(statement){statement.prepareToRun();});
     };
 
     function paramName(statementIndex, paramType){ // assumes we can't have more than one of a single paramtype from a single statement.  should be true

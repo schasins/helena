@@ -553,7 +553,27 @@ var RecorderUI = (function () {
         (function(){
           var oneNodeData = similarityNodes[i];
           console.log(oneNodeData);
-          var nodeDiv = $("<div>"+oneNodeData.toString()+"</div>");
+          var nodeDiv = $("<div class='require_features_node_item'>"+oneNodeData.toString()+"</div>");
+          nodeDiv.click(function(){
+            var featuresDiv = $("<div class='node_features_container'></div>");
+            var snapshot = oneNodeData.recordTimeSnapshot();
+            var requiredFeatures = oneNodeData.getRequiredFeatures();
+            for (var prop in snapshot){
+              var val = snapshot[prop];
+              if (val && val.length && val.length > 200){
+                val = val.slice(0,50)+"..."+val.slice(val.length - 50, val.length);
+              }
+              var featureDiv = $("<div class='node_feature'>'"+prop+"' must be '"+val+"'</div>");
+              if (requiredFeatures.indexOf(prop) > -1){
+                featureDiv.addClass('node_feature_selected');
+              }
+              else{
+                featureDiv.addClass('node_feature_unselected');
+              }
+              featuresDiv.append(featureDiv);
+            }
+            nodeDiv.append(featuresDiv);
+          });
           $div.append(nodeDiv);
         })();
       }
@@ -1124,7 +1144,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   function nodeRepresentation(statement, linkScraping){
     if (linkScraping === undefined){ linkScraping = false; }
     if (statement.currentNode instanceof WebAutomationLanguage.NodeVariable){
-      var nodeRep = statement.currentNode.toString(statement.pageVar);
+      var alreadyBound = statement.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR; // todo: this isn't really correct.  we could reuse a node scraped or clicked before, and then it would be bound already.  fix this.
+      var nodeRep = statement.currentNode.toString(alreadyBound, statement.pageVar);
       if (linkScraping){
         nodeRep += ".link";
       }
@@ -1651,7 +1672,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.toStringLines = function _toStringLines(){
-      var alreadyBound = this.currentNode.alreadyBound();
+      var alreadyBound = this.currentNode.getSource === NodeSources.RELATIONEXTRACTOR; // todo: could be it's already bound even without being relation extracted, so should really handle that
       if (alreadyBound){
         return ["scrape(" + this.currentNode.getName() + ")"];
       }
@@ -2167,7 +2188,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.toStringLines = function _toStringLines(){
       var textRelationRepLs = _.reduce(this.relations, function(acc,relation){return acc.concat(relation.scrapedColumnNames());}, []);
-      var nodeRepLs = _.map(this.scrapeStatements, function(statement){return nodeRepresentation(statement, statement.scrapeLink);});
+      var nodeRepLs = _.map(this.scrapeStatements, function(statement){return statement.currentNode.toString(true);});
       var allNames = textRelationRepLs.concat(nodeRepLs);
       WALconsole.log("outputRowStatement", textRelationRepLs, nodeRepLs);
       return ["addOutputRow(["+allNames.join(", ")+"])"];
@@ -3806,8 +3827,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.imgData = imgData;
     this.nodeSource = source;
 
-    this.toString = function _toString(pageVar){
-      if (this.alreadyBound() || !pageVar){
+    this.toString = function _toString(alreadyBound, pageVar){
+      if (alreadyBound === undefined){ alreadyBound = true;} 
+      if (alreadyBound){
         return this.name;
       }
       return pageVar.toString()+".<img src='"+this.imgData+"' style='max-height: 150px; max-width: 350px;'>";
@@ -3829,6 +3851,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.recordTimeXPath = function _recordTimeXPath(){
       return this.recordedNodeRep.xpath;
     };
+    this.recordTimeSnapshot = function _recordTimeSnapshot(){
+      return this.recordedNodeSnapshot;
+    }
 
     this.setCurrentNodeRep = function _setCurrentNodeRep(environment, nodeRep){
       // todo: should be a better way to get env
@@ -3867,12 +3892,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.unrequireFeature = function _unrequireFeature(feature){
       this.requiredFeatures = _.without(this.requiredFeatures, feature);
     };
-
-    this.alreadyBound = function _alreadyBound(){
-      // this is wrong!  things can be already bound even if they weren't scraped by a relation extractor!  but this is easiest for now
-      // todo: fix this
-      return this.nodeSource === NodeSources.RELATIONEXTRACTOR;
-    }
   };
 
   function outlier(sortedList, potentialItem){ // note that first arg should be SortedArray not just sorted array

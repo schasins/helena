@@ -173,3 +173,26 @@ h4 {
 .troubleshooting_option_expansion{
 	display: none;
 }
+
+.require_features_node_item{
+	background-color: #E3E3E3;
+	padding: 2px;
+	margin: 2px;
+}
+.require_features_node_item:hover{
+	background-color: #E5E5E5;
+}
+
+.node_features_container{
+}
+
+.node_feature{
+	padding: 2px;
+	margin: 2px;
+}
+.node_feature_selected{
+	background-color: #E1FFDE;
+}
+.node_feature_unselected{
+	background-color: #ffffff;
+}

@@ -1660,7 +1660,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       //if (this.scrapeLink){
       //  sString = "scrapeLink(";
       //}
-      return [nodeRep+", "+this.currentNode.getName()+")"];
+      return [sString + nodeRep+", "+this.currentNode.getName()+")"];
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
@@ -2645,7 +2645,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.toStringLines = function _toStringLines(){
-      return ["annotation"];
+      var ancestorString = "";
+      for (var i = 0; i < this.ancestorAnnotations.length; i++){
+        ancestorString += ", " + ancestorAnnotations[i].name;
+      }
+      var annotationItemsStr = _.map(this.annotationItems, function(i){return annotationItemToString(i);}).join(", ");
+      var prefix = "skipBlock("+this.name+"("+annotationItemsStr+")"+ancestorString+"){";
+      var statementStrings = _.reduce(this.bodyStatements, function(acc, statement){return acc.concat(statement.toStringLines());}, []);
+      statementStrings = _.map(statementStrings, function(line){return ("&nbsp&nbsp&nbsp&nbsp "+line);});
+      return [prefix].concat(statementStrings).concat(["}"]);
     };
 
     function annotationItemToString(item){
@@ -2882,14 +2890,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       WALconsole.log("loopstatement", varNames, additionalVarNames);
       var prefix = "";
       if (this.relation instanceof WebAutomationLanguage.TextRelation){
-        var prefix = "for "+varNames.join(", ")+" in "+this.relation.name+":"; 
+        var prefix = "for ("+varNames.join(", ")+" in "+this.relation.name+"){"; 
       }
       else{
-        var prefix = "for "+varNames.join(", ")+" in "+this.pageVar.toString()+"."+this.relation.name+":"; 
+        var prefix = "for ("+varNames.join(", ")+" in "+this.pageVar.toString()+"."+this.relation.name+"){"; 
       }
       var statementStrings = _.reduce(this.bodyStatements, function(acc, statement){return acc.concat(statement.toStringLines());}, []);
       statementStrings = _.map(statementStrings, function(line){return ("&nbsp&nbsp&nbsp&nbsp "+line);});
-      return [prefix].concat(statementStrings);
+      return [prefix].concat(statementStrings).concat(["}"]);
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
@@ -3799,7 +3807,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.nodeSource = source;
 
     this.toString = function _toString(pageVar){
-      if (this.alreadyBound()){
+      if (this.alreadyBound() || !pageVar){
         return this.name;
       }
       return pageVar.toString()+".<img src='"+this.imgData+"' style='max-height: 150px; max-width: 350px;'>";

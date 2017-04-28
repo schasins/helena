@@ -101,6 +101,9 @@ var Tooltip = (function _Tooltip() { var pub = {};
     var $node = $(node);
     // var nodeText = MiscUtilities.scrapeConditionString+" to scrape:<br>"+NodeRep.nodeToText(node)+"<br>"+MiscUtilities.scrapeConditionLinkString+" to scrape:<br>"+NodeRep.nodeToLink(node);
     var nodeText = NodeRep.nodeToText(node);
+    if (nodeText.length > 100){
+      nodeText = nodeText.slice(0,50)+"..."+nodeText.slice(nodeText.length - 50, nodeText.length);
+    }
     var offset = $node.offset();
     var boundingBox = node.getBoundingClientRect();
     var newDiv = $('<div>'+nodeText+'<div/>');

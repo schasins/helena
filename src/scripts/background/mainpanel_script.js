@@ -541,6 +541,31 @@ var RecorderUI = (function () {
     }
   };
 
+  var highlyHumanReadable = {"textContent": 11, "preceding-text": 10, "previousElementSiblingText": 10, "firstWord": 10, "firstTwoWords": 10, "firstThreeWords": 10, "preColonText": 10, "lastWord": 10, "id": 9, "tagName": 9, "className": 9, "xpath": 8, "background-color": 7, "background-image": 7};
+
+  function sortProps(props, alreadyChosen){
+    var rankedProps = {}
+    for (var prop in props){
+      if (alreadyChosen.indexOf(prop) > -1){
+        rankedProps[prop] = 12;
+      }
+      else if (prop in highlyHumanReadable){
+        rankedProps[prop] = highlyHumanReadable[prop];
+      }
+      else if (prop.startsWith("child")){
+        rankedProps[prop] = 6;
+      }
+      else if (prop.startsWith("lastChild")){
+        rankedProps[prop] = 5;
+      }
+      else{
+        rankedProps[prop] = 0;
+      }
+    }
+    var propsSorted = Object.keys(rankedProps).sort(function(a,b){return rankedProps[b] - rankedProps[a]});
+    return propsSorted;
+  }
+
   pub.updateNodeRequiredFeaturesUI = function _updateNodeRequiredFeaturesUI(){
     WALconsole.log("updateNodeRequiredFeaturesUI");
     var similarityNodes = ReplayScript.prog.getNodesFoundWithSimilarity();
@@ -551,29 +576,57 @@ var RecorderUI = (function () {
       $div.html("");
       for (var i = 0; i < similarityNodes.length; i++){
         (function(){
-          var oneNodeData = similarityNodes[i];
-          console.log(oneNodeData);
-          var nodeDiv = $("<div class='require_features_node_item'>"+oneNodeData.toString()+"</div>");
-          nodeDiv.click(function(){
+          var nodeVar = similarityNodes[i];
+          console.log(nodeVar);
+          var nodeDiv = $("<div class='require_features_node_item'>"+nodeVar.toString()+"</div>");
+          var nodeDivClickFunction = function(){
+            var priorFeaturesDiv = nodeDiv.find(".node_features_container");
+            if (priorFeaturesDiv){
+              priorFeaturesDiv.remove();
+            }
             var featuresDiv = $("<div class='node_features_container'></div>");
-            var snapshot = oneNodeData.recordTimeSnapshot();
-            var requiredFeatures = oneNodeData.getRequiredFeatures();
-            for (var prop in snapshot){
-              var val = snapshot[prop];
-              if (val && val.length && val.length > 200){
-                val = val.slice(0,50)+"..."+val.slice(val.length - 50, val.length);
-              }
-              var featureDiv = $("<div class='node_feature'>'"+prop+"' must be '"+val+"'</div>");
-              if (requiredFeatures.indexOf(prop) > -1){
-                featureDiv.addClass('node_feature_selected');
-              }
-              else{
-                featureDiv.addClass('node_feature_unselected');
-              }
-              featuresDiv.append(featureDiv);
+            var snapshot = nodeVar.recordTimeSnapshot();
+            var requiredFeatures = nodeVar.getRequiredFeatures();
+            var sortedProps = sortProps(snapshot, requiredFeatures)
+            for (var j = 0; j < sortedProps.length; j++){
+              var p = sortedProps[j];
+              (function(){
+                var prop = p;
+                var val = snapshot[prop];
+                if (val && val.length && val.length > 200){
+                  val = val.slice(0,50)+"..."+val.slice(val.length - 50, val.length);
+                }
+                else if (val === ""){
+                  val = "EMPTY";
+                }
+                else if (!val){
+                  val = String(val);
+                }
+                var featureDiv = $("<div class='node_feature'><span class='node_prop'>"+prop+"</span> must be <span class='node_prop_val'>"+val+"</span></div>");
+                if (requiredFeatures.indexOf(prop) > -1){
+                  featureDiv.addClass('node_feature_selected');
+                }
+                else{
+                  featureDiv.addClass('node_feature_unselected');
+                }
+                featureDiv.click(function(){
+                  if (requiredFeatures.indexOf(prop) > -1){
+                    // if it's currently required, stop requiring it
+                    nodeVar.unrequireFeature(prop);
+                  }
+                  else{
+                    // if it's currently not required, start requiring it
+                    nodeVar.requireFeature(prop);
+                  }
+                  // in either case, once the feature node is clicked, have to re-display the feature data for the whole node
+                  nodeDiv.click(nodeDivClickFunction);
+                });
+                featuresDiv.append(featureDiv);
+              })();
             }
             nodeDiv.append(featuresDiv);
-          });
+          };
+          nodeDiv.click(nodeDivClickFunction);
           $div.append(nodeDiv);
         })();
       }

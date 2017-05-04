@@ -287,6 +287,12 @@ var RecorderUI = (function () {
     $div.html("");
     if (currentlyUpdating){
       $div.html("Looking at webpages to find relevant tables.  Give us a moment.<br><center><img src='../icons/ajax-loader.gif'></center>");
+      var giveUpButton = $("<button>Give up looking for relevant tables.</button>");
+      giveUpButton.button();
+      giveUpButton.click(function(){
+        ReplayScript.prog.insertLoops(); // if user thinks we won't have relations, go ahead and do prog processing (making loopyStatements) without them
+      });
+      $div.append(giveUpButton);
     }
     else{
       $div.html("");
@@ -394,13 +400,14 @@ var RecorderUI = (function () {
     readyButton.button();
 
     readyButton.click(function(){
+      // once ready button clicked, we'll already have updated the relation selector info based on messages the content panel has been sending, so we can just go back to looking at the program preview
+      // the one thing we do need to change is there may now be nodes included in the relation (or excluded) that weren't before, so we should redo loop insertion
+      ReplayScript.prog.insertLoops();
+
       RecorderUI.showProgramPreview();
       // we also want to close the tab...
       console.log("showRelationEditor removing tab", tabId);
       chrome.tabs.remove(tabId);
-      // once ready button clicked, we'll already have updated the relation selector info based on messages the content panel has been sending, so we can just go back to looking at the program preview
-      // the one thing we do need to change is there may now be nodes included in the relation (or excluded) that weren't before, so we should redo loop insertion
-      ReplayScript.prog.insertLoops();
       // todo: maybe we also want to automatically save changes to server?  something to consider.  not yet sure
     });
   };
@@ -541,7 +548,7 @@ var RecorderUI = (function () {
     }
   };
 
-  var highlyHumanReadable = {"textContent": 11, "preceding-text": 10, "previousElementSiblingText": 10, "firstWord": 10, "firstTwoWords": 10, "firstThreeWords": 10, "preColonText": 10, "lastWord": 10, "id": 9, "tagName": 9, "className": 9, "xpath": 8, "background-color": 7, "background-image": 7};
+  var highlyHumanReadable = {"textContent": 12, "preceding-text": 10, "previousElementSiblingText": 10, "firstWord": 10, "firstTwoWords": 10, "firstThreeWords": 10, "preColonText": 11, "lastWord": 10, "possibleHeading": 10, "id": 9, "tagName": 9, "className": 9, "xpath": 8, "background-color": 7, "background-image": 7};
 
   function sortProps(props, alreadyChosen){
     var rankedProps = {}
@@ -578,10 +585,10 @@ var RecorderUI = (function () {
         (function(){
           var nodeVar = similarityNodes[i];
           console.log(nodeVar);
-          var nodeDiv = $("<div class='require_features_node_item'>"+nodeVar.toString()+"</div>");
+          var nodeDiv = $("<div class='require_features_node_item'><div class='node_name'>"+nodeVar.toString()+"</div></div>");
           var nodeDivClickFunction = function(){
             var priorFeaturesDiv = nodeDiv.find(".node_features_container");
-            if (priorFeaturesDiv){
+            if (priorFeaturesDiv.length > 0){
               priorFeaturesDiv.remove();
             }
             var featuresDiv = $("<div class='node_features_container'></div>");
@@ -626,7 +633,16 @@ var RecorderUI = (function () {
             }
             nodeDiv.append(featuresDiv);
           };
-          nodeDiv.click(nodeDivClickFunction);
+          $(nodeDiv.find(".node_name")[0]).click(function(){
+            // toggle whether we're showing
+            var priorFeaturesDiv = nodeDiv.find(".node_features_container");
+            if (priorFeaturesDiv.length > 0){
+              priorFeaturesDiv.remove();
+            }
+            else{
+              nodeDivClickFunction();
+            }
+          });
           $div.append(nodeDiv);
         })();
       }
@@ -5385,10 +5401,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
 
       WALconsole.log(pagesToRelations, pagesToNodes);
+      this.insertLoops();
+      /*
       if (_.difference(_.keys(pagesToNodes), _.keys(pagesToRelations)).length === 0) { // pagesToRelations now has all the pages from pagesToNodes
         // awesome, all the pages have gotten back to us
         setTimeout(this.insertLoops.bind(this), 0); // bind this to this, since JS runs settimeout func with this pointing to global obj
       }
+      */
 
       // give the text relations back to the UI-handling component so we can display to user
       return this.relations;

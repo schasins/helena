@@ -180,10 +180,14 @@ h4 {
 	margin: 2px;
 }
 .require_features_node_item:hover{
-	background-color: #E5E5E5;
+	background-color: #D9D9D9;
 }
 
 .node_features_container{
+}
+
+.require_features_container_content{
+	padding-top: 5px;
 }
 
 .node_feature{

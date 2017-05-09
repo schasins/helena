@@ -287,6 +287,12 @@ var RecorderUI = (function () {
     $div.html("");
     if (currentlyUpdating){
       $div.html("Looking at webpages to find relevant tables.  Give us a moment.<br><center><img src='../icons/ajax-loader.gif'></center>");
+      var giveUpButton = $("<button>Give up looking for relevant tables.</button>");
+      giveUpButton.button();
+      giveUpButton.click(function(){
+        ReplayScript.prog.insertLoops(); // if user thinks we won't have relations, go ahead and do prog processing (making loopyStatements) without them
+      });
+      $div.append(giveUpButton);
     }
     else{
       $div.html("");
@@ -394,13 +400,14 @@ var RecorderUI = (function () {
     readyButton.button();
 
     readyButton.click(function(){
+      // once ready button clicked, we'll already have updated the relation selector info based on messages the content panel has been sending, so we can just go back to looking at the program preview
+      // the one thing we do need to change is there may now be nodes included in the relation (or excluded) that weren't before, so we should redo loop insertion
+      ReplayScript.prog.insertLoops();
+
       RecorderUI.showProgramPreview();
       // we also want to close the tab...
       console.log("showRelationEditor removing tab", tabId);
       chrome.tabs.remove(tabId);
-      // once ready button clicked, we'll already have updated the relation selector info based on messages the content panel has been sending, so we can just go back to looking at the program preview
-      // the one thing we do need to change is there may now be nodes included in the relation (or excluded) that weren't before, so we should redo loop insertion
-      ReplayScript.prog.insertLoops();
       // todo: maybe we also want to automatically save changes to server?  something to consider.  not yet sure
     });
   };
@@ -541,6 +548,31 @@ var RecorderUI = (function () {
     }
   };
 
+  var highlyHumanReadable = {"textContent": 12, "preceding-text": 10, "previousElementSiblingText": 10, "firstWord": 10, "firstTwoWords": 10, "firstThreeWords": 10, "preColonText": 11, "lastWord": 10, "possibleHeading": 10, "id": 9, "tagName": 9, "className": 9, "xpath": 8, "background-color": 7, "background-image": 7};
+
+  function sortProps(props, alreadyChosen){
+    var rankedProps = {}
+    for (var prop in props){
+      if (alreadyChosen.indexOf(prop) > -1){
+        rankedProps[prop] = 12;
+      }
+      else if (prop in highlyHumanReadable){
+        rankedProps[prop] = highlyHumanReadable[prop];
+      }
+      else if (prop.startsWith("child")){
+        rankedProps[prop] = 6;
+      }
+      else if (prop.startsWith("lastChild")){
+        rankedProps[prop] = 5;
+      }
+      else{
+        rankedProps[prop] = 0;
+      }
+    }
+    var propsSorted = Object.keys(rankedProps).sort(function(a,b){return rankedProps[b] - rankedProps[a]});
+    return propsSorted;
+  }
+
   pub.updateNodeRequiredFeaturesUI = function _updateNodeRequiredFeaturesUI(){
     WALconsole.log("updateNodeRequiredFeaturesUI");
     var similarityNodes = ReplayScript.prog.getNodesFoundWithSimilarity();
@@ -551,9 +583,66 @@ var RecorderUI = (function () {
       $div.html("");
       for (var i = 0; i < similarityNodes.length; i++){
         (function(){
-          var oneNodeData = similarityNodes[i];
-          console.log(oneNodeData);
-          var nodeDiv = $("<div>"+oneNodeData.toString()+"</div>");
+          var nodeVar = similarityNodes[i];
+          console.log(nodeVar);
+          var nodeDiv = $("<div class='require_features_node_item'><div class='node_name'>"+nodeVar.toString()+"</div></div>");
+          var nodeDivClickFunction = function(){
+            var priorFeaturesDiv = nodeDiv.find(".node_features_container");
+            if (priorFeaturesDiv.length > 0){
+              priorFeaturesDiv.remove();
+            }
+            var featuresDiv = $("<div class='node_features_container'></div>");
+            var snapshot = nodeVar.recordTimeSnapshot();
+            var requiredFeatures = nodeVar.getRequiredFeatures();
+            var sortedProps = sortProps(snapshot, requiredFeatures)
+            for (var j = 0; j < sortedProps.length; j++){
+              var p = sortedProps[j];
+              (function(){
+                var prop = p;
+                var val = snapshot[prop];
+                if (val && val.length && val.length > 200){
+                  val = val.slice(0,50)+"..."+val.slice(val.length - 50, val.length);
+                }
+                else if (val === ""){
+                  val = "EMPTY";
+                }
+                else if (!val){
+                  val = String(val);
+                }
+                var featureDiv = $("<div class='node_feature'><span class='node_prop'>"+prop+"</span> must be <span class='node_prop_val'>"+val+"</span></div>");
+                if (requiredFeatures.indexOf(prop) > -1){
+                  featureDiv.addClass('node_feature_selected');
+                }
+                else{
+                  featureDiv.addClass('node_feature_unselected');
+                }
+                featureDiv.click(function(){
+                  if (requiredFeatures.indexOf(prop) > -1){
+                    // if it's currently required, stop requiring it
+                    nodeVar.unrequireFeature(prop);
+                  }
+                  else{
+                    // if it's currently not required, start requiring it
+                    nodeVar.requireFeature(prop);
+                  }
+                  // in either case, once the feature node is clicked, have to re-display the feature data for the whole node
+                  nodeDiv.click(nodeDivClickFunction);
+                });
+                featuresDiv.append(featureDiv);
+              })();
+            }
+            nodeDiv.append(featuresDiv);
+          };
+          $(nodeDiv.find(".node_name")[0]).click(function(){
+            // toggle whether we're showing
+            var priorFeaturesDiv = nodeDiv.find(".node_features_container");
+            if (priorFeaturesDiv.length > 0){
+              priorFeaturesDiv.remove();
+            }
+            else{
+              nodeDivClickFunction();
+            }
+          });
           $div.append(nodeDiv);
         })();
       }
@@ -1124,7 +1213,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   function nodeRepresentation(statement, linkScraping){
     if (linkScraping === undefined){ linkScraping = false; }
     if (statement.currentNode instanceof WebAutomationLanguage.NodeVariable){
-      var nodeRep = statement.currentNode.toString(statement.pageVar);
+      var alreadyBound = statement.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR; // todo: this isn't really correct.  we could reuse a node scraped or clicked before, and then it would be bound already.  fix this.
+      var nodeRep = statement.currentNode.toString(alreadyBound, statement.pageVar);
       if (linkScraping){
         nodeRep += ".link";
       }
@@ -1651,7 +1741,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.toStringLines = function _toStringLines(){
-      var alreadyBound = this.currentNode.alreadyBound();
+      var alreadyBound = this.currentNode.getSource === NodeSources.RELATIONEXTRACTOR; // todo: could be it's already bound even without being relation extracted, so should really handle that
       if (alreadyBound){
         return ["scrape(" + this.currentNode.getName() + ")"];
       }
@@ -2167,7 +2257,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.toStringLines = function _toStringLines(){
       var textRelationRepLs = _.reduce(this.relations, function(acc,relation){return acc.concat(relation.scrapedColumnNames());}, []);
-      var nodeRepLs = _.map(this.scrapeStatements, function(statement){return nodeRepresentation(statement, statement.scrapeLink);});
+      var nodeRepLs = _.map(this.scrapeStatements, function(statement){return statement.currentNode.toString(true);});
       var allNames = textRelationRepLs.concat(nodeRepLs);
       WALconsole.log("outputRowStatement", textRelationRepLs, nodeRepLs);
       return ["addOutputRow(["+allNames.join(", ")+"])"];
@@ -3806,8 +3896,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.imgData = imgData;
     this.nodeSource = source;
 
-    this.toString = function _toString(pageVar){
-      if (this.alreadyBound() || !pageVar){
+    this.toString = function _toString(alreadyBound, pageVar){
+      if (alreadyBound === undefined){ alreadyBound = true;} 
+      if (alreadyBound){
         return this.name;
       }
       return pageVar.toString()+".<img src='"+this.imgData+"' style='max-height: 150px; max-width: 350px;'>";
@@ -3829,6 +3920,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.recordTimeXPath = function _recordTimeXPath(){
       return this.recordedNodeRep.xpath;
     };
+    this.recordTimeSnapshot = function _recordTimeSnapshot(){
+      return this.recordedNodeSnapshot;
+    }
 
     this.setCurrentNodeRep = function _setCurrentNodeRep(environment, nodeRep){
       // todo: should be a better way to get env
@@ -3867,12 +3961,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.unrequireFeature = function _unrequireFeature(feature){
       this.requiredFeatures = _.without(this.requiredFeatures, feature);
     };
-
-    this.alreadyBound = function _alreadyBound(){
-      // this is wrong!  things can be already bound even if they weren't scraped by a relation extractor!  but this is easiest for now
-      // todo: fix this
-      return this.nodeSource === NodeSources.RELATIONEXTRACTOR;
-    }
   };
 
   function outlier(sortedList, potentialItem){ // note that first arg should be SortedArray not just sorted array
@@ -5313,10 +5401,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
 
       WALconsole.log(pagesToRelations, pagesToNodes);
+      this.insertLoops();
+      /*
       if (_.difference(_.keys(pagesToNodes), _.keys(pagesToRelations)).length === 0) { // pagesToRelations now has all the pages from pagesToNodes
         // awesome, all the pages have gotten back to us
         setTimeout(this.insertLoops.bind(this), 0); // bind this to this, since JS runs settimeout func with this pointing to global obj
       }
+      */
 
       // give the text relations back to the UI-handling component so we can display to user
       return this.relations;

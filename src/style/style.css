@@ -173,3 +173,44 @@ h4 {
 .troubleshooting_option_expansion{
 	display: none;
 }
+
+.require_features_node_item{
+	background-color: #E3E3E3;
+	padding: 2px;
+	margin: 2px;
+}
+.require_features_node_item:hover{
+	background-color: #D9D9D9;
+}
+
+.node_features_container{
+}
+
+.require_features_container_content{
+	padding-top: 5px;
+}
+
+.node_feature{
+	padding: 2px;
+	margin: 2px;
+}
+.node_feature_selected{
+	background-color: #E1FFDE;
+}
+.node_feature_selected:hover{
+	background-color: #ADE3A8;
+}
+.node_feature_unselected{
+	background-color: #ffffff;
+}
+.node_feature_unselected:hover{
+	background-color: #F2F2F2;
+}
+
+.node_prop{
+	background-color: #E1ECF0;
+}
+
+.node_prop_val{
+	background-color: #F0EBE1;
+}

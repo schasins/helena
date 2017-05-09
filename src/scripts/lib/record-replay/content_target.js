@@ -86,6 +86,23 @@ function getFeatures(element){
     info["lastChild"+(l-i)+"text"] = childText;
   }
 
+  // keep ascending the parent links as long as the inner text is the same.  as soon as it's not the same, add the first text of the new thing as a possible heading
+  var currentNode = element;
+  while ($(currentNode).parent().text().trim() === $(currentNode).text().trim() || $(currentNode).parent().text().trim().startsWith($(currentNode).text().trim())){
+    currentNode = $(currentNode).parent();
+  }
+  // ok, let's go one more up to get to that parent node that has different text.
+  currentNode = $(currentNode).parent();
+  var children = currentNode.children();
+  var possibleHeading = null;
+  for (var i = 0; i < children.length; i++){
+    if (children[i].textContent){
+      possibleHeading = children[i].textContent;
+      break;
+    }
+  }
+  info.possibleHeading = possibleHeading;
+
   var prev = element.previousElementSibling;
   if (prev !== null){
     info.previousElementSiblingText = prev.textContent;

@@ -968,39 +968,53 @@ var Replay = (function ReplayClosure() {
       var ports = this.ports;
       var portInfo = ports.getTabInfo(newTabId);
       replayLog.log('trying to find port in tab:', portInfo);
+      var findPortInTabDebug = true;
+      if (findPortInTabDebug){ console.log("no portInfo");}
 
-      if (!portInfo)
+      if (!portInfo){
+        if (findPortInTabDebug){ console.log('trying to find port in tab:', portInfo);}
         return null;
+      }
 
-      /* if its the top frame, then ensure the urls match */
+      /* if it's the top frame, use that */
       if (frame.topFrame) {
         replayLog.log('assume port is top level page');
+        if (findPortInTabDebug){ console.log("top level page");}
         var topFrame = portInfo.top;
         if (topFrame) {
-          // console.log("top level page for findportintab");
-          if (matchUrls(frame.URL, topFrame.URL))
-            return ports.getPort(topFrame.portId);
+          return ports.getPort(topFrame.portId);
         }
-      /* if its an iframe, find all frames with matching urls */
+      /* if it's an iframe, find all frames with matching urls */
       } else {
         replayLog.log('try to find port in one of the iframes');
+        if (findPortInTabDebug){ console.log("try to find port in one of the iframes", portInfo.frames.length);}
         var frames = portInfo.frames;
-        var urlFrames = [];
+
+        var bestFrameSoFar = null;
+        var bestFrameDistanceSoFar = 99999;
         for (var i = 0, ii = frames.length; i < ii; i++) {
-          if (frames[i].URL == frame.URL) {
-            urlFrames.push(frames[i]);
+          var distance = MiscUtilities.levenshteinDistance(frames[i].URL, frame.URL);
+          if (distance < bestFrameDistanceSoFar){
+            bestFrameSoFar = frames[i];
+            bestFrameDistanceSoFar = distance;
+          }
+          if (distance === bestFrameDistanceSoFar){
+            replayLog.warn('have multiple iframes with same distance, might be the best distance:', bestFrameSoFar, frames[i]);
+            if (findPortInTabDebug){ console.log('have multiple iframes with same distance, might be the best distance:', bestFrameSoFar, frames[i]);}
           }
         }
 
-        /* no matching frames */
-        if (urlFrames.length == 0) {
-          return null;
-        } else if (urlFrames.length == 1) {
-          return ports.getPort(urlFrames[0].portId);
-        }
+        if (findPortInTabDebug){ console.log('picked bestFrameSoFar', bestFrameSoFar, bestFrameDistanceSoFar);}
 
-        replayLog.warn('multiple iframes with same url:', urlFrames);
+        /* no matching frames */
+        if (!bestFrameSoFar) {
+          if (findPortInTabDebug){ console.log('!bestFrameSoFar');}
+          return null;
+        } else {
+          return ports.getPort(bestFrameSoFar.portId);
+        }
       }
+      if (findPortInTabDebug){ console.log('last line of findPortInTab');}
       return null;
     },
     /* Check if an event has already been replayed */

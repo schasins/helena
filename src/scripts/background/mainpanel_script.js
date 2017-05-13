@@ -94,12 +94,14 @@ var RecorderUI = (function () {
 
     // first make a toolbox with all the block nodes we want
     var $toolboxDiv = $("#new_script_content").find("#toolbox");
+    if (!$toolboxDiv.legnth > 0){
+      // we must not be currently showing the blockly preview.  we'll get around to doing this stuff once we do switch to that view
+      return;
+    }
     $toolboxDiv.html("");
     for (var i = 0; i < blocklyLabels.length; i++){
       $toolboxDiv.append($("<block type=\"" + blocklyLabels[i] + "\"></block>"));
     }
-
-    workspace.updateToolbox($toolboxDiv.get(0));
   }
 
   function handleBlocklyEditorResizing(){

@@ -1228,7 +1228,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         var id = null;
         if (cell === null || cell === undefined) { 
           // can't save an id on null
-          id = null; 
+          return;
         }
         else if (!("___relationFinderId___" in cell)){
           // have to add the relationFinderId
@@ -1241,6 +1241,30 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
           id = cell.___relationFinderId___;
         }
         rowIds.push(id);
+
+        // now, it's nice that we're able to track these rows and all, but if the page gets updated by javascript
+        // or some such thing, we might keep this id and think we've already scraped something even if we haven't
+        // so use mutationobserver
+
+        // todo: might be better to do this for relationNodes items (row-by-row), rather than on a cell-by-cell basis
+        // that way if any of the cells change, we believe the whole row has been updated
+        // of course, this still doesn't fix the case where the list has been ajax-updated, but one of the rows is the same
+        // todo: handle that
+         
+        // create an observer instance
+        var observer = new MutationObserver(function(mutations) {
+          console.log("MutationObserver fired", cell);
+          console.log(cell.___relationFinderId___);
+          // get rid of the old id, now that it's essentially a different node
+          delete cell.___relationFinderId___;
+          // stop observing
+          observer.disconnect();
+          console.log(cell.___relationFinderId___);
+        });
+        // configuration of the observer:
+        var config = { attributes: true, childList: true, characterData: true };
+        // pass in the target node, as well as the observer options
+        observer.observe(cell, config);
       });
       relationNodesIds.push(rowIds);
     });
@@ -1255,8 +1279,13 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       var newRowsIds = [];
       for (var i = 0; i < relationNodesIds.length; i++){
         var row = relationNodesIds[i];
-        var allNew = _.reduce(row, function(acc, cell){return (acc && alreadySeenRelationNodeIds.indexOf(cell) === -1);}, true);
-        if (allNew){
+        // todo: should we be looking for whether some are new, or all?  requring all can fail with ajax-updated pages
+        // ex: say we're scraping a bunch of papers from a single conference.  conference element will stay the same,
+        // so conference node won't get updated and its id won't get wiped.
+        // in this case, even requiring some to be new could be a problem if we're only scraping that single column
+        // so todo: come up with a better solution
+        var someNew = _.reduce(row, function(acc, cell){return (acc || alreadySeenRelationNodeIds.indexOf(cell) === -1);}, false);
+        if (someNew){
           newRows.push(relationNodes[i]);
           newRowsIds.push(row);
         }

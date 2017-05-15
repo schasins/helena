@@ -4317,8 +4317,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     function alignRecordTimeAndReplayTimeCompletedEvents(recordTimeTrace, replayTimeTrace){
       // we should see corresponding 'completed' events in the traces
-      var recCompleted = _.filter(recordTimeTrace, function(ev){return ev.type === "completed" && ev.data.type === "main_frame";}); // now only doing this for top-level completed events.  will see if this is sufficient
-      var repCompleted = _.filter(replayTimeTrace, function(ev){return ev.type === "completed" && ev.data.type === "main_frame";});
+      var recCompleted = _.filter(recordTimeTrace, function(ev){return ev.type === "completed" && ev.data.type === "main_frame" && ev.data.url.indexOf("kaofang.cs.berkeley.edu:8080") < 0;}); // now only doing this for top-level completed events.  will see if this is sufficient
+      // have to check for kaofang presence, because otherwise user can screw it up by downloading data in the middle or something like that
+      var repCompleted = _.filter(replayTimeTrace, function(ev){return ev.type === "completed" && ev.data.type === "main_frame" && ev.data.url.indexOf("kaofang.cs.berkeley.edu:8080") < 0;});
       WALconsole.log(recCompleted, repCompleted);
       // should have same number of top-level load events.  if not, might be trouble
       if (recCompleted.length !== repCompleted.length){

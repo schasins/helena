@@ -1291,9 +1291,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     if (statement.relation === relation){
       statement.relation = null;
       statement.columnObj = null;
-      var variableUse = statement.currentNode;
-      statement.currentNode = statement.origNode;
-      return variableUse;
+      var columnObject = statement.columnObj;
+      statement.columnObj = null;
+      statement.currentNode = makeNodeVariableForTrace(statement.trace);
+      return columnObject;
     }
     return null;
   }
@@ -1705,7 +1706,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         this.node = ev.target.xpath;
         this.pageUrl = ev.frame.topURL;
         // for now, assume the ones we saw at record time are the ones we'll want at replay
-        this.currentNode = this.node;
+        //this.currentNode = this.node;
         this.origNode = this.node;
 
         // are we scraping a link or just the text?
@@ -1885,12 +1886,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     };
     this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
-      var removedVarUse = unParameterizeNodeWithRelation(this, relation);
+      var columnObject = unParameterizeNodeWithRelation(this, relation);
       // todo: right now we're assuming we only scrape a given column once in a given script, so if we unparameterize here
       // we assume no where else is scraping this column, and we reset the column object's scraped value
       // but there's no reason for this assumption to be true.  it doesn't matter much, so not fixing it now.  but fix in future
-      if (removedVarUse){ // will be null if we're not actually unparameterizing anything
-        var colObject = removedVarUse.currentColumnObj();
+      if (columnObject){ // will be null if we're not actually unparameterizing anything
         colObject.scraped = false; // should really do reference counting
       }
 

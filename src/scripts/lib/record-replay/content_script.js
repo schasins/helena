@@ -493,6 +493,7 @@ function simulate(events, startIndex) {
     if (!target || target === "TIMEDOUTNODE" || target === "REQUIREDFEATUREFAILURE") {
       if (checkTimeout(events, i) || target === "TIMEDOUTNODE") {
         if (target === "REQUIREDFEATUREFAILURE"){
+          console.log(eventName, eventData, eventRecord);
           // this is a special case, because the user has insisted on a few special features, and we want
           // the top-level tool to be allowed to decide what happens if node addressing fails in this case
           // so there will be a special error handler at the mainpanel for this

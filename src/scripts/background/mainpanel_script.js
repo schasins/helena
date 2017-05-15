@@ -554,7 +554,7 @@ var RecorderUI = (function () {
     var rankedProps = {}
     for (var prop in props){
       if (alreadyChosen.indexOf(prop) > -1){
-        rankedProps[prop] = 12;
+        rankedProps[prop] = 20;
       }
       else if (prop in highlyHumanReadable){
         rankedProps[prop] = highlyHumanReadable[prop];
@@ -584,7 +584,6 @@ var RecorderUI = (function () {
       for (var i = 0; i < similarityNodes.length; i++){
         (function(){
           var nodeVar = similarityNodes[i];
-          console.log(nodeVar);
           var nodeDiv = $("<div class='require_features_node_item'><div class='node_name'>"+nodeVar.toString()+"</div></div>");
           var nodeDivClickFunction = function(){
             var priorFeaturesDiv = nodeDiv.find(".node_features_container");
@@ -1167,9 +1166,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         return StatementTypes.MOUSE;
       }
       else if (statementToEventMapping.keyboard.indexOf(ev.data.type) > -1){
+        /*
         if (ev.data.type === "keyup"){
           return StatementTypes.KEYUP;
         }
+        */
         //if ([16, 17, 18].indexOf(ev.data.keyCode) > -1){
         //  // this is just shift, ctrl, or alt key.  don't need to show these to the user
         //  return null;
@@ -1641,7 +1642,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // do we actually know the target tab already?  if yes, go ahead and paremterize that
         pbvs.push({type:"tab", value: originalTab(this)});
       }
-      if (this.node !== this.currentNode){
+      if (this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
         pbvs.push({type:"node", value: this.node});
       }
       return pbvs;
@@ -1657,7 +1658,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.args = function _args(environment){
       var args = [];
       args.push({type:"tab", value: currentTab(this)});
-      args.push({type:"node", value: currentNodeXpath(this, environment)});
+      if (this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
+        args.push({type:"node", value: currentNodeXpath(this, environment)});
+      }
       return args;
     };
 
@@ -2024,7 +2027,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var outputLoads = _.reduce(domEvents, function(acc, ev){return acc.concat(EventM.getDOMOutputLoadEvents(ev));}, []);
       this.outputPageVars = _.map(outputLoads, function(ev){return EventM.getLoadOutputPageVar(ev);});
       // for now, assume the ones we saw at record time are the ones we'll want at replay
-      this.currentNode = this.node;
+      this.currentNode = this.currentNode = makeNodeVariableForTrace(trace);
       this.origNode = this.node;
       this.currentTypedString = this.typedString;
 
@@ -2040,10 +2043,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (onlyKeydowns || onlyKeyups){
         this.keyEvents = textEntryEvents;
         this.keyCodes = _.map(this.keyEvents, function(ev){ return ev.data.keyCode; });
-      }
-      else{
-        // if we're actually typing something in a given textbox, we'll want a proper nodeVar to represent the currentNode
-        this.currentNode = makeNodeVariableForTrace(trace);
       }
     };
 
@@ -2140,7 +2139,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // do we actually know the target tab already?  if yes, go ahead and paremterize that
         pbvs.push({type:"tab", value: originalTab(this)});
       }
-      if (this.node !== this.currentNode){
+      if (this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
         pbvs.push({type:"node", value: this.node});
       }
       if (this.typedString !== this.currentTypedString){
@@ -2197,7 +2196,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.args = function _args(environment){
       var args = [];
-      args.push({type:"node", value: currentNodeXpath(this, environment)});
+      if (this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
+        args.push({type:"node", value: currentNodeXpath(this, environment)});
+      }
       args.push({type:"typedString", value: currentNodeText(this, environment)});
       args.push({type:"tab", value: currentTab(this)});
       return args;

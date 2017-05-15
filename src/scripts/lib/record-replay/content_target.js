@@ -97,7 +97,7 @@ function getFeatures(element){
   var possibleHeading = null;
   for (var i = 0; i < children.length; i++){
     if (children[i].textContent){
-      possibleHeading = children[i].textContent;
+      possibleHeading = children[i].textContent.trim();
       break;
     }
   }

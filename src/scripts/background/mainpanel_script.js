@@ -2172,12 +2172,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             if (left.length > 0){
               components.push(left)
             }
-            components.push(new WebAutomationLanguage.NodeVariable(columns[i].name, firstRowNodeRepresentations[i]), null, null, NodeSources.RELATIONEXTRACTOR);
+            components.push(new WebAutomationLanguage.NodeVariable(columns[i].name, firstRowNodeRepresentations[i], null, null, NodeSources.RELATIONEXTRACTOR));
             var right = text.slice(startIndex + this.typedString.length, text.length);
             if (right.length > 0){
               components.push(right)
             }
             this.currentTypedString = new WebAutomationLanguage.Concatenate(components);
+            this.typedStringParameterizationRelation = relation;
             return [relationColumnUsed, columns[i]];
           }
         }
@@ -2187,6 +2188,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
     this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
       unParameterizeNodeWithRelation(this, relation);
+      if (this.typedStringParameterizationRelation === relation){
+        this.currentTypedString = this.typedString;
+      }
     };
 
     function currentNodeText(statement, environment){
@@ -3180,7 +3184,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (!this.nodeVars){
         this.nodeVars = [];
         for (var i = 0; i < this.columns.length; i++){
-          this.nodeVars.push(new WebAutomationLanguage.NodeVariable(this.columns[i].name, firstRowNodeReps[i]), null, null, NodeSources.RELATIONEXTRACTOR);
+          this.nodeVars.push(new WebAutomationLanguage.NodeVariable(this.columns[i].name, firstRowNodeReps[i], null, null, NodeSources.RELATIONEXTRACTOR));
         }
       }
       return this.nodeVars;
@@ -4097,11 +4101,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.components = components;
     }
 
-    this.currentText = function _currentText(){
+    this.currentText = function _currentText(enviornment){
       var output = "";
       _.each(this.components, function(component){
         if (component instanceof pub.NodeVariable){
-          output += component.currentText();
+          output += component.currentText(enviornment);
         }
         else{
           // this should be a string, since currently can only concat strings and variable uses

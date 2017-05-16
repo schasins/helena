@@ -1645,7 +1645,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // do we actually know the target tab already?  if yes, go ahead and paremterize that
         pbvs.push({type:"tab", value: originalTab(this)});
       }
-      if (this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
+      if (this.currentNode instanceof WebAutomationLanguage.NodeVariable && this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
         pbvs.push({type:"node", value: this.node});
       }
       return pbvs;
@@ -1661,7 +1661,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.args = function _args(environment){
       var args = [];
       args.push({type:"tab", value: currentTab(this)});
-      if (this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
+      if (this.currentNode instanceof WebAutomationLanguage.NodeVariable && this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
         args.push({type:"node", value: currentNodeXpath(this, environment)});
       }
       return args;
@@ -1747,7 +1747,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     this.toStringLines = function _toStringLines(){
-      var alreadyBound = this.currentNode.getSource === NodeSources.RELATIONEXTRACTOR; // todo: could be it's already bound even without being relation extracted, so should really handle that
+      var alreadyBound = this.currentNode instanceof WebAutomationLanguage.NodeVariable && this.currentNode.getSource === NodeSources.RELATIONEXTRACTOR; // todo: could be it's already bound even without being relation extracted, so should really handle that
       if (alreadyBound){
         return ["scrape(" + this.currentNode.getName() + ")"];
       }
@@ -2141,7 +2141,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // do we actually know the target tab already?  if yes, go ahead and paremterize that
         pbvs.push({type:"tab", value: originalTab(this)});
       }
-      if (this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
+      if (this.currentNode instanceof WebAutomationLanguage.NodeVariable && this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
         pbvs.push({type:"node", value: this.node});
       }
       if (this.typedString !== this.currentTypedString){
@@ -2202,7 +2202,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.args = function _args(environment){
       var args = [];
-      if (this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
+      if (this.currentNode instanceof WebAutomationLanguage.NodeVariable && this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
         args.push({type:"node", value: currentNodeXpath(this, environment)});
       }
       args.push({type:"typedString", value: currentNodeText(this, environment)});

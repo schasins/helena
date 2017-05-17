@@ -332,6 +332,7 @@ function getFeatures(element){
   */
 
   function getAllSimilarityCandidates(targetInfo){
+    WALconsole.log("running getAllSimilarityCandidates");
     var tagName = "*";
     if (targetInfo.nodeName){
       tagName = targetInfo.nodeName;
@@ -366,10 +367,11 @@ function getFeatures(element){
   };
 
   var getTargetForSimilarityFilteredByText = function(targetInfo, filterFeatures) {
-    //console.log("getTargetForSimilarityFilteredByText", targetInfo, filterFeatures);
+    WALconsole.log("getTargetForSimilarityFiltered", targetInfo, filterFeatures);
     if (filterFeatures === undefined){ filterFeatures = []; }
     //console.log("getTargetForSimilarityFilteredByText", targetInfo);
-    var unfilteredCandidates = getAllSimilarityCandidates(targetInfo);
+    var unfilteredCandidates = getAllSimilarityCandidates(targetInfo); // recall that this could be just the body node if nothing's loaded yet
+    WALconsole.log("unfilteredCandidatesFeatures", unfilteredCandidatesFeatures);
 
     // soon we'll filter by text, since we're doing getTargetForSimilarityFilteredByText
     // but we need to filter based on the user-provided filterFeatures (the ones required to be stable) first
@@ -378,17 +380,18 @@ function getFeatures(element){
       userFilteredCandidates = unfilteredCandidates;
     }
     else{
+      var unfilteredCandidatesFeatures = _.map(unfilteredCandidates, function(c){return getFeatures(c);}); // have to convert to feature view to do our filtering!
       userFilteredCandidates = [];
       for (var i = 0; i < unfilteredCandidates.length; i++){
-        var matchedAllFeatures = _.reduce(filterFeatures, function(acc, feature){return (acc && (unfilteredCandidates[i][feature] === targetInfo[feature]));}, true);
+        var matchedAllFeatures = _.reduce(filterFeatures, function(acc, feature){return (acc && (unfilteredCandidatesFeatures[i][feature] === targetInfo[feature]));}, true);
         if (matchedAllFeatures){
           userFilteredCandidates.push(unfilteredCandidates[i]);
         }         
       }
     }
-    //console.log("userFilteredCandidates", userFilteredCandidates.length, userFilteredCandidates);
+    WALconsole.log("userFilteredCandidates", userFilteredCandidates.length, userFilteredCandidates);
     // this is a case where, because user can require features that no longer appear, we can get zero matches!
-    if (unfilteredCandidates.length > 0 && userFilteredCandidates.length === 0){
+    if (unfilteredCandidates.length > 1 && userFilteredCandidates.length === 0){ // 1 because we should always at least see the body node, which just means we're not ready, right?
       return "REQUIREDFEATUREFAILURE";
     }
     if (userFilteredCandidates.length === 0){

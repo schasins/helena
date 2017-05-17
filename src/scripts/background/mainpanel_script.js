@@ -587,7 +587,7 @@ var RecorderUI = (function () {
         (function(){
           var nodeVar = similarityNodes[i];
           var nodeDiv = $("<div class='require_features_node_item'><div class='node_name'>"+nodeVar.toString()+"</div></div>");
-          var nodeDivClickFunction = function(){
+          var showNodeFeatures = function(){
             var priorFeaturesDiv = nodeDiv.find(".node_features_container");
             if (priorFeaturesDiv.length > 0){
               priorFeaturesDiv.remove();
@@ -627,7 +627,7 @@ var RecorderUI = (function () {
                     nodeVar.requireFeature(prop);
                   }
                   // in either case, once the feature node is clicked, have to re-display the feature data for the whole node
-                  nodeDiv.click(nodeDivClickFunction);
+                  showNodeFeatures();
                 });
                 featuresDiv.append(featureDiv);
               })();
@@ -641,7 +641,7 @@ var RecorderUI = (function () {
               priorFeaturesDiv.remove();
             }
             else{
-              nodeDivClickFunction();
+              showNodeFeatures();
             }
           });
           $div.append(nodeDiv);

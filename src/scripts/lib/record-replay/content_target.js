@@ -8,6 +8,7 @@ var getTargetFunction;
 var targetFunctions;
 var saveTargetInfo;
 var markTimedOut;
+var markNonExistantFeatures;
 
 (function() {
   var log = getLog('target');
@@ -424,6 +425,16 @@ function getFeatures(element){
     if (! targetInfo){
       return null;
     }
+
+    if (xpath in timedOutNodes){
+      WALconsole.namedLog("nodeTimeout", "nope, this node timed out");
+      return "TIMEDOUTNODECERTAIN";
+    }
+    if (featuresNonExistant(targetInfo)){
+      WALconsole.namedLog("nodeTimeout", "nope, already know we don't have those features");
+      return "REQUIREDFEATUREFAILURECERTAIN";
+    }
+
     var xpath = targetInfo.xpath;
     if (xpath in identifiedNodesCache){
       // we've already had to find this node on this page.  go ahead and use the cached node.
@@ -433,10 +444,6 @@ function getFeatures(element){
         return cachedNode;
       }
       return cachedNode;
-    }
-    if (xpath in timedOutNodes){
-      WALconsole.namedLog("nodeTimeout", "nope, this node timed out");
-      return "TIMEDOUTNODE";
     }
 
     // we have a useXpathOnly flag set to true when the top level has parameterized on xpath, and normal node addressing approach should be ignored
@@ -464,13 +471,33 @@ function getFeatures(element){
     return winningNode;
   }
 
-  var timedOutNodes = {};
+  /*-----------------*/
 
+  var timedOutNodes = {};
   // trying an approach where we keep track of the fact that a given node doesn't appear to exist on current page
   markTimedOut = function(targetInfo) {
     WALconsole.namedLog("nodeTimeout", "marked timed out");
     timedOutNodes[targetInfo.xpath] = true;
   };
+
+  /*-----------------*/
+
+  var nonExistantFeatures = {};
+  var strRep = function(targetInfo){
+    var featureNames = targetInfo.requiredFeatures.sort();
+    var values = _.map(featureNames, function(f){return targetInfo.snapshot[f];});
+    return featureNames.join("_")+"____"+values.join("_");
+  }
+  var featuresNonExistant = function(targetInfo) {
+    if (!targetInfo.requiredFeatures){ return false; }
+    return nonExistantFeatures[strRep(targetInfo)];
+  }
+  markNonExistantFeatures = function(targetInfo) {
+    WALconsole.namedLog("nodeTimeout", "marked nonexistant features");
+    nonExistantFeatures[strRep(targetInfo)] = true;
+  };
+
+  /*-----------------*/
 
   // now let's not go crazy with recording when we've seen a timeout.  if the page changes, let's clear out all our timedOutNodes
   // todo: should we also clear out the identifiedNodesCache
@@ -479,6 +506,7 @@ function getFeatures(element){
       // fired when a mutation occurs
       WALconsole.namedLog("nodeTimeout", "observed dom change, clearing timeout cache");
       timedOutNodes = {};
+      nonExistantFeatures = {};
   });
 
   /* List of all target functions. Used for benchmarking */

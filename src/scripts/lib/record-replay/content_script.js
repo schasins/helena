@@ -488,11 +488,29 @@ function simulate(events, startIndex) {
     }
     */
 
+    // there are some cases where we're sure we have no node, in which case we should just continue
+    if (target === "REQUIREDFEATUREFAILURECERTAIN" || target === "TIMEDOUTNODECERTAIN"){
+      i++;
+      setRetry(events, i, 0); // todo: is waiting 0 here ok?
+      return;
+    }
+
     /* if no target exists, lets try to dispatch this event a little bit in
      *the future, and hope the page changes */
     if (!target || target === "TIMEDOUTNODE" || target === "REQUIREDFEATUREFAILURE") {
       if (checkTimeout(events, i) || target === "TIMEDOUTNODE") {
-        if (target === "REQUIREDFEATUREFAILURE"){
+        if (target === "REQUIREDFEATUREFAILURE" && eventRecord.additional.scrape){ 
+          // if we have a required feature failure, but it's just a scraping event, go ahead and just don't scrape anything
+          var reqFeatures = targetInfo.requiredFeatures;
+          var reqValues = _.map(reqFeatures, function(f){return targetInfo.snapshot[f];});
+          replayLog.warn('REQUIREDFEATUREFAILURE finding scraping target, skip event: ', events, i, reqFeatures, reqValues);
+          markNonExistantFeatures(targetInfo);
+          // we timed out with this target, so lets skip the event
+          i++;
+        }
+        else if (target === "REQUIREDFEATUREFAILURE"){
+          // if we have a required feature failure and it's a node with which we need to interact, should fail here or let top-level tool decide
+          // todo: is this really where we shoudl be making these calls?
           console.log(eventName, eventData, eventRecord);
           // this is a special case, because the user has insisted on a few special features, and we want
           // the top-level tool to be allowed to decide what happens if node addressing fails in this case

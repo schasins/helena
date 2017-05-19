@@ -181,7 +181,7 @@ var TimeoutStrategy = {
       eventTimeout: null,
       targetTimeout: 15,
       compensation: CompensationAction.FORCED,
-      timingStrategy: TimingStrategy.SPEED,
+      timingStrategy: TimingStrategy.MIMIC,
       defaultWait: 1000,
       defaultWaitNewTab: 5000,
       defaultWaitNextEvent: 5000,

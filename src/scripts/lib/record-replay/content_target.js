@@ -389,12 +389,15 @@ function getFeatures(element){
           userFilteredCandidates.push(unfilteredCandidates[i]);
         }         
       }
+
+      WALconsole.log("userFilteredCandidates", userFilteredCandidates.length, userFilteredCandidates);
+      // this is a case where, because user can require features that no longer appear, we can get zero matches!
+      if (unfilteredCandidates.length > 1 && userFilteredCandidates.length === 0){ // 1 because we should always at least see the body node, which just means we're not ready, right?
+        return "REQUIREDFEATUREFAILURE";
+      }
+
     }
-    WALconsole.log("userFilteredCandidates", userFilteredCandidates.length, userFilteredCandidates);
-    // this is a case where, because user can require features that no longer appear, we can get zero matches!
-    if (unfilteredCandidates.length > 1 && userFilteredCandidates.length === 0){ // 1 because we should always at least see the body node, which just means we're not ready, right?
-      return "REQUIREDFEATUREFAILURE";
-    }
+
     if (userFilteredCandidates.length === 0){
       //console.log("After filtering on user-selected features, no candidates qualify.");
       return null;
@@ -465,7 +468,7 @@ function getFeatures(element){
     // ok, now let's use similarity-based node finding
     var features = targetInfo.snapshot;
     var winningNode = getTargetForSimilarityFilteredByText(features, filterFeatures);
-    if (winningNode){
+    if (winningNode && !($.type(winningNode) === 'string')){ // don't cache the special string return values we sometimes use
       identifiedNodesCache[xpath] = winningNode;
     }
     return winningNode;

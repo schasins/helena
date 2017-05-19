@@ -24,6 +24,7 @@
 	<script type="text/javascript" src="../scripts/background/output_handling.js"></script>
 	<script type="text/javascript" src="../scripts/background/errors.js"></script>
 	<script type="text/javascript" src="../scripts/background/environment.js"></script>
+	<script type="text/javascript" src="../scripts/lib/later.min.js"></script>
 
 	<script src="../scripts/lib/blockly/blockly_compressed.js"></script>
 	<script src="../scripts/lib/blockly/blocks_compressed.js"></script>
@@ -47,6 +48,7 @@
 		<ul>
 			<li><a href="#tabs-1" id="new_script">New Script</a></li>
 			<li><a href="#tabs-2" id="saved_scripts">Saved Scripts</a></li>
+			<li><a href="#tabs-3" id="scheduled_script_runs">Scheduled Script Runs</a></li>
 		</ul>
 
 		<div id="tabs-1">
@@ -188,6 +190,15 @@
 
 		<div id="tabs-2">
 			<div id="saved_script_list"></div>
+		</div>
+
+		<div id="tabs-3">
+			<div id="scheduled_runs_list">
+				No runs scheduled now.  
+			</div>
+			<div id="scheduled_run_directions">
+			If you'd like to schedule a new run, demonstrate or load the script you want to run, then click the 'Schedule Runs of This Script' button.
+			</div>
 		</div>
 
 	</div>

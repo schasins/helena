@@ -146,8 +146,12 @@ var OutputHandler = (function _OutputHandler() {
     	this.sendDatasetSlice();
     };
 
+    this.downloadUrl = function _downloadUrl(){
+      return 'http://kaofang.cs.berkeley.edu:8080/datasets/'+this.id;
+    };
+
     this.downloadDataset = function _downloadDataset(){
-    	window.location = 'http://kaofang.cs.berkeley.edu:8080/datasets/'+this.id;
+    	window.location = this.downloadUrl();
     };
 
     this.getId = function _getId(){

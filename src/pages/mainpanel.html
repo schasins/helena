@@ -93,6 +93,7 @@
 					<input type="text" id="program_name" value="program_name">
 					<button id="save">Save Script</button>
 				</div>
+				<button id="schedule_later">Schedule Later Runs of This Script</button>
 
 				<div class="container" id="program_representation"></div>
 				
@@ -181,6 +182,21 @@
 				<div id="upload_data_table">	</div>
 			</div>
 
+			<div id="schedule_a_run">
+				<div id="schedule_parse_failed" style="display:none; background-color: red;">Sorry, we couldn't figure out what your text schedule meant.  Consider visiting <a href="https://bunkat.github.io/later/parsers.html#text">this link</a> for sample schedules.</div>
+				When do you want your script to run?
+				<br>
+				<input type="text" id="schedule" value="at 11:00 pm" style="width: 100%">
+				<br>
+				See <a href="https://bunkat.github.io/later/parsers.html#text">this link</a> for more examples of what kinds of schedules you can provide.
+				<br>
+				Scheduled scrapes will run on this computer.  If the computer is off or if Chrome isn't open, they won't be able to run.	
+				<br>
+				Make sure to schedule scrapes so that they will not happen at the same time.
+				<br>
+				<button id="schedule_a_run_done">Done</button>
+			</div>
+
 
 			<div id="dialog" title="Basic dialog">
 		  	<p>This is where we put many dialog messages.  Text and title must be set with js.</p>
@@ -197,7 +213,9 @@
 				No runs scheduled now.  
 			</div>
 			<div id="scheduled_run_directions">
-			If you'd like to schedule a new run, demonstrate or load the script you want to run, then click the 'Schedule Runs of This Script' button.
+			If you'd like to schedule a new run, demonstrate or load the script you want to run, then click the 'Schedule Later Runs of This Script' button.
+			<br>
+			Remember, scheduled scrapes will run on this computer.  If the computer is off or if Chrome isn't open, they won't be able to run.
 			</div>
 		</div>
 

@@ -51,6 +51,32 @@ var currently_on = false;
       utilities.sendMessage("background", "content", "postForMe", resp, null, null, [msg.tab_id]);
     });
   });
+
+  var alreadyScheduled = {};
+  function scheduleScrapes(){
+    chrome.storage.sync.get("scheduledRuns", function(obj) {
+      console.log("scheduling scrapes", obj);
+      var runs = obj.scheduledRuns;
+      for (var i = 0; i < runs.length; i++){
+        var run = runs[i];
+        var schedule = run.schedule;
+        var progId = run.progId;
+        var key = schedule + "_" + progId;
+        if (!(key in alreadyScheduled)){
+          var sched = later.parse.text(schedule);
+          later.setInterval(function() { runScheduledScript(progId); }, sched);
+          alreadyScheduled[key] = true;
+        }
+      }
+    });
+  }
+  scheduleScrapes();
+  utilities.listenForMessage("mainpanel", "background", "scheduleScrapes", scheduleScrapes);
+
+  function runScheduledScript(id){
+    console.log("running scheduled script", id);
+    utilities.sendMessage("background", "mainpanel", "runScheduledScript", {progId: id});
+  }
   
 })();
 

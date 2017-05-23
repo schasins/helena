@@ -82,12 +82,16 @@ var utilities = (function _utilities() { var pub = {};
     if (to === "background" || to === "mainpanel"){
       runtimeListeners[key] = function _oneListenerRuntime(msg, sender) {
         if (msg.from && (msg.from === from) && msg.subject && (msg.subject === subject) && (msg.send_type === sendTypes.NORMAL)) {
-          msg.content.tab_id = sender.tab.id;
+          if (sender.tab && sender.tab.id){
+            // add a tab id iff it's from content, and thus has sender.tab and sender.tab.id
+            msg.content.tab_id = sender.tab.id;
+          }
           WALconsole.log("Receiving message: ", msg);
-          WALconsole.log("from tab id: ", sender.tab.id);
+          WALconsole.log("from tab id: ", msg.content.tab_id);
           fn(msg.content);
           return true;
         }
+        if (true){WALconsole.log("No subject match: ", msg.subject, subject)};
         return false;
       };
     }
@@ -115,6 +119,9 @@ var utilities = (function _utilities() { var pub = {};
           return false;
         }
       };
+    }
+    else{
+      WALconsole.warn("Bad to field in msg:", msg);
     }
   };
 
@@ -186,11 +193,14 @@ var utilities = (function _utilities() { var pub = {};
         });
       }
     }
-    else if (from === "content") {
-      var msg = {from: "content", subject: subject, content: content};
+    else if (to ==="background" || to ==="mainpanel"){
+      var msg = {from: from, subject: subject, content: content};
       msg.send_type = sendTypes.NORMAL;
       WALconsole.log("Sending message: ", msg);
       chrome.runtime.sendMessage(msg);
+    }
+    else{
+      WALconsole.warn("Bad from field in msg:", msg);
     }
   };
 

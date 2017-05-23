@@ -6,6 +6,7 @@ function setUp(){
   //utilities.listenForMessage("content", "mainpanel", "moreItems", moreItems);
   utilities.listenForMessage("content", "mainpanel", "scrapedData", RecorderUI.processScrapedData);
   utilities.listenForMessage("content", "mainpanel", "requestCurrentRecordingWindows", RecorderUI.sendCurrentRecordingWindows);
+  utilities.listenForMessage("background", "mainpanel", "runScheduledScript", RecorderUI.runScheduledScript);
   
 
   MiscUtilities.useCorrectScrapingConditionStrings("#scraping_instructions", "___SCRAPINGCONDITIONSTRING___", "___LINKSCRAPINGCONDITIONSTRING___"); // important to do this one first, what with everything going all stringy
@@ -142,6 +143,7 @@ var RecorderUI = (function () {
     activateButton(div, "#run", RecorderUI.run);
     activateButton(div, "#save", RecorderUI.save);
     activateButton(div, "#replay", RecorderUI.replayOriginal);
+    activateButton(div, "#schedule_later", RecorderUI.scheduleLater);
     activateButton(div, '#relation_upload', RecorderUI.uploadRelation);
     activateButton(div, '#relation_demonstration', RecorderUI.demonstrateRelation);
 
@@ -182,7 +184,7 @@ var RecorderUI = (function () {
     $( "<li><a href='#" + tabDivId + "'>Script Run "+ scriptRunCounter + "</a></li>" ).appendTo( ul );
     $( "<div id='" + tabDivId + "'><div id='running_script_content'></div></div>" ).appendTo( pub.tabs );
     pub.tabs.tabs( "refresh" );
-    pub.tabs.tabs( "option", "active", scriptRunCounter + 1 );
+    pub.tabs.tabs( "option", "active", scriptRunCounter + 2 );
 
     // update the panel to show pause, resume buttons
     WALconsole.log("UI newRunTab");
@@ -253,6 +255,38 @@ var RecorderUI = (function () {
     runObject.program.restartFromBeginning(runObject);
   };
 
+  pub.scheduleLater = function _scheduleLater(){
+    WALconsole.log("going to schedule later runs.");
+    var div = $("#new_script_content");
+    DOMCreationUtilities.replaceContent(div, $("#schedule_a_run"));
+    activateButton(div, "#schedule_a_run_done", function(){
+      var scheduleText = div.find("#schedule").val();
+      var schedule = later.parse.text(scheduleText);
+      if (schedule.error !== -1){
+        // drat, we couldn't parse it.  tell user
+        div.find("#schedule_parse_failed").css("display", "inline-block");
+        console.log(scheduleText, schedule);
+      }
+      else{
+        // ok, everything is fine.  just save the thing
+        var scheduledRecord = {schedule: scheduleText, progId: ReplayScript.prog.id};
+        chrome.storage.sync.get("scheduledRuns", function(obj) {
+          if (!obj.scheduledRuns){
+            obj.scheduledRuns = [];
+          }
+          obj.scheduledRuns.push(scheduledRecord);
+          chrome.storage.sync.set(obj, function(){
+            console.log("Saved the new scheduled run.");
+            // and let's go back to our normal view of the program
+            pub.showProgramPreview(false);
+            // and let's tell the background script to retrieve all the schedules so it will actually run them
+            utilities.sendMessage("mainpanel", "background", "scheduleScrapes", {});
+          })
+        });
+      }
+    });
+  };
+
   // during recording, when user scrapes, show the text so user gets feedback on what's happening
   var scraped = {}; // dictionary based on xpath since we can get multiple DOM events that scrape same data from same node
   // todo: note that since we're indexing on xpath, if had same xpath on multiple different pages, this would fail to show us some data.  bad!
@@ -278,6 +312,23 @@ var RecorderUI = (function () {
     for (var i = 0; i < xpaths.length; i++){
       $div.append($('<div class="first_row_elem">'+scraped[xpaths[i]]+'</div>'));
     }
+  };
+
+  pub.runScheduledScript = function _runScheduledScript(data){
+    console.log("Running scheduled script", data);
+    var progId = data.progId;
+    pub.loadSavedProgram(progId, function(){
+      // once it's loaded, go ahead and actually run it.
+      ReplayScript.prog.run({}, function(datasetObj, timeToScrape){
+        // and for scheduled runs we're doing something that's currently a little wacky, where we trigger an IFTTT action when the scrape has run
+        // todo: come up with a cleaner set up for this
+        var ifttturl = "https://maker.ifttt.com/trigger/scheduled_scrape_completed/with/key/cBhUYy-EzpfmsfrJ9Bzs2p";
+        var subject = "Scheduled Scrape Completed: " + ReplayScript.prog.name;
+        var url = datasetObj.downloadUrl();
+        var body = "dataset: " + datasetObj.id + "<br>dataset download url: <a href=" + url + ">" + url + "</a><br>num rows: " + datasetObj.fullDatasetLength + "<br>time to scrape (milliseconds): " + timeToScrape;
+        $.post(ifttturl, {value1: subject, value2: body});
+      });
+    });
   };
 
   pub.updateDisplayedRelations = function _updateDisplayedRelations(currentlyUpdating){
@@ -763,7 +814,7 @@ var RecorderUI = (function () {
     });
   };
 
-  pub.loadSavedProgram = function _loadSavedProgram(progId){
+  pub.loadSavedProgram = function _loadSavedProgram(progId, continuation){
     WALconsole.log("loading program: ", progId);
     $.get('http://kaofang.cs.berkeley.edu:8080/programs/'+progId, {}, function(response){
       var revivedProgram = ServerTranslationUtilities.unJSONifyProgram(response.program.serialized_program);
@@ -772,6 +823,9 @@ var RecorderUI = (function () {
       ReplayScript.prog = revivedProgram;
       $("#tabs").tabs("option", "active", 0); // make that first tab (the program running tab) active again
       pub.showProgramPreview(false); // false because we're not currently processing the program (as in, finding relations, something like that)
+      if (continuation){
+        continuation();
+      }
     });
   };
 
@@ -4761,7 +4815,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     }
 
-    function runInternals(program, dataset, options){
+    function runInternals(program, dataset, options, continuation){
 
       // first let's make the runObject that we'll use for all the rest
       // for now the below is commented out to save memory, since only running one per instance
@@ -4785,9 +4839,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             scrapingRunsCompleted += 1;
             console.log("scrapingRunsCompleted", scrapingRunsCompleted);
             WALconsole.log("Done with script execution.");
-            var timeScraped = parseInt(dataset.pass_start_time) - (new Date()).getTime();
+            var timeScraped = (new Date()).getTime() - parseInt(dataset.pass_start_time);
             console.log(runObject.dataset.id, timeScraped);
             recordingWindowIds = _.without(recordingWindowIds, windowId); // take that window back out of the allowable recording set
+            // if there was a continuation provided for when we're done, do it
+            if (continuation){
+              continuation(runObject.dataset, timeScraped);
+            }
           }
 
           // ok, now keep in mind we're not truly finished until all our data is stored, which means the dataset must have no outstanding requests
@@ -4813,7 +4871,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     var internalOptions = ["skipMode", "breakMode", "skipCommitInThisIteration"]; // wonder if these shouldn't be moved to runObject instead of options.  yeah.  should do that.
     var recognizedOptions = ["dataset_id", "ignoreEntityScope", "breakAfterXDuplicatesInARow", "nameAddition", "simulateError"];
-    this.run = function _run(options){
+    this.run = function _run(options, continuation){
       if (options === undefined){options = {};}
       for (var prop in options){
         if (recognizedOptions.indexOf(prop) < 0){
@@ -4833,7 +4891,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (options.dataset_id){
         // no need to make a new dataset
         var dataset = new OutputHandler.Dataset(program, options.dataset_id);
-        runInternals(this, dataset, options);
+        runInternals(this, dataset, options, continuation);
       }
       else{
         // ok, have to make a new dataset
@@ -4844,7 +4902,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     		  function(){return dataset.id;},
     		  function(){
     		      adjustDatasetNameForOptions(dataset, options);
-    		      runInternals(program, dataset, options);
+    		      runInternals(program, dataset, options, continuation);
     		  },
     		  1000, true
         );

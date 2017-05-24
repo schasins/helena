@@ -2926,7 +2926,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.commit = function _commit(runObject, rbbcontinuation, rbboptions){
       if (!rbboptions.skipCommitInThisIteration){ // it could be that something has happened that will cause us to skip any commits that happen in a particular loop iteration (no node that has all required features, for example)
-        var transactionMsg = this.serverTransactionRepresentation(runObject);
+        var transactionMsg = this.serverTransactionRepresentation(runObject, new Date().getTime());
         var datasetSliceMsg = runObject.dataset.datasetSlice();
         var fullMsg = _.extend(transactionMsg, datasetSliceMsg);
         MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newtransactionwithdata', fullMsg);
@@ -2954,7 +2954,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return rep;
     }
 
-    this.serverTransactionRepresentation = function _serverRepresentation(runObject){
+    this.serverTransactionRepresentation = function _serverRepresentation(runObject, commitTime){
       var rep = [];
       // build up the whole set of attributes that we use to find a duplicate
       // some from this annotation, but some from any required ancestor annotations
@@ -2963,7 +2963,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
       rep = rep.concat(this.currentTransaction);
       // todo: find better way to get prog or get dataset
-      return {dataset: runObject.dataset.getId(), transaction_attributes: encodeURIComponent(JSON.stringify(rep)), annotation_id: this.dataset_specific_id};
+      var rep = {program_run_id: runObject.dataset.getId(), program_id: runObject.program.id, transaction_attributes: encodeURIComponent(JSON.stringify(rep)), annotation_id: this.dataset_specific_id};
+      if (commitTime){
+        rep.commit_time = commitTime;
+      }
+      return rep;
     };
 
     this.parameterizeForRelation = function _parameterizeForRelation(relation){

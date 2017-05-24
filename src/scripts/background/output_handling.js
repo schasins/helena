@@ -1,9 +1,10 @@
 var OutputHandler = (function _OutputHandler() {
   var pub = {};
 
-  pub.Dataset = function _Dataset(program, id){
+  pub.Dataset = function _Dataset(program, program_run_id){
 
-  	this.id = id;
+  	this.program_run_id = program_run_id;
+    this.program_sub_run_id = null;
 
   	this.fullDatasetLength = 0;
   	this.currentDatasetNodes = [];
@@ -17,6 +18,22 @@ var OutputHandler = (function _OutputHandler() {
 
   	var dataset = this;
 
+    this.isReady = function _isReady(){
+      return this.program_run_id;
+    }
+
+    this.getProgramRunAndSubRun = function _getProgramRunAndSubRun(){
+      // now let's actually make the new dataset on the server
+      if (dataset.program_run_id === undefined){
+        // this is a run we're about to start, not one that we've already started and are recovering or parallelizing or whatever
+        dataset.requestNewProgramRunId();
+      }
+      else{
+        // this dataset is for a run that we already started before, but we're about to begin again from the start
+        dataset.requestNewProgramSubRunId();
+      }
+    }
+
     this.setup = function _setup(){
       this.outstandingDataSaveRequests = 0;
       if (!program.id){
@@ -24,11 +41,7 @@ var OutputHandler = (function _OutputHandler() {
           RecorderUI.save(function(progId){
             // ok good, now we have a program id
             dataset.program_id = progId;
-            // now let's actually make the new dataset on the server
-            if (dataset.id === undefined){
-              // this is a dataset we're about to create, not one that we've already saved
-              dataset.requestNewDatasetId();
-            }
+            dataset.getProgramRunAndSubRun();
           });
         }
         else{
@@ -41,33 +54,37 @@ var OutputHandler = (function _OutputHandler() {
         // although keep in mind this can mean that we'll associate a program with a dataset even though
         // the db-stored program version may not be the same one used the scrape the dataset
         dataset.program_id = program.id;
-        if (dataset.id === undefined){
-          dataset.requestNewDatasetId();
-        }
+        dataset.getProgramRunAndSubRun();
       }
     };
 
-  	this.requestNewDatasetId = function _requestNewDatasetId(){
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newdatasetsid', {name: dataset.name, program_id: dataset.program_id}, function(resp){dataset.handleDatasetId(resp);});
+  	this.requestNewProgramRunId = function _requestNewProgramRunId(){
+      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newprogramrun', {name: dataset.name, program_id: dataset.program_id}, function(resp){dataset.handleDatasetId(resp);});
+    };
+    this.requestNewProgramSubRunId = function _requestNewProgramSubRunId(){
+      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newprogramsubrun', {program_run_id: dataset.program_run_id}, function(resp){dataset.handleDatasetId(resp);});
     };
     this.handleDatasetId = function _handleDatasetId(resp){
-    	this.id = resp.id;
+      if (resp.run_id){
+        this.program_run_id = resp.run_id;
+      }
+      this.program_sub_run_id = resp.sub_run_id;
     };
 
     this.appendToName = function _appendToName(str){
       this.name = this.name + str;
-      if (this.id){
+      if (this.program_run_id){
         // ok, we can go ahead and send the update now
-        this.updateDatasetOnServer();
+        this.updateRunNameOnServer();
       }
       else{
         // better wait a while until we actually have that id
-        setTimeout(function(){dataset.updateDatasetOnServer();}, 1000);
+        setTimeout(function(){dataset.updateRunNameOnServer();}, 1000);
       }
     }
 
-    this.updateDatasetOnServer = function _updateDatasetOnServer(){
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/updatedataset', {id: this.id, name: this.name, program_id: this.program_id});
+    this.updateRunNameOnServer = function _updateRunNameOnServer(){
+      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/updaterunname', {id: this.program_run_id, name: this.name, program_id: this.program_id});
     }
 
 
@@ -117,8 +134,9 @@ var OutputHandler = (function _OutputHandler() {
     };
 
     // note!  calling this doesn't just get the server representation of the current slice.  it also clears out the current cache
+
     this.datasetSlice = function _datasetSlice(){
-      var msg = {id: this.id, pass_start_time: this.pass_start_time, position_lists: JSON.stringify(this.currentDatasetPositionLists), nodes: encodeURIComponent(JSON.stringify(this.currentDatasetNodes))};
+      var msg = {run_id: this.program_run_id, sub_run_id: this.program_sub_run_id, pass_start_time: this.pass_start_time, position_lists: JSON.stringify(this.currentDatasetPositionLists), nodes: encodeURIComponent(JSON.stringify(this.currentDatasetNodes))};
       this.currentDatasetNodes = [];
       this.currentDatasetPositionLists = [];
       this.currentDatasetSliceLength = 0;
@@ -147,15 +165,23 @@ var OutputHandler = (function _OutputHandler() {
     };
 
     this.downloadUrl = function _downloadUrl(){
-      return 'http://kaofang.cs.berkeley.edu:8080/datasets/'+this.id;
+      return 'http://kaofang.cs.berkeley.edu:8080/datasets/run/'+this.program_run_id;
     };
 
     this.downloadDataset = function _downloadDataset(){
     	window.location = this.downloadUrl();
     };
 
+    this.downloadFullDatasetUrl = function _downloadFullDatasetUrl(){
+      return 'http://kaofang.cs.berkeley.edu:8080/datasets/'+this.program.id;
+    };
+
+    this.downloadFullDataset = function _downloadFullDataset(){
+      window.location = this.downloadFullDatasetUrl();
+    };
+
     this.getId = function _getId(){
-      return this.id;
+      return this.program_run_id;
     };
 
     this.setup();

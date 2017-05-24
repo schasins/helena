@@ -4899,7 +4899,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // it's really annoying to go on without having an id, so let's wait till we have one
         MiscUtilities.repeatUntil(
           function(){}, 
-    		  function(){return dataset.id;},
+    		  function(){return dataset.isReady();},
     		  function(){
     		      adjustDatasetNameForOptions(dataset, options);
     		      runInternals(program, dataset, options, continuation);

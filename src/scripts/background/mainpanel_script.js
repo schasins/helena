@@ -4706,8 +4706,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // todo: clean this up, make it work for different transitions...
           var osString = window.navigator.platform;
           if (osString.indexOf("Linux") > -1){
-            console.log(basicBlockStatements[i].outputPageVar);
-            if (basicBlockStatements[i].outputPageVar){
+            //console.log(basicBlockStatements[i].outputPageVars && basicBlockStatements[i].outputPageVars.length > 0);
+            if (basicBlockStatements[i].outputPageVars && basicBlockStatements[i].outputPageVars.length > 0){
               _.each(cleanTrace, function(ev){
                 if (ev.data.metaKey){ // hey, digging into the ev data here is gross.  todo: fix that
                   ev.data.ctrlKeyOnLinux = true;

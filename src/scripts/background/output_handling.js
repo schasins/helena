@@ -173,7 +173,7 @@ var OutputHandler = (function _OutputHandler() {
     };
 
     this.downloadFullDatasetUrl = function _downloadFullDatasetUrl(){
-      return 'http://kaofang.cs.berkeley.edu:8080/datasets/'+this.program.id;
+      return 'http://kaofang.cs.berkeley.edu:8080/datasets/'+program.id;
     };
 
     this.downloadFullDataset = function _downloadFullDataset(){

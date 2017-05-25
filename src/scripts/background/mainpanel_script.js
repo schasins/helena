@@ -325,7 +325,8 @@ var RecorderUI = (function () {
         var ifttturl = "https://maker.ifttt.com/trigger/scheduled_scrape_completed/with/key/cBhUYy-EzpfmsfrJ9Bzs2p";
         var subject = "Scheduled Scrape Completed: " + ReplayScript.prog.name;
         var url = datasetObj.downloadUrl();
-        var body = "dataset: " + datasetObj.id + "<br>dataset download url: <a href=" + url + ">" + url + "</a><br>num rows: " + datasetObj.fullDatasetLength + "<br>time to scrape (milliseconds): " + timeToScrape;
+        var fullurl = datasetObj.downloadFullDatasetUrl();
+        var body = "dataset: " + datasetObj.id + "<br>dataset download url (most recent scrape output): <a href=" + url + ">" + url + "</a>" + "<br>full dataset download url (all scrape outputs): <a href=" + fullurl + ">" + fullurl + "</a><br>num rows:" + datasetObj.fullDatasetLength + "<br>time to scrape (milliseconds): " + timeToScrape;
         $.post(ifttturl, {value1: subject, value2: body});
       });
     });

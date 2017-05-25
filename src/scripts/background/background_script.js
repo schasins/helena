@@ -52,6 +52,8 @@ var currently_on = false;
     });
   });
 
+  // first set the timezone
+  later.date.localTime();
   var alreadyScheduled = {};
   function scheduleScrapes(){
     chrome.storage.sync.get("scheduledRuns", function(obj) {

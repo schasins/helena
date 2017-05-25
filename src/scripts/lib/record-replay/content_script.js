@@ -564,6 +564,11 @@ function simulate(events, startIndex) {
 
     var options = jQuery.extend({}, defaultProperties, eventData);
 
+    // sometimes to adapt a script from mac to linux, want to switch from metakey pressed to ctrl key pressed
+    if (eventData.ctrlKeyOnLinux && window.navigator.platform.indexOf("Linux") > -1){
+      options.ctrlKey = true;
+    }
+
     var oEvent = document.createEvent(eventType);
     if (eventType == 'Event') {
       oEvent.initEvent(eventName, options.bubbles, options.cancelable);

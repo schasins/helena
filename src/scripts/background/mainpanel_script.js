@@ -4702,6 +4702,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             withinScrapeSection = false;
           }
 
+          // let's see if we can adapt mac-recorded traces to linux if necessary...
+          // todo: clean this up, make it work for different transitions...
+          var osString = window.navigator.platform;
+          if (osString.indexOf("Linux") > -1){
+            console.log(basicBlockStatements[i].outputPageVar);
+            if (basicBlockStatements[i].outputPageVar){
+              _.each(cleanTrace, function(ev){
+                if (ev.data.metaKey){ // hey, digging into the ev data here is gross.  todo: fix that
+                  ev.data.ctrlKeyOnLinux = true;
+                }
+                EventM.setTemporaryStatementIdentifier(ev, i);});
+            }
+          }
+
           trace = trace.concat(cleanTrace);
         }
 

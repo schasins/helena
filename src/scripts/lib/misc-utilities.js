@@ -278,43 +278,44 @@ var Revival = (function _Revival(){ var pub = {};
     WALconsole.log("No known revival label for the type of object:", object);
   };
 
-  var seen = [];
-  var fullSeen = [];
-  pub.revive = function _revive(objectAttributes, topLevel){
-    if (topLevel === undefined){
-      seen = []; // we're going to be handling circular objects, so have to keep track of what we've already handled
-      fullSeen = [];
-    }
+  pub.revive = function _revive(objectAttributes){
 
-    // ok, now let's figure out what kind of case we're dealing with
-    if (typeof objectAttributes !== "object" || objectAttributes === null){ // why is null even an object?
-      return objectAttributes; // nothing to do here
-    }
-    else if (seen.indexOf(objectAttributes) > -1){
-      // already seen it
-      var i = seen.indexOf(objectAttributes);
-      return fullSeen[i]; // get the corresponding revived object
-    }
-    else{
-      // ok, it's an object and we haven't processed it before
-      var fullObj = objectAttributes;
-      if (objectAttributes.___revivalLabel___){
-        // ok, we actually want to revive this very object
-        var prototype = revivalLabels[objectAttributes.___revivalLabel___];
-        fullObj = new prototype();
-        _.extend(fullObj, objectAttributes);
-        // now the fullObj is restored to having methods and such
+    var seen = []; // we're going to be handling circular objects, so have to keep track of what we've already handled
+    var fullSeen = [];
+
+    var reviveHelper = function _reviveHelper(objectAttributes){
+      // ok, now let's figure out what kind of case we're dealing with
+      if (typeof objectAttributes !== "object" || objectAttributes === null){ // why is null even an object?
+        return objectAttributes; // nothing to do here
       }
-      seen.push(objectAttributes);
-      fullSeen.push(fullObj);
-      // ok, whether we revived this obj or not, we definitely have to descend
-      for (var prop in objectAttributes){
-        var val = objectAttributes[prop];
-        var fullVal = pub.revive(val, false);
-        fullObj[prop] = fullVal; // must replace the old fields-only val with the proper object val
+      else if (seen.indexOf(objectAttributes) > -1){
+        // already seen it
+        var i = seen.indexOf(objectAttributes);
+        return fullSeen[i]; // get the corresponding revived object
       }
-    }
-    return fullObj;
+      else{
+        // ok, it's an object and we haven't processed it before
+        var fullObj = objectAttributes;
+        if (objectAttributes.___revivalLabel___){
+          // ok, we actually want to revive this very object
+          var prototype = revivalLabels[objectAttributes.___revivalLabel___];
+          fullObj = new prototype();
+          _.extend(fullObj, objectAttributes);
+          // now the fullObj is restored to having methods and such
+        }
+        seen.push(objectAttributes);
+        fullSeen.push(fullObj);
+        // ok, whether we revived this obj or not, we definitely have to descend
+        for (var prop in objectAttributes){
+          var val = objectAttributes[prop];
+          var fullVal = reviveHelper(val, false);
+          fullObj[prop] = fullVal; // must replace the old fields-only val with the proper object val
+        }
+      }
+      return fullObj;
+    };
+    var obj = reviveHelper(objectAttributes);
+    return obj;
   };
 
 return pub; }());

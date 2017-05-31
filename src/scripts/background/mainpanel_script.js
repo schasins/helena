@@ -2741,6 +2741,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
   };
 
+  var SkippingStrategies = {
+    ALWAYS: "always",
+    NEVER: "never",
+    SOMETIMESPHYSICAL: "physical",
+    SOMETIMESLOGICAL: "logical"
+  };
+
   var duplicateAnnotationCounter = 0;
   pub.DuplicateAnnotation = function _EntityScope(annotationItems, availableAnnotationItems, bodyStatements){
     Revival.addRevivalLabel(this);
@@ -2757,6 +2764,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.name = "Entity" + duplicateAnnotationCounter;
       this.dataset_specific_id = duplicateAnnotationCounter;
       this.updateChildStatements(bodyStatements);
+      this.skippingStrategy = skippingStrategies.ALWAYS; // by default, we'll skip if there's any duplicate in the history
     }
 
     this.remove = function _remove(){
@@ -2848,6 +2856,27 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             fieldsSoFar = fieldsSoFar.appendField(ancestorAnnotations[i].name + ":")
             .appendField(new Blockly.FieldCheckbox(onNow), ancestorAnnotations[i].name);
           }
+          fieldsSoFar = this.appendDummyInput().appendField("When should we skip an item based on finding a duplicate? ");
+          var skippingOptions = ["Never skip, even if there's a duplicate.", 
+          "Skip if this script has ever scraped a duplicate.", 
+          "Skip if this script scraped a duplicate in the last ", 
+          "Skip if this script scraped a duplicate in the last "];
+          var skippingStrategies = [SkippingStrategies.NEVER, SkippingStrategies.ALWAYS, SkippingStrategies.SOMETIMESLOGICAL, SkippingStrategies.SOMETIMESPHYSICAL];
+          for (var i = 0; i < skippingOptions.length; i++){
+            var onNow = this.skippingStrategy === skippingStrategies[i];
+            onNow = MiscUtilities.toBlocklyBoolString(onNow);
+            fieldsSoFar = fieldsSoFar.appendDummyInput().appendField(new Blockly.FieldCheckbox(onNow), skippingStrategies[i]).appendField(skippingOptions[i]);
+            if (i === 2 || i === 3){
+              fieldsSoFar = fieldsSoFar.append(new Blockly.FieldTextInput('1', Blockly.FieldTextInput.numberValidator));
+              if (i === 2){
+                fieldsSoFar = fieldsSoFar.appendField(" scrapes.");
+              }
+              if (i === 3){
+                fieldsSoFar = fieldsSoFar.appendField(" hours.");
+              }
+            }
+          }
+
 
           this.appendStatementInput("statements")
               .setCheck(null)

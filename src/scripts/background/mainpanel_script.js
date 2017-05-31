@@ -2824,6 +2824,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
     };
 
+    var TimeUnits = {
+      YEARS: "years",
+      MONTHS: "months",
+      WEEKS: "weeks",
+      DAYS: "days",
+      HOURS: "hours",
+      MINUTES: "minutes"
+    }
+
     this.genBlocklyNode = function _genBlocklyNode(prevBlock){
       var customBlocklyLabel = this.blocklyLabel + this.id;
       var name = this.name;
@@ -2856,25 +2865,69 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             fieldsSoFar = fieldsSoFar.appendField(ancestorAnnotations[i].name + ":")
             .appendField(new Blockly.FieldCheckbox(onNow), ancestorAnnotations[i].name);
           }
-          fieldsSoFar = this.appendDummyInput().appendField("When should we skip an item based on finding a duplicate? ");
-          var skippingOptions = ["Never skip, even if there's a duplicate.", 
-          "Skip if this script has ever scraped a duplicate.", 
-          "Skip if this script scraped a duplicate in the last ", 
-          "Skip if this script scraped a duplicate in the last "];
+
+          // ok, time to let the user decide on the skipping strategy
+
+          fieldsSoFar = this.appendDummyInput().appendField("When should we skip an item? ");
+          var skippingOptions = ["Never skip, even if it's a duplicate.", 
+          "Skip if the script has ever scraped a duplicate.", 
+          "Skip if the script scraped a duplicate in the last", 
+          "Skip if the script scraped a duplicate in the last"];
           var skippingStrategies = [SkippingStrategies.NEVER, SkippingStrategies.ALWAYS, SkippingStrategies.SOMETIMESLOGICAL, SkippingStrategies.SOMETIMESPHYSICAL];
+          
+          var that = this;
+          var allSkippingStrategyCheckboxes = [];
+          var skippingStrategyChangeHandler = function(skippingStrategy){
+            console.log(skippingStrategy);
+            if (that.getFieldValue(skippingStrategy) === MiscUtilities.toBlocklyBoolString(false)){
+              // if it's been turned off till now, it's on now, so go ahead and set the skipping strategy
+              console.log("turned on", that.getFieldValue(skippingStrategy));
+              entityScope.skippingStrategy = skippingStrategy;
+            }
+            for (var j = 0; j < allSkippingStrategyCheckboxes.length; j++){
+              var checkboxName = allSkippingStrategyCheckboxes[j];
+              if (checkboxName === skippingStrategy){
+                continue;
+              }
+              that.setFieldValue(MiscUtilities.toBlocklyBoolString(false), checkboxName);
+            }
+          }
           for (var i = 0; i < skippingOptions.length; i++){
-            var onNow = this.skippingStrategy === skippingStrategies[i];
-            onNow = MiscUtilities.toBlocklyBoolString(onNow);
-            fieldsSoFar = fieldsSoFar.appendDummyInput().appendField(new Blockly.FieldCheckbox(onNow), skippingStrategies[i]).appendField(skippingOptions[i]);
-            if (i === 2 || i === 3){
-              fieldsSoFar = fieldsSoFar.append(new Blockly.FieldTextInput('1', Blockly.FieldTextInput.numberValidator));
+            (function(){
+              var thisSkippingStrategy = skippingStrategies[i];
+              var onNow = entityScope.skippingStrategy === skippingStrategies[i];
+              onNow = MiscUtilities.toBlocklyBoolString(onNow);
+              allSkippingStrategyCheckboxes.push(thisSkippingStrategy);
+              fieldsSoFar = that.appendDummyInput().appendField(
+                new Blockly.FieldCheckbox(onNow, function(){skippingStrategyChangeHandler(thisSkippingStrategy)}), thisSkippingStrategy);
+              fieldsSoFar = fieldsSoFar.appendField(skippingOptions[i]);
               if (i === 2){
-                fieldsSoFar = fieldsSoFar.appendField(" scrapes.");
+                var curLogicalTime = entityScope.logicalTime;
+                if (!curLogicalTime){ curLogicalTime = 1; }
+                var logicalTimeFieldName = "logicalTime";
+                var textInput = new Blockly.FieldTextInput(curLogicalTime, function(){
+                  Blockly.FieldTextInput.numberValidator(); 
+                  entityScope.logicalTime = parseInt(that.getFieldValue(logicalTimeFieldName));});
+                fieldsSoFar = fieldsSoFar.appendField(textInput, logicalTimeFieldName).appendField(" scrapes.");
               }
               if (i === 3){
-                fieldsSoFar = fieldsSoFar.appendField(" hours.");
+                var curPhysicalTime = entityScope.physicalTime;
+                if (!curPhysicalTime){ curPhysicalTime = 1; }
+                var physicalTimeFieldName = "physicalTime";
+                var textInput = new Blockly.FieldTextInput('1', function(){
+                  Blockly.FieldTextInput.numberValidator(); 
+                  entityScope.physicalTime = parseInt(that.getFieldValue(physicalTimeFieldName));});
+                fieldsSoFar = fieldsSoFar.appendField(textInput, physicalTimeFieldName);
+
+                var options = [];
+                for (var key in TimeUnits){
+                  options.push([TimeUnits[key], TimeUnits[key]]);
+                }
+                var timeUnitsFieldName = "timeunits";
+                fieldsSoFar = fieldsSoFar.appendField(new Blockly.FieldDropdown(options, function(){entityScope.physicalTimeUnit = that.getFieldValue(timeUnitsFieldName)}), timeUnitsFieldName);
+                fieldsSoFar = fieldsSoFar.appendField(".");
               }
-            }
+            })();
           }
 
 

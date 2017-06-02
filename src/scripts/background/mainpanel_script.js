@@ -326,7 +326,7 @@ var RecorderUI = (function () {
         var subject = "Scheduled Scrape Completed: " + ReplayScript.prog.name;
         var url = datasetObj.downloadUrl();
         var fullurl = datasetObj.downloadFullDatasetUrl();
-        var body = "dataset: " + datasetObj.id + "<br>dataset download url (most recent scrape output): <a href=" + url + ">" + url + "</a>" + "<br>full dataset download url (all scrape outputs): <a href=" + fullurl + ">" + fullurl + "</a><br>num rows:" + datasetObj.fullDatasetLength + "<br>time to scrape (milliseconds): " + timeToScrape;
+        var body = "dataset: " + datasetObj.getId() + "<br>dataset download url (most recent scrape output): <a href=" + url + ">" + url + "</a>" + "<br>full dataset download url (all scrape outputs): <a href=" + fullurl + ">" + fullurl + "</a><br>num rows:" + datasetObj.fullDatasetLength + "<br>time to scrape (milliseconds): " + timeToScrape;
         $.post(ifttturl, {value1: subject, value2: body});
       });
     });
@@ -2764,7 +2764,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.name = "Entity" + duplicateAnnotationCounter;
       this.dataset_specific_id = duplicateAnnotationCounter;
       this.updateChildStatements(bodyStatements);
-      this.skippingStrategy = skippingStrategies.ALWAYS; // by default, we'll skip if there's any duplicate in the history
+      this.skippingStrategy = SkippingStrategies.ALWAYS; // by default, we'll skip if there's any duplicate in the history
     }
 
     this.remove = function _remove(){
@@ -2904,6 +2904,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               if (i === 2){
                 var curLogicalTime = entityScope.logicalTime;
                 if (!curLogicalTime){ curLogicalTime = 1; }
+                console.log("curLogicalTime", curLogicalTime);
                 var logicalTimeFieldName = "logicalTime";
                 var textInput = new Blockly.FieldTextInput(curLogicalTime, function(){
                   Blockly.FieldTextInput.numberValidator(); 
@@ -2913,8 +2914,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               if (i === 3){
                 var curPhysicalTime = entityScope.physicalTime;
                 if (!curPhysicalTime){ curPhysicalTime = 1; }
+                console.log("curPhysicalTime", curPhysicalTime);
                 var physicalTimeFieldName = "physicalTime";
-                var textInput = new Blockly.FieldTextInput('1', function(){
+                var textInput = new Blockly.FieldTextInput(curPhysicalTime, function(){
                   Blockly.FieldTextInput.numberValidator(); 
                   entityScope.physicalTime = parseInt(that.getFieldValue(physicalTimeFieldName));});
                 fieldsSoFar = fieldsSoFar.appendField(textInput, physicalTimeFieldName);
@@ -2923,9 +2925,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 for (var key in TimeUnits){
                   options.push([TimeUnits[key], TimeUnits[key]]);
                 }
+                // here we actually set the entityScope's time unit, since no guarantee the user will interact with that pulldown and trigger the setting, but we have to show something, so want what we show to match with prog representation
+                if (!entityScope.physicalTimeUnit){entityScope.physicalTimeUnit = TimeUnits.YEARS;}
                 var timeUnitsFieldName = "timeunits";
-                fieldsSoFar = fieldsSoFar.appendField(new Blockly.FieldDropdown(options, function(){entityScope.physicalTimeUnit = that.getFieldValue(timeUnitsFieldName)}), timeUnitsFieldName);
+                fieldsSoFar = fieldsSoFar.appendField(new Blockly.FieldDropdown(options, function(newVal){entityScope.physicalTimeUnit = newVal; console.log(entityScope.physicalTimeUnit);}), timeUnitsFieldName);
                 fieldsSoFar = fieldsSoFar.appendField(".");
+                that.setFieldValue(entityScope.physicalTimeUnit, timeUnitsFieldName); // set it to the current time unit
               }
             })();
           }
@@ -2974,8 +2979,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.duplicatesInARow = 0; // make sure to set this to 0 at the beginning of a loop!
     this.run = function _run(runObject, rbbcontinuation, rbboptions){
 
-      if (rbboptions.ignoreEntityScope){
+      if (rbboptions.ignoreEntityScope || this.skippingStrategy === SkippingStrategies.NEVER){
         // this is the case where we just want to assume there's no duplicate because we're pretending the annotation isn't there
+        // or we have the never-skip strategy on
         runObject.program.runBasicBlock(runObject, entityScope.bodyStatements, rbbcontinuation, rbboptions);
         return;
       }
@@ -2983,7 +2989,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // if we're not ignoring entityscope, we're in the case where choice depends on whether there's a saved duplicate on server
       this.currentTransaction = this.singleAnnotationItems(runObject.environment);
       // you only need to talk to the server if you're actually going to act (skip) now on the knowledge of the duplicate
-      var msg = this.serverTransactionRepresentation(runObject);
+      var msg = this.serverTransactionRepresentationCheck(runObject);
       MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/transactionexists', msg, function(resp){
         if (resp.exists){
           // this is a duplicate, current loop iteration already done, so we're ready to skip to the next
@@ -3009,7 +3015,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.commit = function _commit(runObject, rbbcontinuation, rbboptions){
       if (!rbboptions.skipCommitInThisIteration){ // it could be that something has happened that will cause us to skip any commits that happen in a particular loop iteration (no node that has all required features, for example)
-        var transactionMsg = this.serverTransactionRepresentation(runObject, new Date().getTime());
+        var transactionMsg = this.serverTransactionRepresentationCommit(runObject, new Date().getTime());
         var datasetSliceMsg = runObject.dataset.datasetSlice();
         var fullMsg = _.extend(transactionMsg, datasetSliceMsg);
         MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/newtransactionwithdata', fullMsg);
@@ -3037,7 +3043,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return rep;
     }
 
-    this.serverTransactionRepresentation = function _serverRepresentation(runObject, commitTime){
+    var multipliersForSeconds = {};
+    multipliersForSeconds[TimeUnits.MINUTES] = 60;
+    multipliersForSeconds[TimeUnits.HOURS] = multipliersForSeconds[TimeUnits.MINUTES] * 60;
+    multipliersForSeconds[TimeUnits.DAYS] = multipliersForSeconds[TimeUnits.HOURS] * 24;
+    multipliersForSeconds[TimeUnits.WEEKS] = multipliersForSeconds[TimeUnits.DAYS] * 7;
+    multipliersForSeconds[TimeUnits.MONTHS] = 2628000;
+    multipliersForSeconds[TimeUnits.YEARS] = multipliersForSeconds[TimeUnits.DAYS] * 365;
+    this.serverTransactionRepresentation = function _serverRepresentation(runObject){
       var rep = [];
       // build up the whole set of attributes that we use to find a duplicate
       // some from this annotation, but some from any required ancestor annotations
@@ -3045,11 +3058,29 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         rep = rep.concat(this.requiredAncestorAnnotations[i].currentTransaction);
       }
       rep = rep.concat(this.currentTransaction);
-      // todo: find better way to get prog or get dataset
       var rep = {program_run_id: runObject.dataset.getId(), program_id: runObject.program.id, transaction_attributes: encodeURIComponent(JSON.stringify(rep)), annotation_id: this.dataset_specific_id};
-      if (commitTime){
-        rep.commit_time = commitTime;
+      return rep;
+    };
+    this.serverTransactionRepresentationCheck = function _serverTransactionRepresentationCheck(runObject, recencyConstraintOptions){
+      var rep = this.serverTransactionRepresentation(runObject);
+      var strat = this.skippingStrategy;
+      if (strat === SkippingStrategies.ALWAYS){
+        // actually don't need to do anything.  the default looks through the whole log and skips if there's any duplicate match
       }
+      else if (strat === SkippingStrategies.SOMETIMESPHYSICAL){
+        rep.physical_time_diff_seconds = this.physicalTime * multipliersForSeconds[this.physicalTimeUnit];
+      }
+      else if (strat === SkippingStrategies.SOMETIMESLOGICAL){
+        rep.logical_time_diff = this.logicalTime; // the run id is already associated, so we only need to know how many back we're allowed to go
+      }
+      else{
+        WALconsole.warn("Woah, there was a skipping strategy that we actually don't support: ", strat);
+      }
+      return rep;
+    };
+    this.serverTransactionRepresentationCommit = function _serverTransactionRepresentationCommit(runObject, commitTime){
+      var rep = this.serverTransactionRepresentation(runObject);
+      rep.commit_time = commitTime;
       return rep;
     };
 

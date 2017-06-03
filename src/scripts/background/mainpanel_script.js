@@ -216,9 +216,13 @@ var RecorderUI = (function () {
     var relationObjsSerialized = _.map(
       _.filter(prog.relations, function(rel){return rel instanceof WebAutomationLanguage.Relation;}), // todo: in future, don't filter.  actually save textrelations too
       ServerTranslationUtilities.JSONifyRelation);
+    console.log("made relationObjsSerialized");
     var serializedProg = ServerTranslationUtilities.JSONifyProgram(prog);
+    console.log("made serializedProg");
     var msg = {id: prog.id, serialized_program: serializedProg, relation_objects: relationObjsSerialized, name: name};
+    console.log("about to post", (new Date().getTime()/1000));
     $.post('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg, function(response){
+      console.log("server responded to program save");
       var progId = response.program.id;
       prog.id = progId;
       if (continuation && _.isFunction(continuation)){

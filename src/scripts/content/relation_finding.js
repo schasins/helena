@@ -837,9 +837,13 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     selectorObj.num_rows_in_demo = selectorObj.relation.length;
   };
 
+  var currentSelectorHighlightNodes = [];
   pub.highlightSelector = function _highlightSelector(selectorObj){
-    return pub.highlightRelation(selectorObj.relation, true, true); // we want to allow clicks on the highlights (see editingClick)
+    currentSelectorHighlightNodes = pub.highlightRelation(selectorObj.relation, true, true); // we want to allow clicks on the highlights (see editingClick)
   };
+  pub.highlightCurrentSelector = function _highlightCurrentSelector(){
+    pub.highlightSelector(currentSelectorToEdit);
+  }
 
   pub.sendSelector = function _sendSelector(selectorObj){
     var relation = selectorObj.relation;
@@ -851,13 +855,17 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     selectorObj.relation = relation; // restore the relation
   };
 
-  var currentSelectorHighlightNodes = [];
-  pub.newSelectorGuess = function _newSelectorGuess(selectorObj){
-    pub.setRelation(selectorObj);
+  pub.clearCurrentSelectorHighlight = function(){
     for (var i = 0; i < currentSelectorHighlightNodes.length; i++){
       Highlight.clearHighlight(currentSelectorHighlightNodes[i]);
     }
-    currentSelectorHighlightNodes = pub.highlightSelector(selectorObj);
+    currentSelectorHighlightNodes = [];
+  };
+
+  pub.newSelectorGuess = function _newSelectorGuess(selectorObj){
+    pub.setRelation(selectorObj);
+    pub.clearCurrentSelectorHighlight();
+    pub.highlightSelector(selectorObj);
     pub.sendSelector(selectorObj);
   }
 
@@ -1034,6 +1042,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     // ok, now we're listening for a next button click
     listeningForNextButtonClick = true;
     pub.clearNextButtonSelector(); // remove an old one if there is one
+    pub.clearCurrentSelectorHighlight(); // in case the highlighting of cells blocks the next button, hide this
   };
 
   pub.clearNextButtonSelector = function _clearNextButtonSelector(){
@@ -1058,6 +1067,8 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     
     utilities.sendMessage("content", "mainpanel", "nextButtonSelector", {selector: data});
     highlightNextOrMoreButton(data);
+
+    pub.highlightCurrentSelector(); // rehighlight the relaiton items
   }
 
   function rightText(next_button_data, node){

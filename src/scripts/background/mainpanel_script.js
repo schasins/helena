@@ -348,7 +348,7 @@ var RecorderUI = (function () {
       var giveUpButton = $("<button>Give up looking for relevant tables.</button>");
       giveUpButton.button();
       giveUpButton.click(function(){
-        ReplayScript.prog.insertLoops(); // if user thinks we won't have relations, go ahead and do prog processing (making loopyStatements) without them
+        ReplayScript.prog.insertLoops(true); // if user thinks we won't have relations, go ahead and do prog processing (making loopyStatements) without them
       });
       $div.append(giveUpButton);
     }
@@ -460,7 +460,7 @@ var RecorderUI = (function () {
     readyButton.click(function(){
       // once ready button clicked, we'll already have updated the relation selector info based on messages the content panel has been sending, so we can just go back to looking at the program preview
       // the one thing we do need to change is there may now be nodes included in the relation (or excluded) that weren't before, so we should redo loop insertion
-      ReplayScript.prog.insertLoops();
+      ReplayScript.prog.insertLoops(false);
 
       RecorderUI.showProgramPreview();
       // we also want to close the tab...
@@ -1421,8 +1421,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   }
 
   function requireFeatures(statement, featureNames){
-    ReplayTraceManipulation.requireFeatures(statement.trace, statement.node, featureNames); // note that statement.node stores the xpath of the original node
-    ReplayTraceManipulation.requireFeatures(statement.cleanTrace, statement.node, featureNames);
+    if (featureNames.length > 0){ 
+      if (!statement.node){
+        // sometimes statement.node will be empty, as when we add a scrape statement for known relation item, with no trace associated 
+        WALconsole.warn("Hey, you tried to require some features, but there was no Ringer trace associated with the statement.", statement, featureNames);
+      }
+      ReplayTraceManipulation.requireFeatures(statement.trace, statement.node, featureNames); // note that statement.node stores the xpath of the original node
+      ReplayTraceManipulation.requireFeatures(statement.cleanTrace, statement.node, featureNames);
+    } 
   }
 
   function setBlocklyLabel(obj, label){
@@ -5603,7 +5609,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
 
       WALconsole.log(pagesToRelations, pagesToNodes);
-      this.insertLoops();
+      this.insertLoops(true);
       /*
       if (_.difference(_.keys(pagesToNodes), _.keys(pagesToRelations)).length === 0) { // pagesToRelations now has all the pages from pagesToNodes
         // awesome, all the pages have gotten back to us
@@ -5658,7 +5664,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return loopStatement;
     }
 
-    this.insertLoops = function _insertLoops(){
+    this.insertLoops = function _insertLoops(updateProgPreview){
       var indexesToRelations = {}; // indexes into the statements mapped to the relations used by those statements
       for (var i = 0; i < this.relations.length; i++){
         var relation = this.relations[i];
@@ -5691,9 +5697,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         this.updateChildStatements(newChildStatements);
       }
 
-      RecorderUI.updateDisplayedScript();
-      // now that we know which columns are being scraped, we may also need to update how the relations are displayed
-      RecorderUI.updateDisplayedRelations();
+      if (updateProgPreview){
+        RecorderUI.updateDisplayedScript();
+        // now that we know which columns are being scraped, we may also need to update how the relations are displayed
+        RecorderUI.updateDisplayedRelations();
+      }
     };
 
     this.tryAddingRelation = function _tryAddingRelation(relation){

@@ -664,6 +664,9 @@ var Highlight = (function _Highlight() { var pub = {};
   }
 
   pub.clearHighlight = function _clearHighlight(highlightNode){
+    if (!highlightNode){
+      return;
+    }
     highlights = _.without(highlights, highlightNode);
     highlightNode.remove();
   }

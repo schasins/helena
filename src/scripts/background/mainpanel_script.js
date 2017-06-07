@@ -197,6 +197,7 @@ var RecorderUI = (function () {
     div.find("#resume").button("option", "disabled", true); // shouldn't be able to resume before we even pause
 
     activateButton(div, "#download", function(){runObject.dataset.downloadDataset();});
+    activateButton(div, "#download_all", function(){runObject.dataset.downloadFullDataset();});
 
     var reset = function(){
       runObject.program.stopRunning(runObject);

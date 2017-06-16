@@ -208,25 +208,34 @@ var RecorderUI = (function () {
   };
 
   // for saving a program to the server
-  pub.save = function _save(continuation){
+  pub.save = function _save(postIdRetrievalContinuation){
     var prog = ReplayScript.prog;
     var div = $("#new_script_content");
     var name = div.find("#program_name").get(0).value;
     prog.name = name;
-    var relationObjsSerialized = _.map(
-      _.filter(prog.relations, function(rel){return rel instanceof WebAutomationLanguage.Relation;}), // todo: in future, don't filter.  actually save textrelations too
-      ServerTranslationUtilities.JSONifyRelation);
-    console.log("made relationObjsSerialized");
-    var serializedProg = ServerTranslationUtilities.JSONifyProgram(prog);
-    console.log("made serializedProg");
-    var msg = {id: prog.id, serialized_program: serializedProg, relation_objects: relationObjsSerialized, name: name};
+    var msg = {id: prog.id, name: name};
     console.log("about to post", (new Date().getTime()/1000));
-    $.post('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg, function(response){
+    // this first request is just to get us the right program id to associate any later stuff with.  it won't actually save the program
+    // saving the program takes a long time, so we don't want other stuff to wait on it, will do it in background
+    MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg, function(response){
       console.log("server responded to program save");
       var progId = response.program.id;
       prog.id = progId;
-      if (continuation && _.isFunction(continuation)){
-        continuation(progId);
+      // ok, now that we know the right program id (in cases where there wasn't one to begin with) we can save the actual program
+      // but it can take a long time for programs to arrive at server, so don't make other stuff wait on it.  just send it in the background
+      setTimeout(function(){
+        var relationObjsSerialized = _.map(
+          _.filter(prog.relations, function(rel){return rel instanceof WebAutomationLanguage.Relation;}), // todo: in future, don't filter.  actually save textrelations too
+          ServerTranslationUtilities.JSONifyRelation);
+        var serializedProg = ServerTranslationUtilities.JSONifyProgram(prog);
+        var msg = {id: progId, serialized_program: serializedProg, relation_objects: relationObjsSerialized, name: name};
+        MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg, function(){
+          // do we need to do anything else if it successfully saves?
+        });
+      }, 0);
+      // ok, we've set it up to do the actual program saving, but we already have the id, so do the postIdRetrievalContinuation
+      if (postIdRetrievalContinuation && _.isFunction(postIdRetrievalContinuation)){
+        postIdRetrievalContinuation(progId);
       }
     });
   };
@@ -5535,7 +5544,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                                                           {xpaths: pagesToNodes[targetPageVar.name], pageVarName: targetPageVar.name, serverSuggestedRelations: suggestedRelations}, 
                                                           lastCompletedEventTabId, frame, 
                                                           // question: is it ok to insist that every single frame returns a non-null one?  maybe have a timeout?  maybe accept once we have at least one good response from one of the frames?
-                                                          function(response) { response.frame = frame; framesHandled[frame] = response; pickLikelyRelation();}); // when get response, call pickLikelyRelation (defined above) to pick from the frames' answers
+                                                          function(response) { if (response) {response.frame = frame; framesHandled[frame] = response; pickLikelyRelation();}}); // when get response, call pickLikelyRelation (defined above) to pick from the frames' answers
                     };
 
                     // here's the function for sending the message until we get the answer
@@ -5561,11 +5570,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             else{
               // ok, we'll have to ask the tab what frames are in it
               // let's get some info from the pages, and when we get that info back we can come back and deal with more script segments
-              chrome.webNavigation.getAllFrames({tabId: lastCompletedEventTabId}, function(details) {
-                console.log("about to send to frames, tabId", lastCompletedEventTabId);
-                var frames = _.map(details, function(d){return d.frameId;});
-                sendMessageForFrames(frames);
-              });
+              var checkFramesFunc = function(){
+                chrome.webNavigation.getAllFrames({tabId: lastCompletedEventTabId}, function(details) {
+                                console.log("about to send to frames, tabId", lastCompletedEventTabId);
+                                var frames = _.map(details, function(d){return d.frameId;});
+                                sendMessageForFrames(frames);
+                              });
+              };
+              setTimeout(checkFramesFunc, 0); // for pages that take a long time to actually load the right page (redirects), can increase this; todo: fix it a real way by trying over and over until we get a reasonable answer
             }
 
           });

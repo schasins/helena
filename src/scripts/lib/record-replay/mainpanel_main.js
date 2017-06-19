@@ -1129,6 +1129,7 @@ var Replay = (function ReplayClosure() {
       var eventIds = _.map(completed_events, function(event){return event.meta.id});
       return eventIds;
     },
+    currentCompletedObservationFailures: 0,
     simulateCompletedEvent: function _simulateCompletedEvent(e){
       if (e.forceReplay && (!e.reset || !(e.reset.alreadyForced))){
         //console.log("forcing replay");
@@ -1155,6 +1156,7 @@ var Replay = (function ReplayClosure() {
         if (e.data.type !== "main_frame"){
           // don't need to do anything; not a top-level load, so assume we can ignore it
           this.index ++;
+          this.currentCompletedObservationFailures = 0;
           this.setNextTimeout(0);
           return;
         }
@@ -1212,14 +1214,63 @@ var Replay = (function ReplayClosure() {
         if (completedWithinWindowBeforeDom || completedAfterLastDom){
           // we've seen a corresponding completed event, don't need to do anything
           this.index ++;
+          this.currentCompletedObservationFailures = 0;
           this.setNextTimeout(0);
         }
         else{
           // let's give it a while longer
           // todo: as above in waitforobserved events, question of whether it's ok to keep waiting and waiting for the exact same number of top-level completed events.  should we give it 10 tries, then just continue?
-          this.setNextTimeout(500);
+          // todo: eventually we really do need to surface this to the top-level tool.  can't just keep looping here forever
+          this.currentCompletedObservationFailures += 1;
+          if (this.currentCompletedObservationFailures <= 30){
+            this.setNextTimeout(500); // todo: consider raising this or adding backoff.  wonder if this is the cause of occasional possibly wifi-outage related crashes
+          }
+          else{
+            // ok, this is getting a little ridiculous.  we've tried for 15 seconds and still haven't found anything?
+            // it's possible that the network connection went out momentarily and that we need to go and reload a page.  let's check for something that looks like it might suggest that, then fix it
+            this.reloadLastTabIfFailed();
+            this.setNextTimeout(5000); // let's also slow down our checks so we don't crash the extension
+          }
         }
       }
+    },
+    reloadLastTabIfFailed: function _reloadLastTabIfFailed() {
+        if (this.targetWindowId){
+          // for now this is only going to check for failed tabs in the target window (the window created for replay), and only if there even is a target window
+          var that = this;
+          chrome.tabs.getAllInWindow(this.targetWindowId, function(tabs){
+            WALconsole.log("We think we might have had a tab fail to load, so we're going to try reloading.");
+            WALconsole.log(tabs);
+            // we really prefer to only reload the very last tab, but since there's the possibility it might be earlier, we could be willing to go back further
+            
+            for (var i = tabs.length - 1; i >= 0; i--){
+              (function(tab){
+                if (MiscUtilities.looksLikeLoadingFailure(tab)){
+                  // let's make sure once it's reloaded we're ready to try again
+                  /*
+                  var checkUntilComplete = function _checkUntilComplete(){
+                    chrome.tabs.get(tab.id, function (tab) {
+                      if (tab.status === 'complete') {
+                        that.setNextTimeout(0);
+                      }
+                      else{
+                        checkUntilComplete();
+                      }
+                    });
+                  }
+                  */
+                  // let's go tell it to reload
+                  chrome.tabs.reload(tab.id, {}, function(){
+                    // ok, good, it's reloaded.  start checking for completion
+                    // checkUntilComplete();
+                    // for now, since even without network connection we'll get the 'complete' status, we don't want to do the loop above
+                    // because it just ends up looping really really quickly, and I don't want to crash the extension.  so just wait the whole 5000 (above)
+                  });
+                }
+              })(tabs[i]);
+            }
+          });
+        }
     },
     /* The main function which dispatches events to the content script */
     simulateDomEvent: function _simulateDomEvent(v) {

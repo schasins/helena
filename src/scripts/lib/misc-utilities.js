@@ -609,6 +609,14 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
     // send it to the current handler, not the old one.
   };
 
+  // for now, if there's no favicon url and if the title of the page is actually just a segment of the url, go ahead and assume it didn't manage to load
+  pub.looksLikeLoadingFailure = function _looksLikeLoadingFailure(tabInfo){
+    if (!tabInfo.favIconUrl && tabInfo.url.indexOf(tabInfo.title) > -1){
+      return true;
+    }
+    return false;
+  };
+
 return pub; }());
 
 

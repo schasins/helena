@@ -3993,26 +3993,43 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         getNextRowCounter += 1;
         // ok, we had some data but we've run out.  time to try running the next button interaction and see if we can retrieve some more
 
+        // the function for continuing once we've done a next interaction
+        var continueWithANewPage = function _continueWithANewPage(){
+          // cool, and now let's start the process of retrieving fresh items by calling this function again
+          prinfo.needNewRows = true;
+          relation.getNextRow(pageVar, callback);
+        };
+
         // here's what we want to do once we've actually clicked on the next button, more button, etc
         // essentially, we want to run getNextRow again, ready to grab new data from the page that's now been loaded or updated
-        var runningNextInteraction = false;
+        var stopRequestingNext = false;
         utilities.listenForMessageOnce("content", "mainpanel", "runningNextInteraction", function _nextInteractionAck(data){
           var currentGetNextRowCounter = getNextRowCounter;
           WALconsole.namedLog("getRelationItems", currentGetNextRowCounter, "got nextinteraction ack");
           prinfo.currentNextInteractionAttempts += 1;
-          runningNextInteraction = true;
-          // cool, and now let's start the process of retrieving fresh items by calling this function again
-          prinfo.needNewRows = true;
-          relation.getNextRow(pageVar, callback);
+          stopRequestingNext = true;
+          continueWithANewPage();
         });
 
         // here's us telling the content script to take care of clicking on the next button, more button, etc
         if (!pageVar.currentTabId()){ WALconsole.log("Hey!  How'd you end up trying to click next button on a page for which you don't have a current tab id??  That doesn't make sense.", pageVar); }
+        var timeWhenStartedRequestingNextInteraction = (new Date()).getTime();
         var sendRunNextInteraction = function(){
+          var currTime = (new Date()).getTime();
+          // let's check if we've hit our timeout
+          if ((currTime - timeWhenStartedRequestingNextInteraction) > 120000){
+            // ok, it's been two minutes and the next button still didn't work.  let's try refreshing the tab
+            stopRequestingNext = true;
+            chrome.tabs.reload(pageVar.currentTabId(), {}, function(){
+              // ok, good, it's reloaded.  ready to go on with normal processing as though this reloaded page is our new page
+              continueWithANewPage();
+            });
+          }
+          // ok, haven't hit the timeout so just keep trying the next interaction
           var currentGetNextRowCounter = getNextRowCounter;
           WALconsole.namedLog("getRelationItems", currentGetNextRowCounter, "requestNext");
           utilities.sendMessage("mainpanel", "content", "runNextInteraction", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);};
-        MiscUtilities.repeatUntil(sendRunNextInteraction, function(){return runningNextInteraction;},function(){}, 1000, true);
+        MiscUtilities.repeatUntil(sendRunNextInteraction, function(){return stopRequestingNext;},function(){}, 1000, true);
       }
       else {
         // we still have local rows that we haven't used yet.  just advance the counter to change which is our current row

@@ -820,6 +820,12 @@ var Replay = (function ReplayClosure() {
         } else {
           this.setNextTimeout(params.replay.defaultWait);
           if (gpmdebug) {console.log('gpm: tab already seen, no port found');}
+          // we can get into a loop here if (for example) we use a next button to try to get to the next page of a list
+          // so we actually know the right tab because it's the same page where we had the list in the past
+          // but if the network has gone down for a moment or something else went wrong during loading the next page
+          // there would be no ports associated with the tab?
+          
+          // todo: this may be a place to do some kind of recovery by actually reloading the tab
         }
       /* nothing matched, so we need to open new tab */
       } else {
@@ -846,7 +852,7 @@ var Replay = (function ReplayClosure() {
         /* if this is not the first event, and there is exactly one unmapped
          * tab, then lets assume this new tab should match */
         if (unusedTabs.length == 1) { // if 2, one is our initial tab that explains the recording process, and the other must be the tab we want
-          tabMapping[frame.tab] = unusedTabs[0];
+          tabMapping[frame.tab] = unusedTabs[0]; // go ahead and make a mapping and then try going through the whole process again
           if (gpmdebug) {console.log("gpm: adding one unmatched tab mapping update");}
           this.setNextTimeout(0);
           if (gpmdebug) {console.log("Exactly one unmapped.");}

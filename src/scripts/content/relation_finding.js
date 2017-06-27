@@ -515,7 +515,8 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
   function numMatchedXpaths(targetXpaths, firstRow){
     var firstRowXpaths = _.pluck(firstRow, "xpath");
-    var matchedXpaths = _.intersection([targetXpaths, firstRowXpaths]);
+    var matchedXpaths = _.intersection(targetXpaths, firstRowXpaths);
+    WALconsole.log("numMatchedXpaths", matchedXpaths.length, targetXpaths, firstRowXpaths, matchedXpaths);
     return matchedXpaths.length;
   }
 

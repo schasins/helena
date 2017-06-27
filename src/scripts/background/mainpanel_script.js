@@ -5605,12 +5605,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // ok we hit the end of the loop without returning after finding a new page to work on.  time to close tabs
       tabsToCloseAfter = _.uniq(tabsToCloseAfter); 
       console.log("tabsToCloseAfter", tabsToCloseAfter);     
+      // commenting out the actual tab closing for debugging purposes
+      /*
       for (var i = 0; i < tabsToCloseAfter.length; i++){
         console.log("processServerRelations removing tab", tabsToCloseAfter[i]);
         chrome.tabs.remove(tabsToCloseAfter[i], function(){
           // do we need to do anything?
         }); 
       }
+      */
       // let's also update the ui to indicate that we're no longer looking
       RecorderUI.updateDisplayedRelations(false);
       

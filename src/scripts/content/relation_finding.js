@@ -403,7 +403,8 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
               ps.push(ps[j].concat(arr[i]));
           }
       }
-      return ps;
+      // ok, ps has them in order from smallest to largest.  let's reverse that
+      return ps.reverse();
   }
 
   function synthesizeSelectorForSubsetThatProducesLargestRelation(rowNodes, smallestSubsetToConsider){
@@ -412,28 +413,45 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     var combos = combinations(rowNodes);
     var maxNumCells = -1;
     var maxSelector = null;
+    var maxComboSize = -1;
     for (var i = 0; i < combos.length; i++){
+      var combo = combos[i];
+      WALconsole.log("working on a new combo", combo);
       // the if below is an inefficient way to do this!  do it better in future!  just make the smaller set of combos! todo
-      if (combos.length < smallestSubsetToConsider){
+      if (combo.length < smallestSubsetToConsider){
+        WALconsole.log("skipping a combo becuase it's smaller than the server-suggested combo", combo, smallestSubsetToConsider);
         continue;
       }
-      var combo = combos[i];
+      if (combo.length < maxComboSize){
+        // remember, we're going through combinations in order from the largest size to the smallest
+        // so if we've already found one of a large size (a large number of matched xpaths),
+        // there's no need to spend time looking for smaller ones that we actually don't prefer
+        continue;
+      }
       if (combo.length < 1){ continue; }
       var selector = pub.synthesizeFromSingleRow(combo);
       WALconsole.log("selector", selector);
       var relation = pub.interpretRelationSelector(selector);
+      if (relation.length < 2){
+        // we're really not interested in relations of size one -- that's not going to require parameterization at all, after all
+        WALconsole.log("ignoring a combo becuase it produces a length 1 relation", combo, relation);
+        continue;
+      }
       var numCells = combo.length * relation.length;
       if (numCells > maxNumCells){
         maxNumCells = numCells;
         maxSelector = selector;
-        WALconsole.log("maxselector", maxSelector);
-        WALconsole.log("relation", relation);
+        maxSelector.relation = relation; // go ahead and save that relation with it
+        maxComboSize = combo.length; // keep track of the largest set of cells for which we've found a good selector
+        WALconsole.log("maxselector so far", maxSelector);
+        WALconsole.log("relation so far", relation);
       }
     }
     if (!maxSelector){
+      WALconsole.log("No maxSelector");
       return null;
     }
-    maxSelector.relation = relation;
+    WALconsole.log("returning maxselector", maxSelector);
     return maxSelector;
   }
 
@@ -520,6 +538,12 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     return matchedXpaths.length;
   }
 
+  function unmatchedXpaths(targetXpaths, firstRow){
+    var firstRowXpaths = _.pluck(firstRow, "xpath");
+    var unmatchedXpaths = _.difference(targetXpaths, firstRowXpaths);
+    return unmatchedXpaths;
+  }
+
   function recordComparisonAttributesNewSelector(selectorData, targetXpaths){
     var rel = selectorData.relation;
     selectorData.numMatchedXpaths = numMatchedXpaths(targetXpaths, rel[0]);
@@ -542,6 +566,18 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   }
 
   function bestSelector(defaultRel, alternativeRel){
+    // first things first, before we get into anything else, we always want a relation with more than one row
+    // or else we don't really care about it.  so default or no, we're going to eliminate it if it only has one
+    if (defaultRel.numRowsInDemo > 1 && alternativeRel.numRowsInDemo <= 1){
+      return defaultRel;
+    }
+    else if (alternativeRel.numRowsInDemo > 1 && defaultRel.numRowsInDemo <= 1){
+      return alternativeRel;
+    }
+
+    // normal processesing - just go through the features we care about, and pick default if it wins on any of our ordered list of features, else the alternative
+    // we only really get into crazy tie breakers if we're tied on num of matched xpaths, because whichever wins there can automatically win the whole thing
+    // but if they're tied, we go into the extra feature deciders
     if (defaultRel.numMatchedXpaths > alternativeRel.numMatchedXpaths){
       return defaultRel;
     }
@@ -574,6 +610,18 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     return alternativeRel;
   }
 
+  function xpathsToNodes(xpaths){
+    var nodes = [];
+    for (var i = 0; i < xpaths.length; i++){
+      var node = xPathToNodes(xpaths[i])[0];
+      if (!node){
+        continue; // todo: this may not be the right thing to do!  for now we're assuming that if we can't find a node at this xpath, it's because we jumbled in the nodes from a different page into the relation for this page (becuase no updat to url or something); but it may just mean that this page changed super super quickly, since the recording
+      }
+      nodes.push(node);
+    }
+    return nodes;
+  }
+
   var timesToTry = 5;
   var timesTried = 0;
   // todo: does it make any sense to have this here when we have the mainpanel asking multiple times anyway?
@@ -604,15 +652,8 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       // may end up sending multiples if we're sent the inciting message multiple times because the page loads slowly
       return;
     }
-    var nodes = [];
     var xpaths = msg.xpaths;
-    for (var i = 0; i < xpaths.length; i++){
-      var node = xPathToNodes(xpaths[i])[0];
-      if (!node){
-        continue; // todo: this may not be the right thing to do!  for now we're assuming that if we can't find a node at this xpath, it's because we jumbled in the nodes from a different page into the relation for this page (becuase no updat to url or something); but it may just mean that this page changed super super quickly, since the recording
-      }
-      nodes.push(node);
-    }
+    var nodes = xpathsToNodes(xpaths);
 
     var maxNodesCoveredByServerRelations = 0;
     var serverSuggestedRelations = msg.serverSuggestedRelations;
@@ -659,6 +700,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     var currBestSelector = selectorData;
     recordComparisonAttributesNewSelector(selectorData, xpaths);
 
+    WALconsole.log("serverSuggestedRelations", serverSuggestedRelations, "selectorData", selectorData);
     var serverSuggestedRelations = msg.serverSuggestedRelations;
     for (var i = 0; i < serverSuggestedRelations.length; i++){
       var rel = serverSuggestedRelations[i];
@@ -675,11 +717,28 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       rel.relation = relationData; 
       recordComparisonAttributesServerSelector(rel, xpaths);
 
+      WALconsole.log("default", rel, "new", currBestSelector);
       // use the server-provided rel as our default, since that'll make the server-side processing when we save the relation easier, and also gives us the nice names
       var newBestSelector = bestSelector(rel, currBestSelector);
       if (newBestSelector !== currBestSelector){
         currBestSelector = newBestSelector;
         bestSelectorIsNew = false;
+      }
+    }
+
+    // ok, we've picked our best selector.  of course, it's possible it doesn't cover all columns
+    // if it doesn't cover all columns, we're willing to add up to one more supplementary selector
+    // todo: in future, consider adding more than one additional selector -- may need up to one selector per column
+    // but for now, we'll try one
+    var uncoveredSoFar = unmatchedXpaths(xpaths, currBestSelector.relation[0]);
+    console.log("uncoveredSoFar", uncoveredSoFar);
+    if (uncoveredSoFar.length > 0){
+      // let's see if we can cover as many as possible of the remaining nodes
+      var uncoveredNodes = xpathsToNodes(uncoveredSoFar);
+      var additionalSelector = synthesizeSelectorForSubsetThatProducesLargestRelation(uncoveredNodes, 0);
+      // now reason about the length of the lists and whether it even makes sense to pair them
+      if (currBestSelector.relation.length == additionalSelector.relation.length){
+        console.log("We'd like to add an additional selector for this case.", additionalSelector);
       }
     }
 

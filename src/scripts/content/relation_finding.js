@@ -73,9 +73,9 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   }
 
   function makeSubcomponentFunction(suffixes){
-    var subcomponentFunction = function(candidateRow){
+    var subcomponentFunction = function(candidateRowNodes){
       var candidate_subitems = [];
-      var candidate_xpath = XPathList.xPathToXPathList(nodeToXPath(candidateRow));
+      var row_node_xpaths = _.map(candidateRowNodes, function(candidateRow){return XPathList.xPathToXPathList(nodeToXPath(candidateRow));});
       var null_subitems = 0;
       for (var j = 0; j < suffixes.length; j++){
         // note that suffixes[j] will be depth 2 if only one suffix available, depth 3 if list of suffixes available; todo: clean that up
@@ -85,7 +85,23 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         }
         var foundSubItem = false;
         for (var k = 0; k < suffixLs.length; k++){
-          var xpath = candidate_xpath.concat(suffixLs[k]);
+          var row_node_xpath = null;
+          var suffixListRep = null;
+          if (suffixLs[k].selectorIndex !== undefined){
+            // great, we know exactly which of the candidate row nodes to use
+            row_node_xpath = row_node_xpaths[suffixLs[k].selectorIndex];
+            suffixListRep = suffixLs[k].suffixRepresentation;
+          }
+          else{
+            // ok, so this suffix isn't one of our selectorIndex-labeled objects.  it's just the old array rep
+            // so we better have only one selector and thus only one candidate row node
+            row_node_xpath = row_node_xpaths[0];
+            suffixListRep = suffixLs[k];
+            if (candidateRowNodes.length > 1){
+              WALconsole.warn("Woah, bad, we have no selector index associated with a column suffix, but we have multiple row nodes.");
+            }
+          }
+          var xpath = row_node_xpath.concat(suffixListRep);
           var xpath_string = XPathList.xPathToString(xpath);
           var nodes = xPathToNodes(xpath_string);
           if (nodes.length > 0){
@@ -120,10 +136,10 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   // feature_dict is the primary part of our selector
   // exclude_first tells us whether to skip the first row, as we often do when we have headers
   // suffixes tell us how to find subcomponents of a row in the relation
-  pub.interpretRelationSelectorHelper = function _interpretRelationSelectorHelper(feature_dict, exclude_first, subcomponents_function){
+  pub.interpretRelationSelectorHelper = function _interpretRelationSelectorHelper(feature_dict, exclude_first){
     // WALconsole.log("interpretRelationSelectorHelper", feature_dict, exclude_first, subcomponents_function);
     var candidates = getAllCandidates();
-    var list = [];
+    var listOfRowNodes = [];
     for (i=0;i<candidates.length;i++){
       var candidate = candidates[i];
       var candidate_ok = true;
@@ -138,44 +154,18 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         }
       }
       if (candidate_ok){
-        candidate_subitems = subcomponents_function(candidate);
-        if (candidate_subitems !== null){
-          list.push(candidate_subitems);
-        }
+        listOfRowNodes.push(candidate);
       }
     }
-    if (exclude_first > 0 && list.length > exclude_first){
-      return list.slice(exclude_first,list.length);
+    if (exclude_first > 0 && listOfRowNodes.length > exclude_first){
+      return listOfRowNodes.slice(exclude_first,listOfRowNodes.length);
     }
-    WALconsole.log(list);
-    return list;
+    WALconsole.log("listOfRowNodes", listOfRowNodes);
+    return listOfRowNodes;
   };
 
-  pub.interpretRelationSelector = function _interpretRelationSelector(selector){
-    if (selector.selector.constructor === Array){
-      var selectorArray = selector.selector;
-      for (var i = 0; i < selectorArray.length; i++){
-        var possibleSelector = selectorArray[i];
-        selector.selector = possibleOutput;
-        var possibleOutput = pub.interpretRelationSelector(possibleOutput);
-        if (possibleOutput.length > 0){
-          selector.selector = selectorArray;
-          return possibleOutput;
-        }
-      }
-      WALconsole.warn("None of our possible selectors seems to work.");
-      return [];
-    }
-    if (selector.selector.table === true){
-      // let's go ahead and sidetrack off to the table extraction routine
-      return pub.interpretTableSelector(selector.selector, selector.exclude_first, selector.columns);
-    }
-    var suffixes = _.pluck(selector.columns, "suffix");
-    WALconsole.log("interpretRelationSelector", selector);
-    return pub.interpretRelationSelectorHelper(selector.selector, selector.exclude_first, makeSubcomponentFunction(suffixes));
-  };
 
-  pub.interpretTableSelector = function _interpretTableSelector(featureDict, excludeFirst, columns){
+  pub.interpretTableSelectorHelper = function _interpretTableSelectorHelper(featureDict, excludeFirst){
     // we don't use this for nested tables!  this is just for very simple tables, otherwise we'd graduate to the standard approach
     var nodes = xPathToNodes(featureDict.xpath);
     var table = null;
@@ -205,13 +195,77 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
     var rows = table.find("tr");
     rows = rows.slice(excludeFirst, rows.length);
+    return rows;
+  };
 
+  pub.interpretRelationSelectorRowNodes = function _interpretRelationSelectorRowNodes(selector){
+    if (selector.selector.constructor === Array){
+      // the case where we need to recurse
+      var selectorArray = selector.selector;
+      var rowNodeLists = [];
+      for (var i = 0; i < selectorArray.length; i++){
+        var possibleSelector = selectorArray[i];
+        selector.selector = possibleSelector;
+        var newRowNodesLs = pub.interpretRelationSelectorRowNodes(selector);
+        rowNodeLists = rowNodeLists.concat(newRowNodesLs);
+      }
+      selector.selector = selectorArray;
+      return rowNodeLists;
+    }
+
+    WALconsole.log("interpretRelationSelector", selector);
+
+    if (selector.selector.table === true){
+      // let's go ahead and sidetrack off to the table extraction routine
+      return [pub.interpretTableSelectorHelper(selector.selector, selector.exclude_first)];
+    }
+    // else the normal case with the normal extractor
+    return [pub.interpretRelationSelectorHelper(selector.selector, selector.exclude_first)];
+  };
+
+  pub.interpretRelationSelectorCellNodes = function _interpretRelationSelectorCellNodes(selector, rowNodeLists){
+    WALconsole.log("rowNodeLists", rowNodeLists);
     // now we'll use the columns info to actually get the cells
-    var suffixes = _.pluck(columns, "suffix");
+    var suffixes = _.pluck(selector.columns, "suffix");
     var subcomponentsFunction = makeSubcomponentFunction(suffixes);
-    var cells = _.map(rows, function(row){return subcomponentsFunction(row);});
+    // in general, we pick selectors so that we'll only have two selectors at the same time if they actually have the same number of rows
+    var counter = 0;
+    var allCells = [];
+    while (true){
+      var rowNodes = [];
+      var allNull = true;
+      for (var i = 0; i < rowNodeLists.length; i++){
+        if (rowNodeLists[i].length > counter){
+          allNull = false;
+          rowNodes.push(rowNodeLists[i][counter]);
+        }
+        else{
+          rowNodes.push(null);
+        }
+      }
+      if (allNull){
+        // ok, all our lists of nodes have run out of nodes
+        break;
+      }
+      // cool, we have a list or rowNodes that includes at least some nodes
+      var thisRowCells = subcomponentsFunction(rowNodes);
+      if (thisRowCells !== null){
+        allCells.push(thisRowCells);
+      }
+      counter += 1;
+    }
+    return allCells;
+  };
+
+  pub.interpretRelationSelector = function _interpretRelationSelector(selector){
+    var rowNodeLists = pub.interpretRelationSelectorRowNodes(selector);
+    WALconsole.log("rowNodeLists", rowNodeLists);
+    // ok, now that we have some row nodes, time to extract the individual cells
+    var cells = pub.interpretRelationSelectorCellNodes(selector, rowNodeLists);
+    WALconsole.log("cells", cells);
     return cells;
-  }
+  };
+
 
 /**********************************************************************
  * How to actually synthesize the selectors used by the relation-finder above
@@ -622,6 +676,53 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     return nodes;
   }
 
+  function labelColumnSuffixesWithTheirSelectors(columnLs, selectorIndex){
+    for (var i = 0; i < columnLs.length; i++){
+      var col = columnLs[i];
+      var currSuffixes = col.suffix;
+      if (MiscUtilities.depthOf(currSuffixes) < 3){
+        // when we have only one suffix, we don't store it in a list, but the below is cleaner if we just have a list; todo: clean up
+        currSuffixes = [currSuffixes];
+      }
+      var outputSuffixLs = [];
+      for (var j = 0; j < currSuffixes.length; j++){
+        if (currSuffixes[j].selectorIndex){
+          // great, it's already an object with a selector index, and we just need to update the selectorIndex
+          currSuffixes[j].selectorIndex = selectorIndex;
+          outputSuffixLs.push(currSuffixes[j]);
+        }
+        else{
+          // ah, still just the old list representation of a selector.  need to make it into a selectorIndex-labeled object
+          outputSuffixLs.push({selectorIndex: selectorIndex, suffixRepresentation: currSuffixes[j]});
+        }
+      }
+      col.suffix = outputSuffixLs;
+    }
+  }
+
+  function addSelectorToSelector(selectorToAugment, selectorToBeAdded){
+    if (selectorToBeAdded.selector.constructor === Array){
+      WALconsole.warn("Woah, you shouldn't be adding a fresh selector that already has multiple selectors.  Have to add those one at a time for this function.");
+    }
+
+    var currSelectorOrSelectorList = selectorToAugment.selector;
+    if (currSelectorOrSelectorList.constructor === Array){
+      // cool, no need to mess around with the current selector's columns
+      // let's just add the new selector to the list
+      selectorToAugment.selector = selectorToAugment.selector.concat([selectorToBeAdded.selector]);
+    }
+    else{
+      // ok, this selector used to have just one.  let's go ahead and turn it into a list and make sure all its
+      // column objects have all their suffixes labeled with index 0, since the curr selector will be the first in the list
+      selectorToAugment.selector = [selectorToAugment.selector, selectorToBeAdded.selector];
+      labelColumnSuffixesWithTheirSelectors(selectorToAugment.columns, 0);
+    }
+    // and in either case, we need to add the new selectors columns to the prior set of columns, and we need to label them with the position in the list of selectors (len minus one)
+    labelColumnSuffixesWithTheirSelectors(selectorToBeAdded.columns, selectorToAugment.selector.length - 1);
+    selectorToAugment.columns = selectorToAugment.columns.concat(selectorToBeAdded.columns);
+    return selectorToAugment;
+  }
+
   var timesToTry = 5;
   var timesTried = 0;
   // todo: does it make any sense to have this here when we have the mainpanel asking multiple times anyway?
@@ -731,14 +832,22 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     // todo: in future, consider adding more than one additional selector -- may need up to one selector per column
     // but for now, we'll try one
     var uncoveredSoFar = unmatchedXpaths(xpaths, currBestSelector.relation[0]);
-    console.log("uncoveredSoFar", uncoveredSoFar);
+    WALconsole.log("uncoveredSoFar", uncoveredSoFar);
     if (uncoveredSoFar.length > 0){
       // let's see if we can cover as many as possible of the remaining nodes
       var uncoveredNodes = xpathsToNodes(uncoveredSoFar);
       var additionalSelector = synthesizeSelectorForSubsetThatProducesLargestRelation(uncoveredNodes, 0);
       // now reason about the length of the lists and whether it even makes sense to pair them
       if (currBestSelector.relation.length == additionalSelector.relation.length){
-        console.log("We'd like to add an additional selector for this case.", additionalSelector);
+        WALconsole.log("We're adding an additional selector.", additionalSelector);
+        currBestSelector = addSelectorToSelector(currBestSelector, additionalSelector);
+        WALconsole.log("currBestSelector", currBestSelector);
+        WALconsole.log("currBestSelector.selector.length", currBestSelector.selector.length);
+        WALconsole.log("currBestSelector.selector.constructor === Array", currBestSelector.selector.constructor === Array);
+        var rel = pub.interpretRelationSelector(currBestSelector);
+        var relationData = _.map(rel, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
+        currBestSelector.relation = relationData;
+        WALconsole.log("currBestSelector.relation", currBestSelector.relation);
       }
     }
 
@@ -955,13 +1064,16 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
     if (initialSelectorEmptyOnThisPage){
       // ok, it's empty right now, need to make a new one
-      if (!currentSelectorToEdit.selectorArr){
-        currentSelectorToEdit.selectorArr = [currentSelectorToEdit.selector]
+      if (!currentSelectorToEdit.origSelector){
+        currentSelectorToEdit.origSelector = JSON.parse(JSON.stringify(currentSelectorToEdit)); // deepcopy
       }
       targetsSoFar.push(target);
       var newSelector = pub.synthesizeFromSingleRow(targetsSoFar);
-      currentSelectorToEdit.currentIndividualSelector = newSelector
-      currentSelectorToEdit.selector = [newSelector].concat(currentSelectorToEdit.selectorArr)
+      currentSelectorToEdit.currentIndividualSelector = newSelector; // just the individual selector that we want to play with
+      currentSelectorToEdit.selector = currentSelectorToEdit.origSelector; // reset this so the addSelectorToSelector call will work
+      var mergedSelector = addSelectorToSelector(currentSelectorToEdit.origSelector, newSelector);
+      currentSelectorToEdit.selector = mergedSelector.selector;
+      currentSelectorToEdit.columns = mergedSelector.columns;
       //currentSelectorToEdit = newSelector;
       pub.newSelectorGuess(currentSelectorToEdit);
       // and let's go back to using .selector as the current one we want to edit and play with

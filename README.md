@@ -3,6 +3,13 @@
 #### What is Helena?
 Helena is a Chrome extension that can help automate repetitive interactions with well-structured webpages.  A user can demonstrate how to scrape the first row of a dataset, and Helena will write a program for scraping the next hundreds or thousands of rows.  Helena is also the name of the web automation language that the Helena extension uses.
 
+#### Can I see Helena in action?
+Sure!  Here's a very quick video demo:
+
+<a href="http://www.youtube.com/watch?feature=player_embedded&v=KfoLc4DzXT8
+" target="_blank"><img src="http://img.youtube.com/vi/KfoLc4DzXT8/0.jpg" 
+alt="Link to a video demo of Helena in action." width="240" height="180" border="10" /></a>
+
 #### How do I install Helena?
 First, get a copy of this repository.  If you've never cloned a repository before, just find the "Clone or download" button and choose the "Download ZIP" option.  Next follow the directions for loading an unpacked extension here: https://developer.chrome.com/extensions/getstarted#unpacked.  The directory to load is the `src` directory from the Helena repository you cloned or downloaded.
 

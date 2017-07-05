@@ -28,7 +28,7 @@ If you want the quick intro: [Helena: Write a Scraping Script in Under a Minute]
 
 If you want a slower walkthrough: [A Brief Introduction to the Helena Web Automation Language and Tool](https://www.youtube.com/watch?v=abVdsi89_j8&index=1&list=PLYeneIW6KQxIDUEp2QaNNKrgXg9hVvxZo)
 
-Once you've watched a few video tutorials and you're almost ready to start writing your own scripts, we highly recommend checking out our tips and tricks page: https://github.com/schasins/helena/wiki/Tips-and-Tricks.
+Once you've watched a few video tutorials and you're almost ready to start writing your own scripts, we highly recommend checking out our tips and tricks page: https://github.com/schasins/helena/wiki/Helena-Tips-and-Tricks.
 
 #### Is Helena reliable?
 Helena is just a research prototype.  It's being developed by only one person, and it's still quite new.  So definitely don't expect it to be a reliable, professional-quality, production-ready tool.  But if you run into problems, please get in touch - we want to keep making it better!

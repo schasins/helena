@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
 
-  "name": "Visual PBD Scraper",
-  "description": "This extension scrapes relational data from highly structured webpages.",
+  "name": "Helena Scraper and Automator",
+  "description": "This extension uses the Helena web automation language to scrape relational data from highly structured webpages.",
   "version": "1.0",
 
   "browser_action": {

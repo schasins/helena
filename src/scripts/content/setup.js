@@ -15,6 +15,7 @@ utilities.listenForMessage("background", "content", "tabID", function(msg){
 	tabId = msg.tab_id; 
 	windowId = msg.window_id;
 	tabTopUrl = msg.top_frame_url;
+	console.log("tabId info", tabId, windowId, tabTopUrl);
 });
 utilities.listenForMessage("mainpanel", "content", "getRelationItems", function(msg){RelationFinder.getRelationItems(msg);});
 utilities.listenForMessage("mainpanel", "content", "getFreshRelationItems", function(msg){RelationFinder.getFreshRelationItems(msg);});

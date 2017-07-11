@@ -825,6 +825,18 @@ var Replay = (function ReplayClosure() {
           // but if the network has gone down for a moment or something else went wrong during loading the next page
           // there would be no ports associated with the tab?
           
+          if (this.currentPortMappingFailures > 0 && (this.currentPortMappingFailures % 50) === 0){ // todo: should probably actually have our own counter for this, in case the tab just loaded at this particular iteration, something like that
+            // let's see if there are no ports associated with the tab we should be using, and let's reload
+            var ports = this.ports;
+            var portInfo = ports.getTabInfo(tabMapping[tab]);
+            if (!portInfo || !(portInfo.top)){
+              // why don't we have port info for the tab that we think is the right tab?  try reloading
+              chrome.tabs.reload(tabMapping[tab], {}, function(){
+                // ok, good, it's reloaded. not actually anything to do here I don't think
+              });
+            }
+          }
+
           // todo: this may be a place to do some kind of recovery by actually reloading the tab
         }
       /* nothing matched, so we need to open new tab */

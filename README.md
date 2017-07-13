@@ -11,7 +11,7 @@ Sure!  Here's a very quick video demo:
 </a>
 
 #### How do I install Helena?
-First, get a copy of this repository.  If you've never cloned a repository before, just find the "Clone or download" button and choose the "Download ZIP" option.  Next follow the directions for loading an unpacked extension here: https://developer.chrome.com/extensions/getstarted#unpacked.  The directory to load is the `src` directory from the Helena repository you cloned or downloaded.
+First, get a copy of this repository.  If you've never cloned a repository before, just find the "Clone or download" button and choose the "Download ZIP" option.  Create a new Chrome profile as described here: https://support.google.com/chrome/answer/2364824.  Next, switch to your new profile and follow the directions for loading an unpacked extension here: https://developer.chrome.com/extensions/getstarted#unpacked.  The directory to load is the `src` directory from the Helena repository you cloned or downloaded.
 
 #### Can I get Helena from the Chrome Web Store?
 We have not yet released a 'packed' version of Helena, since it's still in the early stages and still undergoing many substantial changes.  We do expect to release a version in the Chrome Web Store eventually.

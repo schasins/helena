@@ -1,3 +1,5 @@
+'use strict'
+
 Blockly.Blocks['scraping_for_each'] = {
   init: function() {
     this.jsonInit({

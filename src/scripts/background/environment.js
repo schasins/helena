@@ -1,3 +1,5 @@
+'use strict'
+
 var Environment = (function _Environment() { var pub = {};
 
   pub.Frame = function _Frame(parent){

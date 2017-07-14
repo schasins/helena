@@ -2,6 +2,8 @@
  * Author: S. Chasins
  **********************************************************************/
 
+ 'use strict'
+
 /**********************************************************************
  * Listeners and general set up
  **********************************************************************/
@@ -136,7 +138,7 @@ var NodeRep = (function _NodeRep() { var pub = {};
 	            (el.tagName.toLowerCase() == 'area') ||
 	            ((el.tagName.toLowerCase() == 'input') && el.getAttribute('type') && (el.getAttribute('type').toLowerCase() == 'image'))
 	            ) ) {
-	        altText = el.getAttribute('alt')
+	        var altText = el.getAttribute('alt')
 	        if (altText == null || altText == undefined){
 	          altText = ''
 	        }

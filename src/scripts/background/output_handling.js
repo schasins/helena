@@ -1,3 +1,5 @@
+'use strict'
+
 var OutputHandler = (function _OutputHandler() {
   var pub = {};
 

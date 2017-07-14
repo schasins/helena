@@ -2,6 +2,8 @@
  * Author: S. Chasins
  **********************************************************************/
 
+ 'use strict'
+
 /**********************************************************************
  * User event handlers
  **********************************************************************/
@@ -33,8 +35,8 @@ var RecordingHandlers = (function _RecordingHandlers() { var pub = {};
   }
 
   // scraping is happening if ctrl and c are held down
-  ctrlDown = false;
-  altDown = false;
+  var ctrlDown = false;
+  var altDown = false;
 
   pub.updateScraping = function _updateScraping(event){
     pub.updateScrapingTrackingVars(event);

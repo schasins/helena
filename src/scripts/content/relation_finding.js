@@ -2,6 +2,8 @@
  * Author: S. Chasins
  **********************************************************************/
 
+ 'use strict'
+
 var RelationFinder = (function _RelationFinder() { var pub = {};
 
   /**********************************************************************
@@ -140,7 +142,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     // WALconsole.log("interpretRelationSelectorHelper", feature_dict, exclude_first, subcomponents_function);
     var candidates = getAllCandidates();
     var listOfRowNodes = [];
-    for (i=0;i<candidates.length;i++){
+    for (var i=0;i<candidates.length;i++){
       var candidate = candidates[i];
       var candidate_ok = true;
       for (var feature in feature_dict){
@@ -1274,7 +1276,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         var min_distance = 999999;
         var min_candidate = null;
         for (var i=0; i<candidate_buttons.length; i++){
-          candidate_xpath = nodeToXPath(candidate_buttons[i]);
+          var candidate_xpath = nodeToXPath(candidate_buttons[i]);
           var distance = MiscUtilities.levenshteinDistance(candidate_xpath,next_or_more_button_xpath);
           if (distance<min_distance){
             min_distance = distance;
@@ -1380,7 +1382,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     utilities.sendMessage("content", "mainpanel", "freshRelationItems", respMsg);
   }
 
-  relationFinderIdCounter = 0;
+  var relationFinderIdCounter = 0;
   pub.getFreshRelationItemsHelper = function _getFreshRelationItemsHelper(msg){
     var strMsg = selectorId(msg);
     WALconsole.log("noMoreItemsAvailable", noMoreItemsAvailable[strMsg], noMoreItemsAvailable);
@@ -1507,7 +1509,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       return {type: RelationItemsOutputs.NONEWITEMSYET, relation: null};
     }
     // whee, we have some new stuff.  we can update the state
-    nextInteractionSinceLastGetFreshRelationItems = false;
+    nextInteractionSinceLastGetFreshRelationItems[strMsg] = false;
     // we only want the fresh ones!
     var newItems = relationData; // start by assuming that's everything
     if (crd && _.isEqual(crd, relationData.slice(0, crd.length))){

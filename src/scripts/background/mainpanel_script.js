@@ -1,3 +1,5 @@
+'use strict'
+
 function setUp(){
 
   //messages received by this component
@@ -321,7 +323,7 @@ var RecorderUI = (function () {
       scraped[id] = data.text;
     }
     xpaths.push(id);
-    $div = $("#scraped_items_preview");
+    var $div = $("#scraped_items_preview");
     $div.html("");
     for (var i = 0; i < xpaths.length; i++){
       $div.append($('<div class="first_row_elem">'+scraped[xpaths[i]]+'</div>'));
@@ -351,7 +353,7 @@ var RecorderUI = (function () {
     if (currentlyUpdating === undefined){ currentlyUpdating = false; }
 
     var relationObjects = ReplayScript.prog.relations;
-    $div = $("#new_script_content").find("#status_message");
+    var $div = $("#new_script_content").find("#status_message");
     $div.html("");
     if (currentlyUpdating){
       $div.html("Looking at webpages to find relevant tables.  Give us a moment.<br><center><img src='../icons/ajax-loader.gif'></center>");
@@ -567,7 +569,7 @@ var RecorderUI = (function () {
     WALconsole.log("updateDuplicateDetection");
     var duplicateDetectionData = ReplayScript.prog.getDuplicateDetectionData();
 
-    $div = $("#new_script_content").find("#duplicates_container_content");
+    var $div = $("#new_script_content").find("#duplicates_container_content");
     $div.html("");
     for (var i = 0; i < duplicateDetectionData.length; i++){
       (function(){
@@ -645,7 +647,7 @@ var RecorderUI = (function () {
     WALconsole.log("updateNodeRequiredFeaturesUI");
     var similarityNodes = ReplayScript.prog.getNodesFoundWithSimilarity();
 
-    $div = $("#new_script_content").find("#require_features_container_content");
+    var $div = $("#new_script_content").find("#require_features_container_content");
 
     if (similarityNodes.length > 0){
       $div.html("");
@@ -2404,7 +2406,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     function convertTextArrayToArrayOfTextCells(textArray){
-      newCells = _.map(textArray, textToMainpanelNodeRepresentation);
+      var newCells = _.map(textArray, textToMainpanelNodeRepresentation);
       _.each(newCells, function(cell){cell.scraped_attribute = "TEXT";})
       return newCells;
     }
@@ -2827,7 +2829,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.toStringLines = function _toStringLines(){
       var ancestorString = "";
       for (var i = 0; i < this.ancestorAnnotations.length; i++){
-        ancestorString += ", " + ancestorAnnotations[i].name;
+        ancestorString += ", " + this.ancestorAnnotations[i].name;
       }
       var annotationItemsStr = _.map(this.annotationItems, function(i){return annotationItemToString(i);}).join(", ");
       var prefix = "skipBlock("+this.name+"("+annotationItemsStr+")"+ancestorString+"){";
@@ -5284,7 +5286,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         [charsDict.CTRL, charsDict.ALT, charsDict.SHIFT] // unix link scraping
       ];
       for (var i = 0; i < acceptableSets.length; i++){
-        acceptableSet = acceptableSets[i];
+        var acceptableSet = acceptableSets[i];
         acceptableSet.sort();
         if (_.isEqual(keyCodes, acceptableSet)){
           return true;

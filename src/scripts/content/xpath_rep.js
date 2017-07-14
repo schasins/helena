@@ -3,6 +3,8 @@
  * (my easier to manipulate representation of xpaths)
  **********************************************************************/
 
+ 'use strict'
+
 var XPathList = (function _XPathList() { var pub = {};
 
  pub.xPathToXPathList = function _xPathToXPathList(xpath){

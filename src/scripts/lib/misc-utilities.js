@@ -403,7 +403,7 @@ var ServerTranslationUtilities = (function _ServerTranslationUtilities() { var p
   };
 
   pub.unJSONifyProgram = function _unJSONifyProgram(stringifiedProg){
-    programAttributes = JSOG.parse(stringifiedProg);
+    var programAttributes = JSOG.parse(stringifiedProg);
     var program = Revival.revive(programAttributes); // copy all those fields back into a proper Program object
     return program;
   };

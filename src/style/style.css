@@ -161,6 +161,16 @@ h4 {
 	background-color: DBDBDB;
 }
 
+.scheduled_script_run{
+	margin-bottom: 5px;
+	padding: 10px;
+	border: solid 1px #E8E8E8;
+	background-color: #F0F0F0;
+}
+.scheduled_script_run:hover{
+	background-color: DBDBDB;
+}
+
 .troubleshooting_option{
 	background-color: #ffffff;
 	padding: 5px;

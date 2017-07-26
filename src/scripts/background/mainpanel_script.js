@@ -9,6 +9,7 @@ function setUp(){
   utilities.listenForMessage("content", "mainpanel", "scrapedData", RecorderUI.processScrapedData);
   utilities.listenForMessage("content", "mainpanel", "requestCurrentRecordingWindows", RecorderUI.sendCurrentRecordingWindows);
   utilities.listenForMessage("background", "mainpanel", "runScheduledScript", RecorderUI.runScheduledScript);
+  utilities.listenForMessage("background", "mainpanel", "pleasePrepareForRefresh", RecorderUI.prepareForPageRefresh)
   
 
   MiscUtilities.useCorrectScrapingConditionStrings("#scraping_instructions", "___SCRAPINGCONDITIONSTRING___", "___LINKSCRAPINGCONDITIONSTRING___"); // important to do this one first, what with everything going all stringy
@@ -30,6 +31,7 @@ var blocklyReadjustFunc = null;
 var recordingWindowIds = [];
 var scrapingRunsCompleted = 0;
 var datasetsScraped = [];
+var currentRunObjects = [];
 
 /**********************************************************************
  * Guide the user through making a demonstration recording
@@ -51,6 +53,9 @@ var RecorderUI = (function () {
     $( "#tabs" ).on( "tabsbeforeactivate", function( event, ui ) {
       if (ui.newPanel.attr('id') === "tabs-2"){
         pub.loadSavedScripts();
+      }
+      if (ui.newPanel.attr('id') === "tabs-3"){
+        pub.loadScheduledScripts();
       }
     });
   };
@@ -332,6 +337,8 @@ var RecorderUI = (function () {
 
   pub.runScheduledScript = function _runScheduledScript(data){
     console.log("Running scheduled script", data);
+    // let's let the background script know that we got its message
+    utilities.sendMessage("mainpanel", "background", "runningScheduledScript", {});
     var progId = data.progId;
     pub.loadSavedProgram(progId, function(){
       // once it's loaded, go ahead and actually run it.
@@ -347,6 +354,37 @@ var RecorderUI = (function () {
       });
     });
   };
+
+  pub.prepareForPageRefresh = function _prepareForPageRefresh(){
+    // first we want to wrap up anything we might have been doing.  in particular, if we're scraping and we have some outstanding 
+    // data, not yet backed up to the server, better send it to the server.  should we stop scraping also?
+
+    for (var i = 0; i < currentRunObjects.length; i++){
+      var runObject = currentRunObjects[i];
+      pub.pauseRun(runObject); // we'll let that do its thing in the background
+    }
+
+    var actualReady = function(){
+      // we want to let the background page know that we refreshed, in case it was the one that requested it
+      utilities.sendMessage("mainpanel", "background", "readyToRefresh", {});
+    };
+
+    var i = 0;
+    var processARunObject = function(){
+      if (i >= currentRunObjects.length){
+        // ok, we're done.  we've closed the datasets for all the current run objects
+        actualReady();
+      }
+      else{
+        // still more run objects to process
+        var runObject = currentRunObjects[i];
+        i += 1;
+        runObject.dataset.closeDatasetWithCont(processARunObject);
+      }
+    }
+
+    processARunObject();
+  }
 
   pub.updateDisplayedRelations = function _updateDisplayedRelations(currentlyUpdating){
     WALconsole.log("updateDisplayedRelation");
@@ -819,6 +857,47 @@ var RecorderUI = (function () {
         })();
       }
       savedScriptsDiv.html(html);
+    });
+  };
+
+  pub.loadScheduledScripts = function _loadScheduledScripts(){
+    chrome.storage.sync.get("scheduledRuns", function(obj) {
+      var scriptsDiv = $("#scheduled_runs_list");
+      if (!obj.scheduledRuns){
+        // none to show
+        scriptsDiv.html("No runs scheduled now.");
+        return;
+      }
+      // ok, looks like we have a few to show
+      scriptsDiv.html("");
+      for (var i = 0; i < obj.scheduledRuns.length; i++){
+        (function(){
+          var run = obj.scheduledRuns[i];
+          var newNode = $("<div class='scheduled_script_run'>" + run.progId + "</br>" + run.schedule + "</div>");
+          var removeButton = $("<span class='ui-icon ui-icon-closethick'></span>")
+          removeButton.click(function(){
+            // if we click, want to remove it from the saved chrome.storage, then reshow the scheduled scripts
+            obj.scheduledRuns = _.without(obj.scheduledRuns, run);
+            chrome.storage.sync.set(obj, function(){
+              console.log("Saved the new unscheduled run.");
+              // and let's tell the background script to retrieve all the schedules so it will update the ones it's keeping track of
+              utilities.sendMessage("mainpanel", "background", "scheduleScrapes", {});
+            })
+            pub.loadScheduledScripts();
+          });
+          newNode.append(removeButton);
+          scriptsDiv.append(newNode);
+        })();
+      }
+      /*
+      chrome.storage.sync.set(obj, function(){
+        console.log("Saved the new scheduled run.");
+        // and let's go back to our normal view of the program
+        pub.showProgramPreview(false);
+        // and let's tell the background script to retrieve all the schedules so it will actually run them
+        utilities.sendMessage("mainpanel", "background", "scheduleScrapes", {});
+      })
+      */
     });
   };
 
@@ -4992,6 +5071,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // for now the below is commented out to save memory, since only running one per instance
 	    //var programCopy = Clone.cloneProgram(program); // must clone so that run-specific state can be saved with relations and so on
       var runObject = {program: program, dataset: dataset, environment: Environment.envRoot()};
+      currentRunObjects.push(runObject);
       var tab = RecorderUI.newRunTab(runObject); // the mainpanel tab in which we'll preview stuff
       runObject.tab = tab;
 
@@ -5004,11 +5084,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         runObject.window = windowId;
         datasetsScraped.push(runObject.dataset.id);
         runObject.program.runBasicBlock(runObject, runObject.program.loopyStatements, function(){
-          runObject.dataset.closeDataset();
 
           function whatToDoWhenWereDone(){
             scrapingRunsCompleted += 1;
             console.log("scrapingRunsCompleted", scrapingRunsCompleted);
+            currentRunObjects = _.without(currentRunObjects, runObject);
             WALconsole.log("Done with script execution.");
             var timeScraped = (new Date()).getTime() - parseInt(dataset.pass_start_time);
             console.log(runObject.dataset.id, timeScraped);
@@ -5019,13 +5099,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             }
           }
 
-          // ok, now keep in mind we're not truly finished until all our data is stored, which means the dataset must have no outstanding requests
-          runObject.dataset.outstandingDataSaveRequests
-          MiscUtilities.repeatUntil(
-            function(){}, // repeatFunc is nothing.  just wait
-            function(){return runObject.dataset.outstandingDataSaveRequests === 0;}, 
-            whatToDoWhenWereDone, 
-            1000, false);
+          runObject.dataset.closeDatasetWithCont(whatToDoWhenWereDone);
 
         }, options);
       });

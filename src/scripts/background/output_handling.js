@@ -166,6 +166,18 @@ var OutputHandler = (function _OutputHandler() {
     	this.sendDatasetSlice();
     };
 
+    // this is a variation on close dataset that won't return control until the server has gotten the associated data
+    this.closeDatasetWithCont = function _closeDatasetWithCont(cont){
+      this.closeDataset();
+
+      // ok, now keep in mind we're not truly finished until all our data is stored, which means the dataset must have no outstanding requests
+      MiscUtilities.repeatUntil(
+        function(){}, // repeatFunc is nothing.  just wait
+        function(){return dataset.outstandingDataSaveRequests === 0;}, 
+        cont, 
+        1000, false);
+    }
+
     this.downloadUrl = function _downloadUrl(){
       return 'http://kaofang.cs.berkeley.edu:8080/datasets/run/'+this.program_run_id;
     };

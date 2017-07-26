@@ -54,6 +54,10 @@ var currently_on = false;
     });
   });
 
+  function makeKey(run){
+    return run.schedule + "_" + run.progId;
+  }
+
   // first set the timezone
   later.date.localTime();
   var alreadyScheduled = {};
@@ -61,15 +65,29 @@ var currently_on = false;
     chrome.storage.sync.get("scheduledRuns", function(obj) {
       console.log("scheduling scrapes", obj);
       var runs = obj.scheduledRuns;
+      var currentRunKeys = _.map(runs, function(run){return makeKey(run);});
+
+      // first let's go through and make sure we don't have any things scheduled that have been canceled, so that we need to clear them
+      for (var key in alreadyScheduled){
+        if (currentRunKeys.indexOf(key) < 0){
+          // ok, this is one we want to cancel
+          var laterId = alreadyScheduled[key];
+          laterId.clear();
+          console.log("unscheduled a run", key);
+        }
+      }
+
+      // now let's go through and start any schedules that haven't yet been scheduled
       for (var i = 0; i < runs.length; i++){
         var run = runs[i];
         var schedule = run.schedule;
         var progId = run.progId;
-        var key = schedule + "_" + progId;
+        var key = makeKey(run);
         if (!(key in alreadyScheduled)){
+          console.log("scheduled a run", key);
           var sched = later.parse.text(schedule);
-          later.setInterval(function() { runScheduledScript(progId); }, sched);
-          alreadyScheduled[key] = true;
+          var laterId = later.setInterval(function() { runScheduledScript(progId); }, sched);
+          alreadyScheduled[key] = laterId;
         }
       }
     });
@@ -78,8 +96,34 @@ var currently_on = false;
   utilities.listenForMessage("mainpanel", "background", "scheduleScrapes", scheduleScrapes);
 
   function runScheduledScript(id){
-    console.log("running scheduled script", id);
-    utilities.sendMessage("background", "mainpanel", "runScheduledScript", {progId: id});
+    // we'll have to actually open the control panel if we don't have it open already
+    openMainPanel(); // don't worry.  this will only open it if it's currently closed
+    
+    // and for cases where it's actually already running a script, we want to tell it to wrap up whatever it's doing (send the data to server)
+    // and then refresh the page so we're not bloating it all up with a bunch of memory given over to the prior task
+    // the protocol here is:
+    // B -> M pleasePrepareForRefresh
+    // M -> B readyToRefresh
+    // B -> M runScheduledScript
+    // M -> B runningScheduledScript
+    var readyForRefresh = false;
+    utilities.listenForMessageOnce("mainpanel", "background", "readyToRefresh", function(){
+      readyForRefresh = true;
+      // ok, the mainpanel is ready to be refreshed
+      chrome.windows.get(panelWindow.id, {populate: true}, function(winData){
+        var tab = winData.tabs[0]; // there should be exactly one tab
+        chrome.tabs.update(tab.id, {url:'pages/mainpanel.html'}, function(){
+          // ok, now that we've reloaded the mainpanel, let's go for it
+          console.log("running scheduled script", id);
+          var runRequestReceived = false;
+          utilities.listenForMessageOnce("mainpanel", "background", "runningScheduledScript", function(){ runRequestReceived = true; });
+          var sendRunRequest = function(){utilities.sendMessage("background", "mainpanel", "runScheduledScript", {progId: id});};
+          MiscUtilities.repeatUntil(sendRunRequest, function(){return runRequestReceived;}, function(){WALconsole.log("mainpanel received run request");}, 500, true);
+        });
+      });
+    });
+    var sendRefreshRequest = function(){utilities.sendMessage("background", "mainpanel", "pleasePrepareForRefresh", {});};
+    MiscUtilities.repeatUntil(sendRefreshRequest, function(){return readyForRefresh;}, function(){}, 500, true);
   }
   
 })();

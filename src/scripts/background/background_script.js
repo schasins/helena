@@ -114,11 +114,17 @@ var currently_on = false;
         var tab = winData.tabs[0]; // there should be exactly one tab
         chrome.tabs.update(tab.id, {url:'pages/mainpanel.html'}, function(){
           // ok, now that we've reloaded the mainpanel, let's go for it
-          console.log("running scheduled script", id);
-          var runRequestReceived = false;
-          utilities.listenForMessageOnce("mainpanel", "background", "runningScheduledScript", function(){ runRequestReceived = true; });
-          var sendRunRequest = function(){utilities.sendMessage("background", "mainpanel", "runScheduledScript", {progId: id});};
-          MiscUtilities.repeatUntil(sendRunRequest, function(){return runRequestReceived;}, function(){WALconsole.log("mainpanel received run request");}, 500, true);
+          // but let's wait one sec, because it turns out even when this continuation runs, sometimes the old page is still
+          // loaded in and trying to respond, and sometimes it gets the response out even though it's about to be reloaded
+          // and of course can't do the real response
+          // todo: a more robust way for this please
+          setTimeout(function(){
+            console.log("running scheduled script", id);
+            var runRequestReceived = false;
+            utilities.listenForMessageOnce("mainpanel", "background", "runningScheduledScript", function(){ runRequestReceived = true; });
+            var sendRunRequest = function(){utilities.sendMessage("background", "mainpanel", "runScheduledScript", {progId: id});};
+            MiscUtilities.repeatUntil(sendRunRequest, function(){return runRequestReceived;}, function(){WALconsole.log("mainpanel received run request");}, 500, true);
+          }, 1000);
         });
       });
     });

@@ -853,7 +853,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       }
     }
 
-    newMsg = {page_var_name: msg.pageVarName, url: window.location.href}; // this pageVarName is used by the mainpanel to keep track of which pages have been handled already
+    var newMsg = {page_var_name: msg.pageVarName, url: window.location.href}; // this pageVarName is used by the mainpanel to keep track of which pages have been handled already
     if (bestSelectorIsNew) {
       newMsg.relation_id = null;
       newMsg.name = null;

@@ -1049,7 +1049,7 @@ var ReplayScript = (function _ReplayScript() {
     trace = removeEventsBeforeFirstVisibleLoad(trace);
     pub.trace = trace;
 
-    segmentedTrace = segment(trace);
+    var segmentedTrace = segment(trace);
     var prog = segmentedTraceToProgram(segmentedTrace);
     pub.prog = prog;
     return prog;
@@ -1129,7 +1129,7 @@ var ReplayScript = (function _ReplayScript() {
   }
 
   function addCausalLinks(trace){
-    lastDOMEvent = null;
+    var lastDOMEvent = null;
     _.each(trace, function(ev){
       if (ev.type === "dom"){
         lastDOMEvent = ev;
@@ -1250,7 +1250,7 @@ var ReplayScript = (function _ReplayScript() {
   function segmentedTraceToProgram(segmentedTrace){
     var statements = [];
     _.each(segmentedTrace, function(seg){
-      sType = null;
+      var sType = null;
       for (var i = 0; i < seg.length; i++){
         var ev = seg[i];
         var st = WebAutomationLanguage.statementType(ev);
@@ -5766,7 +5766,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
       backStatements.reverse(); // must do the back button in reverse order
 
-      cleanupStatementLs = backStatements;
+      var cleanupStatementLs = backStatements;
       // todo: also, this is only one of the places we introduce loops.  should do this everywhere we introduce or adjust loops.  really need to deal with the fact those aren't aligned right now
 
       var loopStatement = new WebAutomationLanguage.LoopStatement(relation, relationColumnsUsed, bodyStatementLs, cleanupStatementLs, pageVar); 

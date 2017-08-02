@@ -974,8 +974,12 @@ var Replay = (function ReplayClosure() {
         if (this.currentPortMappingFailures === 120){ // === rather than > because we don't want to call handler a bunch of times, only once
           if (this.errorConts && this.errorConts.portFailure){
             var that = this;
+            // now keep in mind that this continuation may never be called if the top-level tool doesn't want to continue where we left off
+            // so any cleanup must happen now
+            // for instance, must put the currentPortMappingFailures back to 0
+            this.currentPortMappingFailures = 0; // by the time this code gets used again, the top level tool should have fixed it so we can find the port
+            // or alternatively it should have decided not to carry on trying to find the port anymore
             var continuation = function(){
-              that.currentPortMappingFailures = 0; // because the higher-level tool should have fixed it with the portFailure handler!
               that.setNextTimeout(0);
             }
             this.stopReplay();

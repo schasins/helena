@@ -4101,10 +4101,26 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           if ((currTime - timeWhenStartedRequestingNextInteraction) > 120000){
             // ok, it's been two minutes and the next button still didn't work.  let's try refreshing the tab
             stopRequestingNext = true;
-            chrome.tabs.reload(pageVar.currentTabId(), {}, function(){
-              // ok, good, it's reloaded.  ready to go on with normal processing as though this reloaded page is our new page
-              continueWithANewPage();
-            });
+
+            function callb() {
+                if (chrome.runtime.lastError) {
+                    // drat.  tab doesn't actually even exist.  the only way we could continue is just restart from the beginning
+                    // becuase this is a list page.  so we just don't know what else to do
+                    console.log(chrome.runtime.lastError.message);
+                    WALconsole.warn("Having to restart from the beginning because a list page just wasn't present.");
+                    // todo: should probably have a better solution here.  Maybe just break?  For a nested loop that's probably better.  for outer lop, maybe not
+                    var runObject = currentRunObjects[0]; // todo: this is a terrible way to access it!!!!!
+                    runObject.program.restartFromBeginning(runObject);
+                } else {
+                    // Tab exists.  so we can try reloading it, see how it goes
+                    chrome.tabs.reload(pageVar.currentTabId(), {}, function(){
+                      // ok, good, it's reloaded.  ready to go on with normal processing as though this reloaded page is our new page
+                      continueWithANewPage();
+                    });
+                }
+            }
+            chrome.tabs.get(pageVar.currentTabId(),callb);
+
           }
           // ok, haven't hit the timeout so just keep trying the next interaction
           var currentGetNextRowCounter = getNextRowCounter;

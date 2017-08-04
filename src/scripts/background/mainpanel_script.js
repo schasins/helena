@@ -110,6 +110,7 @@ var RecorderUI = (function () {
     for (var i = 0; i < blocklyLabels.length; i++){
       $toolboxDiv.append($("<block type=\"" + blocklyLabels[i] + "\"></block>"));
     }
+    workspace.updateToolbox($toolboxDiv[0]);
   }
 
   function handleBlocklyEditorResizing(){
@@ -164,7 +165,7 @@ var RecorderUI = (function () {
       })();
     }
 
-    blocklyReadjustFunc = handleBlocklyEditorResizing();
+    blocklyReadjustFunc = handleBlocklyEditorResizing(); // this function returns the function we want to use for resizing
 
     RecorderUI.updateDisplayedScript();
     RecorderUI.updateDisplayedRelations(inProgress);
@@ -913,6 +914,7 @@ var RecorderUI = (function () {
   pub.loadSavedProgram = function _loadSavedProgram(progId, continuation){
     WALconsole.log("loading program: ", progId);
     $.get('http://kaofang.cs.berkeley.edu:8080/programs/'+progId, {}, function(response){
+      WALconsole.log("received program: ", response);
       var revivedProgram = ServerTranslationUtilities.unJSONifyProgram(response.program.serialized_program);
       revivedProgram.id = response.program.id; // if id was only assigned when it was saved, serialized_prog might not have that info yet
       revivedProgram.name = response.program.name;
@@ -2710,6 +2712,73 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // fun stuff!  time to flip on the 'continue' flag in our continuations, which the for loop continuation will eventually consume and turn off
       rbboptions.skipMode = true;
       rbbcontinuation(rbboptions);
+    };
+
+    this.parameterizeForRelation = function _parameterizeForRelation(relation){
+      return [];
+    };
+    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
+      return;
+    };
+  };
+
+  pub.WaitStatement = function _WaitStatement(){
+    Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "wait");
+    this.wait = 0;
+    var waitStatement = this;
+
+    this.remove = function _remove(){
+      this.parent.removeChild(this);
+    }
+
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
+    this.clearRunningState = function _clearRunningState(){
+      return;
+    }
+
+    this.toStringLines = function _toStringLines(){
+      return ["wait " + this.wait.toString() + " seconds"];
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      addToolboxLabel(this.blocklyLabel);
+      var handleWaitChange = function(newWait){
+        console.log("newWait", newWait);
+        waitStatement.wait = newWait;
+      };
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          this.appendDummyInput()
+              .appendField("wait")
+              .appendField(new Blockly.FieldNumber('0', 0, null, null, handleWaitChange), 'waitInSeconds')
+              .appendField("seconds");
+          this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(25);
+        }
+      };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      attachToPrevBlock(this.block, prevBlock);
+      this.block.WALStatement = this;
+      return this.block;
+    };
+
+    this.traverse = function _traverse(fn, fn2){
+      fn(this);
+      fn2(this);
+    };
+
+    this.run = function _run(runObject, rbbcontinuation, rbboptions){
+      // just wait a while, then call rbbcontinuation on rbboptions
+      setTimeout(function(){
+        rbbcontinuation(rbboptions);
+      }, this.wait * 1000);
     };
 
     this.parameterizeForRelation = function _parameterizeForRelation(relation){

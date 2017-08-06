@@ -113,6 +113,38 @@ var RecorderUI = (function () {
     workspace.updateToolbox($toolboxDiv[0]);
   }
 
+  function handleNewWorkspace(){
+    // let's handle a little bit of blockly workspace stuff
+    // specifically, we want to listen for any move events so that we can add new WAL statements to the loopy prog
+    // when they're dragged in from the toolbox
+    // todo: right now this only handles the case where a new block is dragged in from the toolbox
+    // eventually should handle the case where existing blocks are being rearranged
+    // and should keep in mind that the blocks mostly move in groupings, not just singly.  will have to test that
+    function onBlockMove(event) {
+      if (event.type == Blockly.Events.MOVE) {
+        console.log("move event", event);
+        if (event.newParentId && event.newParentId !== event.oldParentId){
+          // ok, it's an insertion
+          console.log("move event is an insertion");
+          var movedBlock = workspace.getBlockById(event.blockId);
+          var priorStatementBlock = workspace.getBlockById(event.newParentId);
+          // if for some reason, the movedBlock doesn't have a wal statement, we're in trouble
+          var newStatement = movedBlock.WALStatement;
+          var precedingStatement = priorStatementBlock.WALStatement;
+
+          // ok, sometimes this is going to be raised because we're programmatically constructing the right
+          // program in the workspace.  which means it's not a real insertion.  The way we're going to figuer that out
+          // is we'll just see if the 'new' statement is actually already in there
+
+          if (!ReplayScript.prog.containsStatement(newStatement)){
+            ReplayScript.prog.insertAfter(newStatement, precedingStatement);
+          }
+        }
+      }
+    }
+    workspace.addChangeListener(onBlockMove);
+  }
+
   function handleBlocklyEditorResizing(){
     WALconsole.log("handleBlocklyEditorResizing");
     var $toolboxDiv = $("#new_script_content").find("#toolbox");
@@ -120,6 +152,7 @@ var RecorderUI = (function () {
     var blocklyArea = document.getElementById('blockly_area');
     var blocklyDiv = document.getElementById('blockly_div');
     workspace = Blockly.inject('blockly_div', {toolbox: $toolboxDiv.get(0)});
+    handleNewWorkspace();
     pub.updateBlocklyToolbox();
     var onresize = function(e) {
       // compute the absolute coordinates and dimensions of blocklyArea.
@@ -2726,7 +2759,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "wait");
     this.wait = 0;
-    var waitStatement = this;
 
     this.remove = function _remove(){
       this.parent.removeChild(this);
@@ -2747,7 +2779,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       addToolboxLabel(this.blocklyLabel);
       var handleWaitChange = function(newWait){
         console.log("newWait", newWait);
-        waitStatement.wait = newWait;
+        console.log("this", this);
+        console.log("this.sourceBlock_", this.sourceBlock_);
+        if (this.sourceBlock_){
+          this.sourceBlock_.WALStatement.wait = newWait;
+        }
       };
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -2758,6 +2794,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
           this.setColour(25);
+          this.WALStatement = new pub.WaitStatement();
         }
       };
     };
@@ -4620,10 +4657,65 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         fn2 = function(){return;};
       }
       if (this.loopyStatements.length < 1){
-        WALconsole.warn("Calling traverse on a program even though loopStatements is empty.");
+        WALconsole.warn("Calling traverse on a program even though loopyStatements is empty.");
       }
       for (var i = 0; i < this.loopyStatements.length; i++){
         this.loopyStatements[i].traverse(fn, fn2);
+      }
+    };
+
+    // statement traverse because we're not going through expressions, not going through all nodes, just hitting things in the bodyStatements lists
+    function firstTrueStatementTraverse(statementLs, fn){
+      for (var i = 0; i < statementLs.length; i++){
+        if (fn(statementLs[i])){
+          return statementLs[i];
+        }
+        else{
+          // ok, this statement didn't do the trick, but maybe the children?
+          if (statementLs[i].bodyStatements){
+            var ans = firstTrueStatementTraverse(statementLs[i].bodyStatements, fn);
+            if (ans){
+              return ans;
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    this.containsStatement = function(statement){
+      return firstTrueStatementTraverse(this.loopyStatements, function(s){return s === statement;});
+    }
+
+    function insertAfterHelper(listOfStatements, statementToInsert, statementAfterWhichToInsert){
+      for (var i = 0; i < listOfStatements.length; i++){
+        if (listOfStatements[i] === statementAfterWhichToInsert){
+          listOfStatements.splice(i + 1, 0, statementToInsert);
+          return listOfStatements;
+        }
+        else{
+          // ok, haven't found it yet.  mayhaps it belongs in the body statements of this very statement?
+          if (listOfStatements[i].bodyStatements){
+            // ok, this one has bodyStatements to check
+            var possibleNewLs = insertAfterHelper(listOfStatements[i].bodyStatements, statementToInsert, statementAfterWhichToInsert);
+            if (possibleNewLs){
+              // awesome, we're done
+              listOfStatements[i].bodyStatements = possibleNewLs;
+              return listOfStatements;
+            }
+          }
+        }
+      }
+      return null;
+    }
+
+    this.insertAfter = function(statementToInsert, statementAfterWhichToInsert){
+      var possibleNewLoopyStatements = insertAfterHelper(this.loopyStatements, statementToInsert, statementAfterWhichToInsert);
+      if (!possibleNewLoopyStatements){
+        WALconsole.warn("Woah, tried to insert after a particular WALStatement, but that statement wasn't in our prog.");
+      }
+      else{
+        this.loopyStatements = possibleNewLoopyStatements;
       }
     };
 

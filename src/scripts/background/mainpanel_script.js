@@ -1122,7 +1122,7 @@ var ReplayScript = (function _ReplayScript() {
   function markUnnecessaryLoads(trace){
     var domEvents =  _.filter(trace, function(ev){return ev.type === "dom";});
     var domEventURLs = _.unique(_.map(domEvents, function(ev){return EventM.getDOMURL(ev);}));
-    _.each(trace, function(ev){if (ev.type === "completed" && domEventURLs.indexOf(EventM.getLoadURL(ev)) > -1){ EventM.setVisible(ev, true);}});
+    _.each(trace, function(ev){if (ev.type === "completed" && ev.data.type === "main_frame" && domEventURLs.indexOf(EventM.getLoadURL(ev)) > -1){ EventM.setVisible(ev, true);}});
     return trace;
   }
 
@@ -1198,7 +1198,7 @@ var ReplayScript = (function _ReplayScript() {
     }
     var e1type = WebAutomationLanguage.statementType(e1);
     var e2type = WebAutomationLanguage.statementType(e2);
-    //WALconsole.log("allowedInSameSegment", e1type, e2type);
+    WALconsole.log("allowedInSameSegment?", e1type, e2type, e1, e2);
     // if either is invisible, can be together, because an invisible event allowed anywhere
     if (e1type === null || e2type === null){
       return true;
@@ -6021,7 +6021,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.relations = _.without(this.relations, relationObj);
 
       // now let's actually remove any loops that were trying to use this relation
-      newChildStatements = removeLoopsForRelation(this.loopyStatements, relationObj);
+      var newChildStatements = removeLoopsForRelation(this.loopyStatements, relationObj);
       this.updateChildStatements(newChildStatements);
 
       RecorderUI.updateDisplayedScript();

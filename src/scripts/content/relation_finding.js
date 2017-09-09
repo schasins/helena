@@ -667,6 +667,10 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   }
 
   function xpathsToNodes(xpaths){
+    if (!xpaths || xpaths.length <= 0){
+      WALconsole.warn("Woah woah woah, why are there no xpaths.  This is probably very bad.");
+      return [];
+    }
     var nodes = [];
     for (var i = 0; i < xpaths.length; i++){
       var node = xPathToNodes(xpaths[i])[0];
@@ -760,25 +764,27 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
     var maxNodesCoveredByServerRelations = 0;
     var serverSuggestedRelations = msg.serverSuggestedRelations;
-    for (var i = 0; i < serverSuggestedRelations.length; i++){
-      var rel = serverSuggestedRelations[i];
-      if (rel === null){
-        continue;
-      }
-      var columns = rel.columns;
-      var relXpaths = _.pluck(columns, "xpath");
-      WALconsole.log(relXpaths);
-      var matched = 0;
-      for (var j = 0; j < xpaths.length; j++){
-        if (relXpaths.indexOf(xpaths[j]) > -1){
-          matched += 1;
+    if (serverSuggestedRelations){
+      for (var i = 0; i < serverSuggestedRelations.length; i++){
+        var rel = serverSuggestedRelations[i];
+        if (rel === null){
+          continue;
+        }
+        var columns = rel.columns;
+        var relXpaths = _.pluck(columns, "xpath");
+        WALconsole.log(relXpaths);
+        var matched = 0;
+        for (var j = 0; j < xpaths.length; j++){
+          if (relXpaths.indexOf(xpaths[j]) > -1){
+            matched += 1;
+          }
+        }
+        if (matched > maxNodesCoveredByServerRelations){
+          maxNodesCoveredByServerRelations = matched;
         }
       }
-      if (matched > maxNodesCoveredByServerRelations){
-        maxNodesCoveredByServerRelations = matched;
-      }
+      WALconsole.log("maxNodesCoveredByServerRelations", maxNodesCoveredByServerRelations);
     }
-    WALconsole.log("maxNodesCoveredByServerRelations", maxNodesCoveredByServerRelations);
 
     // if this is actually in an html table, let's take a shortcut, since some sites use massive tables and trying to run the other approach would take forever
     var selectorData = synthesizeSelectorForWholeSetTable(nodes);
@@ -805,27 +811,29 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
     WALconsole.log("serverSuggestedRelations", serverSuggestedRelations, "selectorData", selectorData);
     var serverSuggestedRelations = msg.serverSuggestedRelations;
-    for (var i = 0; i < serverSuggestedRelations.length; i++){
-      var rel = serverSuggestedRelations[i];
-      if (rel === null){
-        continue;
-      }
-      var selector_obj = Selector(rel.selector, rel.exclude_first, rel.columns);
-      var relationNodes = pub.interpretRelationSelector(selector_obj, rel.selector_version);
-      if (relationNodes.length === 0){
-        // no need to consider empty one
-        continue;
-      }
-      var relationData = _.map(relationNodes, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
-      rel.relation = relationData; 
-      recordComparisonAttributesServerSelector(rel, xpaths);
+    if (serverSuggestedRelations){
+      for (var i = 0; i < serverSuggestedRelations.length; i++){
+        var rel = serverSuggestedRelations[i];
+        if (rel === null){
+          continue;
+        }
+        var selector_obj = Selector(rel.selector, rel.exclude_first, rel.columns);
+        var relationNodes = pub.interpretRelationSelector(selector_obj, rel.selector_version);
+        if (relationNodes.length === 0){
+          // no need to consider empty one
+          continue;
+        }
+        var relationData = _.map(relationNodes, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
+        rel.relation = relationData; 
+        recordComparisonAttributesServerSelector(rel, xpaths);
 
-      WALconsole.log("default", rel, "new", currBestSelector);
-      // use the server-provided rel as our default, since that'll make the server-side processing when we save the relation easier, and also gives us the nice names
-      var newBestSelector = bestSelector(rel, currBestSelector);
-      if (newBestSelector !== currBestSelector){
-        currBestSelector = newBestSelector;
-        bestSelectorIsNew = false;
+        WALconsole.log("default", rel, "new", currBestSelector);
+        // use the server-provided rel as our default, since that'll make the server-side processing when we save the relation easier, and also gives us the nice names
+        var newBestSelector = bestSelector(rel, currBestSelector);
+        if (newBestSelector !== currBestSelector){
+          currBestSelector = newBestSelector;
+          bestSelectorIsNew = false;
+        }
       }
     }
 

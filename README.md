@@ -10,6 +10,9 @@ Sure!  Here's a very quick video demo:
 <img src="http://img.youtube.com/vi/KfoLc4DzXT8/0.jpg" alt="Link to a video demo of Helena in action." width="240" height="180" border="10" />
 </a>
 
+#### Can I use Helena if I don't know how to code?
+Yes!  In fact Helena is designed especially for non-programmers.  The idea is that you provide a demonstration of the actions you want Helena to do, and Helena figures out the rest.
+
 #### How do I install Helena?
 First, get a copy of this repository.  If you've never cloned a repository before, just find the "Clone or download" button and choose the "Download ZIP" option.  Create a new Chrome profile as described here: https://support.google.com/chrome/answer/2364824.  Next, switch to your new profile and follow the directions for loading an unpacked extension here: https://developer.chrome.com/extensions/getstarted#unpacked.  The directory to load is the `src` directory from the Helena repository you cloned or downloaded.
 

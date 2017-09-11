@@ -32,7 +32,30 @@ function nodeToXPath(element) {
 /* Convert a xpath expression to a set of matching nodes */
 function xPathToNodes(xpath) {
   try {
-    var q = document.evaluate(xpath, document, null, XPathResult.ANY_TYPE,
+
+    var prefixResolver = function(prefix) { 
+      if (prefix === 'svg') { return 'http://www.w3.org/2000/svg'; }
+      else { return null; } // the default namespace
+    }
+
+    var lowerCaseXpath = xpath.toLowerCase();
+    if (lowerCaseXpath.indexOf("/svg") > -1){
+      // ok, have to mess around with the prefixes for the svg components
+      var components = lowerCaseXpath.split("/");
+      var foundSvg = false;
+      for (var i = 0; i < components.length; i++){
+        var c = components[i];
+        if (c.startsWith("svg")){
+          foundSvg = true;
+        }
+        if (foundSvg){
+          components[i] = "svg:" + c;
+        }
+      }
+      xpath = components.join("/");
+    }
+
+    var q = document.evaluate(xpath, document, prefixResolver, XPathResult.ANY_TYPE,
                               null);
     var results = [];
 

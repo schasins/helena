@@ -2759,6 +2759,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "wait");
     this.wait = 0;
+    var waitFieldName = 'waitInSeconds';
 
     this.remove = function _remove(){
       this.parent.removeChild(this);
@@ -2789,7 +2790,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         init: function() {
           this.appendDummyInput()
               .appendField("wait")
-              .appendField(new Blockly.FieldNumber('0', 0, null, null, handleWaitChange), 'waitInSeconds')
+              .appendField(new Blockly.FieldNumber('0', 0, null, null, handleWaitChange), waitFieldName)
               .appendField("seconds");
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
@@ -2803,6 +2804,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
+      this.block.setFieldValue(this.wait, waitFieldName);
       return this.block;
     };
 

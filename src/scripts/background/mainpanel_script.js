@@ -348,24 +348,24 @@ var RecorderUI = (function () {
   // actually, I think this whole thing may be unnecessary.  we've just been adding in the same xpath to the xpaths list to control
   // how we display it anyway, so the indexing isn't really getting us anything, isn't eliminating anything, and we haven't had any trouble.
   // looks like an artifact of an old style.  todo: get rid of it when have a chance.
-  var xpaths = []; // want to show texts in the right order
+  var keys = []; // want to show texts in the right order
   pub.processScrapedData = function _processScrapedData(data){
     var xpath = data.xpath;
-    var id = "";
+    var id = xpath + "_" + data.source_url;
     if (data.linkScraping){
-      id = xpath+"_link"; 
+      id += data.link;
       scraped[id] = data.link;
     }
     else{
       // just wanted to scrape text
-      id = xpath+"_text";
+      id += data.text;
       scraped[id] = data.text;
     }
-    xpaths.push(id);
+    keys.push(id);
     var $div = $("#scraped_items_preview");
     $div.html("");
-    for (var i = 0; i < xpaths.length; i++){
-      $div.append($('<div class="first_row_elem">'+scraped[xpaths[i]]+'</div>'));
+    for (var i = 0; i < keys.length; i++){
+      $div.append($('<div class="first_row_elem">'+scraped[keys[i]]+'</div>'));
     }
   };
 

@@ -872,13 +872,15 @@ var RecorderUI = (function () {
       buttons: buttons,
       closeOnEscape: false // user shouldn't be able to close except by using one of our handlers
     }).prev(".ui-dialog-titlebar").css("background","#F9A7AE");;
+    return dialogDiv2;
   };
 
   pub.continueAfterDialogue = function _continueAfterDialogue(text, continueButtonText, continueButtonContinuation){
     var handlers = {};
     handlers[continueButtonText] = continueButtonContinuation;
-    pub.addDialog("Continue?", text, handlers);
+    var dialog = pub.addDialog("Continue?", text, handlers);
     // todo: also add the option to pause?  which would do the normal user pause interaction?
+    return dialog;
   };
 
   pub.loadSavedScripts = function _loadSavedScripts(){
@@ -5044,6 +5046,23 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       );
     };
 
+    function checkEnoughMemoryToCloneTrace(memoryData, trace){
+      var approximateMemoryPerEvent = 133333; // bytes
+      //if (data.availableCapacity/data.capacity < 0.1){ // this is for testing
+      return (memoryData.capacity - memoryData.availableCapacity) > approximateMemoryPerEvent * trace.length * 5;
+    }
+
+    function splitOnEnoughMemoryToCloneTrace(trace, ifEnoughMemory, ifNotEnoughMemory){
+      chrome.system.memory.getInfo(function(data){
+        if (checkEnoughMemoryToCloneTrace(data, trace)){
+          ifEnoughMemory();
+        }
+        else{
+          ifNotEnoughMemory();
+        }
+      });
+    }
+
     function runBasicBlockWithRinger(loopyStatements, options, runObject, callback){
       var nextBlockStartIndex = determineNextBlockStartIndex(loopyStatements); 
       var basicBlockStatements = selectBasicBlockStatements(loopyStatements, nextBlockStartIndex);
@@ -5081,7 +5100,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // so let's check and make sure we have enough memory
       // and if we don't, let's make sure the user really wants to continue
 
+      var continueWithScriptExecuted = false;
+
       function continueWithScript(){
+        continueWithScriptExecuted = true;
+
         // now that we have the trace, let's figure out how to parameterize it
         // note that this should only be run once the current___ variables in the statements have been updated!  otherwise won't know what needs to be parameterized, will assume nothing
         // should see in future whether this is a reasonable way to do it
@@ -5102,23 +5125,31 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         doTheReplay(runnableTrace, config, basicBlockStatements, runObject, loopyStatements, nextBlockStartIndex, callback, options);
       }
 
-      chrome.system.memory.getInfo(function(data){
-        var approximateMemoryPerEvent = 133333; // bytes
-        //if (data.availableCapacity/data.capacity < 0.1){ // this is for testing
-        if ((data.capacity - data.availableCapacity) < approximateMemoryPerEvent * trace.length * 5){ // 5 because we want some buffer
-          // yikes, that's a pretty small amount of memory available at this point.  are you sure you want to go on?
-          // todo: what's the right threshold here
-          WALconsole.log(data);
-          var text = "Looks like we're pretty close to running out of memory.  If we keep going, the extension might crash.  Continue anyway?";
-          var buttonText = "Continue";
-          RecorderUI.continueAfterDialogue(text, buttonText, continueWithScript);
-        }
-        else{
+      splitOnEnoughMemoryToCloneTrace(trace,
+        function(){ // if enough memory
           // plenty of memory.  carry on.
           continueWithScript();
-        }
-      });
+        },
+        function(){ // if not enough memory
+          // yikes, there's a pretty small amount of memory available at this point.  are you sure you want to go on?
+          var text = "Looks like we're pretty close to running out of memory.  If we keep going, the extension might crash.  Continue anyway?";
+          var buttonText = "Continue";
+          var dialogDiv = RecorderUI.continueAfterDialogue(text, buttonText, continueWithScript);
 
+          // we might like to check now and then to see if more memory has been freed up, so that we could start again
+          MiscUtilities.repeatUntil(
+            function(){
+              splitOnEnoughMemoryToCloneTrace(trace,
+                function(){ // enough memory now, so we actually want to continue
+                  dialogDiv.remove(); // get rid of that dialog, so user doesn't see it
+                  continueWithScript();
+                },
+                function(){}); // if there's not enough memory, just don't do anything, keep waiting for user
+            }, // repeat this
+            function(){return continueWithScriptExecuted;}, // until this
+            function(){}, // don't have any functions to run after the condition is reached
+            60000, false); // just check every minute
+        });
     }
 
     this.runBasicBlock = function _runBasicBlock(runObject, loopyStatements, callback, options){

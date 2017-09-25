@@ -1392,6 +1392,18 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     utilities.sendMessage("content", "mainpanel", "freshRelationItems", respMsg);
   }
 
+  function extractFromRelationRep(rel, attributes){
+    var extractorFunc = function(cell){return _.map(attributes, function(a){return cell[a];});};
+    var processedRel = _.map(rel, function(row){return _.map(row, function(cell){return extractorFunc(cell);});});
+    return processedRel;
+  }
+
+  function mainpanelRepresentationOfRelationsEqual(r1, r2){
+    var r1Visible = extractFromRelationRep(r1, ["text", "frame"]); // todo: are these the right attributes to use?
+    var r2Visible = extractFromRelationRep(r2, ["text", "frame"]); // todo: are these the right attributes to use?
+    return _.isEqual(r1Visible, r2Visible);
+  }
+
   var relationFinderIdCounter = 0;
   pub.getFreshRelationItemsHelper = function _getFreshRelationItemsHelper(msg){
     var strMsg = selectorId(msg);
@@ -1448,13 +1460,10 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
          
         // create an observer instance
         var observer = new MutationObserver(function(mutations) {
-          console.log("MutationObserver fired", cell);
-          console.log(cell.___relationFinderId___);
           // get rid of the old id, now that it's essentially a different node
           delete cell.___relationFinderId___;
           // stop observing
           observer.disconnect();
-          console.log(cell.___relationFinderId___);
         });
         // configuration of the observer:
         var config = { attributes: true, childList: true, characterData: true };
@@ -1475,7 +1484,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       for (var i = 0; i < relationNodesIds.length; i++){
         var row = relationNodesIds[i];
         // todo: should we be looking for whether some are new, or all?  requring all can fail with ajax-updated pages
-        // ex: say we're scraping a bunch of papers from a single conference.  conference element will stay the same,
+        // ex: say we're scraping a bunch of papers from a single conference.  conference cell of row will stay the same,
         // so conference node won't get updated and its id won't get wiped.
         // in this case, even requiring some to be new could be a problem if we're only scraping that single column
         // so todo: come up with a better solution
@@ -1511,8 +1520,10 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
     var relationData = pub.relationNodesToMainpanelNodeRepresentation(relationNodes);
     var crd = currentRelationData[strMsg];
-    if (crd && crd.length === relationData.length && _.isEqual(crd, relationData)){
-      // this check should now be unnecessary.  todo: clean it up!
+    // we can also have the problem where everything looks new, because everything technically gets updated, 
+    // even though some of it is old data, didn't need to be redrawn. so need to do a text check too
+    // so that's why we'll compare to the crd, figure out whether the head looks like it's actually old data
+    if (crd && crd.length === relationData.length && mainpanelRepresentationOfRelationsEqual(crd, relationData)){
       // data still looks the same as it looked before.  no new items yet.
       console.log("No new items yet because the data is actualy equal");
       console.log(crd, relationData);
@@ -1522,15 +1533,24 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     nextInteractionSinceLastGetFreshRelationItems[strMsg] = false;
     // we only want the fresh ones!
     var newItems = relationData; // start by assuming that's everything
-    if (crd && _.isEqual(crd, relationData.slice(0, crd.length))){
+    if (crd){
+      WALconsole.log("crd, relationData, relationData slice", crd, relationData, relationData.slice(0,crd.length), _.isEqual(crd, relationData.slice(0, crd.length)))
+    }
+    if (crd && mainpanelRepresentationOfRelationsEqual(crd, relationData.slice(0, crd.length))){
       // cool, this is a case of loading more into the same page, so we want to just grab the end
-      // again, this should now be unnecessary because we already filter to only new rows.  todo: clean it up
       newItems = relationData.slice(crd.length, relationData.length);
     }
-    currentRelationData[strMsg] = relationData;
-    currentRelationSeenNodes[strMsg] = _.without(currentRelationSeenNodes[strMsg].concat(_.flatten(relationNodesIds)), null);
-    WALconsole.log("actual new items", newItems);
-    return {type: RelationItemsOutputs.NEWITEMS, relation: newItems};
+
+    // it's important that we don't wipe out the currentRelationdata[strMsg] unless we actually have new data
+    // if we're doing a more interaction, might have 0 rows in an intermediate state, but then still need
+    // to trim the top off the list based on having already collected the data
+    if (relationData.length > 0){
+      currentRelationData[strMsg] = relationData;
+      currentRelationSeenNodes[strMsg] = _.without(currentRelationSeenNodes[strMsg].concat(_.flatten(relationNodesIds)), null);
+      WALconsole.log("actual new items", newItems);
+      return {type: RelationItemsOutputs.NEWITEMS, relation: newItems};
+    }
+
   };
 
 

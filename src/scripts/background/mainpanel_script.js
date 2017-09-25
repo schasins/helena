@@ -598,6 +598,12 @@ var RecorderUI = (function () {
       })();
       $div.append(colorDiv);
     }
+    // todo: now going to allow folks to make a new column, but also need to communicate with content script about color to show
+    var colorDiv = $("<div style='width: 20px; height:20px; display:inline-block; background-color:white'>New Col</div>");
+    (function(){
+      colorDiv.click(function(){utilities.sendMessage("mainpanel", "content", "currentColumnIndex", {index: "newCol"}, null, null, [tabid]);});
+    })();
+    $div.append(colorDiv);
   };
 
   pub.updateDisplayedScript = function _updateDisplayedScript(updateBlockly){
@@ -4137,7 +4143,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           MiscUtilities.repeatUntil(sendGetRelationItems, function _checkDone(){return doneArray[currentGetRowsCounter] || relationItemsRetrieved[frame];},function(){}, 1000, true);
         });
         // and let's make sure that after our chosen timeout, we'll stop and just process whatever we have
-        var desiredTimeout = 90000;
+        var desiredTimeout = 30000; // todo: this timeout should be configurable by the user
         setTimeout(
           function _reachedTimeoutHandler(){
             WALconsole.namedLog("getRelationItems", "Reached timeout", currentGetRowsCounter);

@@ -5103,8 +5103,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
 
       chrome.system.memory.getInfo(function(data){
+        var approximateMemoryPerEvent = 133333; // bytes
         //if (data.availableCapacity/data.capacity < 0.1){ // this is for testing
-        if (data.availableCapacity/data.capacity < 0.0001){
+        if ((data.capacity - data.availableCapacity) < approximateMemoryPerEvent * trace.length * 5){ // 5 because we want some buffer
           // yikes, that's a pretty small amount of memory available at this point.  are you sure you want to go on?
           // todo: what's the right threshold here
           WALconsole.log(data);

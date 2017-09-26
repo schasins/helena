@@ -543,7 +543,16 @@ var RecorderUI = (function () {
 
     readyButton.click(function(){
       // once ready button clicked, we'll already have updated the relation selector info based on messages the content panel has been sending, so we can just go back to looking at the program preview
-      // the one thing we do need to change is there may now be nodes included in the relation (or excluded) that weren't before, so we should redo loop insertion
+
+      // one exception -- if this was a whole new relation, it won't be in there
+      // so then we'll need to add it
+      console.log("relation", relation);
+      var rels = ReplayScript.prog.relations;
+      if (rels.indexOf(relation) < 0){
+        ReplayScript.prog.relations.push(relation);
+      }
+      
+      // one thing we do need to change is there may now be nodes included in the relation (or excluded) that weren't before, so we should redo loop insertion
       ReplayScript.prog.insertLoops(false);
 
       RecorderUI.showProgramPreview();
@@ -588,8 +597,6 @@ var RecorderUI = (function () {
   pub.setColumnColors = function _setColumnColors(colorLs, columnLs, tabid){
     var $div = $("#new_script_content").find("#color_selector");
     $div.html("Select the right color for the cell you want to add:   ");
-    // for now we'll only have boxes for existing colors, since don't currently support adding additional columns
-    // but eventually should offer user opportunity to select the next unused color, intro a new col.  todo
     for (var i = 0; i < columnLs.length; i++){
       var colorDiv = $("<div style='width: 20px; height:20px; display:inline-block; background-color:"+colorLs[i]+"'></div>");
       (function(){
@@ -828,9 +835,9 @@ var RecorderUI = (function () {
   pub.demonstrateRelation = function _demonstrateRelation(){
     // for now we'll just assume we want to introduce a new relation on first page.  in future fix.  todo: fix
     WALconsole.log("going to demo a relaiton.");
-    var targetUrl = ReplayScript.prog.statements[0].url; // fix!
     var newRelation = new WebAutomationLanguage.Relation();
-    newRelation.url = targetUrl;
+    newRelation.pageVarName = ReplayScript.prog.statements[0].outputPageVar.name; //fix!
+    newRelation.url = ReplayScript.prog.statements[0].url; // fix!
     newRelation.editSelector();
   }
 
@@ -4300,9 +4307,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       tabReached = true;
       if (msg.demonstration_time_relation.length >= bestLengthSoFar){
         bestLengthSoFar = msg.demonstration_time_relation.length;
-        this.setNewAttributes(msg.selector, msg.selector_version, msg.exclude_first, msg.columns, msg.demonstration_time_relation, msg.num_rows_in_demo, msg.next_type, msg.next_button_selector);
-        RecorderUI.updateDisplayedRelation(this);
-        RecorderUI.setColumnColors(msg.colors, msg.columns, msg.tab_id);
+        if (bestLengthSoFar > 0){
+          this.setNewAttributes(msg.selector, msg.selector_version, msg.exclude_first, msg.columns, msg.demonstration_time_relation, msg.num_rows_in_demo, msg.next_type, msg.next_button_selector);
+          RecorderUI.updateDisplayedRelation(this);
+          RecorderUI.setColumnColors(msg.colors, msg.columns, msg.tab_id);
+        }
+        else{
+          // still need to give the user the option to add a new column, even if we have no selector so far
+          RecorderUI.setColumnColors([], [], msg.tab_id);
+        }
       }
     };
 
@@ -6115,6 +6128,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // now let's actually remove any loops that were trying to use this relation
       var newChildStatements = removeLoopsForRelation(this.loopyStatements, relationObj);
       this.updateChildStatements(newChildStatements);
+      this.insertLoops(); // if the removed relation was using the same cell as another potential relation, that one may now be relevant
 
       RecorderUI.updateDisplayedScript();
       RecorderUI.updateDisplayedRelations();

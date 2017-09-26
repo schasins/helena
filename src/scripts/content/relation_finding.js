@@ -201,6 +201,10 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   };
 
   pub.interpretRelationSelectorRowNodes = function _interpretRelationSelectorRowNodes(selector){
+    if (!selector.selector){
+      return [];
+    }
+
     if (selector.selector.constructor === Array){
       // the case where we need to recurse
       var selectorArray = selector.selector;
@@ -713,10 +717,14 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     }
 
     var currSelectorOrSelectorList = selectorToAugment.selector;
+    if (!currSelectorOrSelectorList){ // can happen that we have no selector to agument, if we're actually demo-ing a new relation
+      currSelectorOrSelectorList = [];
+      selectorToAugment.columns = [];
+    }
     if (currSelectorOrSelectorList.constructor === Array){
       // cool, no need to mess around with the current selector's columns
       // let's just add the new selector to the list
-      selectorToAugment.selector = selectorToAugment.selector.concat([selectorToBeAdded.selector]);
+      selectorToAugment.selector = currSelectorOrSelectorList.concat([selectorToBeAdded.selector]);
     }
     else{
       // ok, this selector used to have just one.  let's go ahead and turn it into a list and make sure all its
@@ -946,7 +954,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
  **********************************************************************/
 
   var currentSelectorToEdit = null;
-  var initialSelectorEmptyOnThisPage = false;
+  var currentSelectorEmptyOnThisPage = false;
   pub.editRelation = function _editRelation(msg){
     if (currentSelectorToEdit !== null){
       // we've already set up to edit a selector, and we should never use the same tab to edit multiples
@@ -964,7 +972,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         //setTimeout(editingSetup, 1000);
 	// but also need to send the editing colors just in case
 	       pub.sendSelector(currentSelectorToEdit);
-         initialSelectorEmptyOnThisPage = true;
+         currentSelectorEmptyOnThisPage = true;
         return;
       }
       pub.highlightSelector(currentSelectorToEdit);
@@ -1074,7 +1082,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
     var target = event.target;
 
-    if (initialSelectorEmptyOnThisPage){
+    if (currentSelectorEmptyOnThisPage){
       // ok, it's empty right now, need to make a new one
       if (!currentSelectorToEdit.origSelector){
         currentSelectorToEdit.origSelector = JSON.parse(JSON.stringify(currentSelectorToEdit)); // deepcopy
@@ -1090,6 +1098,8 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       pub.newSelectorGuess(currentSelectorToEdit);
       // and let's go back to using .selector as the current one we want to edit and play with
       currentSelectorToEdit.selector = currentSelectorToEdit.currentIndividualSelector;
+      currentSelectorToEdit.positive_nodes = [target];
+      currentSelectorEmptyOnThisPage = false;
       return;
     }
 

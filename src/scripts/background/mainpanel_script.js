@@ -348,24 +348,24 @@ var RecorderUI = (function () {
   // actually, I think this whole thing may be unnecessary.  we've just been adding in the same xpath to the xpaths list to control
   // how we display it anyway, so the indexing isn't really getting us anything, isn't eliminating anything, and we haven't had any trouble.
   // looks like an artifact of an old style.  todo: get rid of it when have a chance.
-  var xpaths = []; // want to show texts in the right order
+  var keys = []; // want to show texts in the right order
   pub.processScrapedData = function _processScrapedData(data){
     var xpath = data.xpath;
-    var id = "";
+    var id = xpath + "_" + data.source_url;
     if (data.linkScraping){
-      id = xpath+"_link"; 
+      id += data.link;
       scraped[id] = data.link;
     }
     else{
       // just wanted to scrape text
-      id = xpath+"_text";
+      id += data.text;
       scraped[id] = data.text;
     }
-    xpaths.push(id);
+    keys.push(id);
     var $div = $("#scraped_items_preview");
     $div.html("");
-    for (var i = 0; i < xpaths.length; i++){
-      $div.append($('<div class="first_row_elem">'+scraped[xpaths[i]]+'</div>'));
+    for (var i = 0; i < keys.length; i++){
+      $div.append($('<div class="first_row_elem">'+scraped[keys[i]]+'</div>'));
     }
   };
 
@@ -543,7 +543,16 @@ var RecorderUI = (function () {
 
     readyButton.click(function(){
       // once ready button clicked, we'll already have updated the relation selector info based on messages the content panel has been sending, so we can just go back to looking at the program preview
-      // the one thing we do need to change is there may now be nodes included in the relation (or excluded) that weren't before, so we should redo loop insertion
+
+      // one exception -- if this was a whole new relation, it won't be in there
+      // so then we'll need to add it
+      console.log("relation", relation);
+      var rels = ReplayScript.prog.relations;
+      if (rels.indexOf(relation) < 0){
+        ReplayScript.prog.relations.push(relation);
+      }
+      
+      // one thing we do need to change is there may now be nodes included in the relation (or excluded) that weren't before, so we should redo loop insertion
       ReplayScript.prog.insertLoops(false);
 
       RecorderUI.showProgramPreview();
@@ -588,8 +597,6 @@ var RecorderUI = (function () {
   pub.setColumnColors = function _setColumnColors(colorLs, columnLs, tabid){
     var $div = $("#new_script_content").find("#color_selector");
     $div.html("Select the right color for the cell you want to add:   ");
-    // for now we'll only have boxes for existing colors, since don't currently support adding additional columns
-    // but eventually should offer user opportunity to select the next unused color, intro a new col.  todo
     for (var i = 0; i < columnLs.length; i++){
       var colorDiv = $("<div style='width: 20px; height:20px; display:inline-block; background-color:"+colorLs[i]+"'></div>");
       (function(){
@@ -598,6 +605,12 @@ var RecorderUI = (function () {
       })();
       $div.append(colorDiv);
     }
+    // todo: now going to allow folks to make a new column, but also need to communicate with content script about color to show
+    var colorDiv = $("<div style='width: 20px; height:20px; display:inline-block; background-color:white'>New Col</div>");
+    (function(){
+      colorDiv.click(function(){utilities.sendMessage("mainpanel", "content", "currentColumnIndex", {index: "newCol"}, null, null, [tabid]);});
+    })();
+    $div.append(colorDiv);
   };
 
   pub.updateDisplayedScript = function _updateDisplayedScript(updateBlockly){
@@ -822,9 +835,9 @@ var RecorderUI = (function () {
   pub.demonstrateRelation = function _demonstrateRelation(){
     // for now we'll just assume we want to introduce a new relation on first page.  in future fix.  todo: fix
     WALconsole.log("going to demo a relaiton.");
-    var targetUrl = ReplayScript.prog.statements[0].url; // fix!
     var newRelation = new WebAutomationLanguage.Relation();
-    newRelation.url = targetUrl;
+    newRelation.pageVarName = ReplayScript.prog.statements[0].outputPageVar.name; //fix!
+    newRelation.url = ReplayScript.prog.statements[0].url; // fix!
     newRelation.editSelector();
   }
 
@@ -855,7 +868,7 @@ var RecorderUI = (function () {
     dialogDiv2.html(dialogText);
     $("#new_script_content").append(dialogDiv2);
     var buttons = [];
-    for (buttonText in buttonTextToHandlers){
+    for (var buttonText in buttonTextToHandlers){
       (function(){
         var bt = buttonText;
         buttons.push({text: bt, click: function(){dialogDiv2.remove(); buttonTextToHandlers[bt]();}});
@@ -865,7 +878,16 @@ var RecorderUI = (function () {
       dialogClass: "no-close",
       buttons: buttons,
       closeOnEscape: false // user shouldn't be able to close except by using one of our handlers
-    });
+    }).prev(".ui-dialog-titlebar").css("background","#F9A7AE");;
+    return dialogDiv2;
+  };
+
+  pub.continueAfterDialogue = function _continueAfterDialogue(text, continueButtonText, continueButtonContinuation){
+    var handlers = {};
+    handlers[continueButtonText] = continueButtonContinuation;
+    var dialog = pub.addDialog("Continue?", text, handlers);
+    // todo: also add the option to pause?  which would do the normal user pause interaction?
+    return dialog;
   };
 
   pub.loadSavedScripts = function _loadSavedScripts(){
@@ -1122,7 +1144,7 @@ var ReplayScript = (function _ReplayScript() {
   function markUnnecessaryLoads(trace){
     var domEvents =  _.filter(trace, function(ev){return ev.type === "dom";});
     var domEventURLs = _.unique(_.map(domEvents, function(ev){return EventM.getDOMURL(ev);}));
-    _.each(trace, function(ev){if (ev.type === "completed" && domEventURLs.indexOf(EventM.getLoadURL(ev)) > -1){ EventM.setVisible(ev, true);}});
+    _.each(trace, function(ev){if (ev.type === "completed" && ev.data.type === "main_frame" && domEventURLs.indexOf(EventM.getLoadURL(ev)) > -1){ EventM.setVisible(ev, true);}});
     return trace;
   }
 
@@ -1198,7 +1220,7 @@ var ReplayScript = (function _ReplayScript() {
     }
     var e1type = WebAutomationLanguage.statementType(e1);
     var e2type = WebAutomationLanguage.statementType(e2);
-    //WALconsole.log("allowedInSameSegment", e1type, e2type);
+    WALconsole.log("allowedInSameSegment?", e1type, e2type, e1, e2);
     // if either is invisible, can be together, because an invisible event allowed anywhere
     if (e1type === null || e2type === null){
       return true;
@@ -2759,6 +2781,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "wait");
     this.wait = 0;
+    var waitFieldName = 'waitInSeconds';
 
     this.remove = function _remove(){
       this.parent.removeChild(this);
@@ -2789,7 +2812,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         init: function() {
           this.appendDummyInput()
               .appendField("wait")
-              .appendField(new Blockly.FieldNumber('0', 0, null, null, handleWaitChange), 'waitInSeconds')
+              .appendField(new Blockly.FieldNumber('0', 0, null, null, handleWaitChange), waitFieldName)
               .appendField("seconds");
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
@@ -2803,6 +2826,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
+      this.block.setFieldValue(this.wait, waitFieldName);
       return this.block;
     };
 
@@ -4128,7 +4152,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           MiscUtilities.repeatUntil(sendGetRelationItems, function _checkDone(){return doneArray[currentGetRowsCounter] || relationItemsRetrieved[frame];},function(){}, 1000, true);
         });
         // and let's make sure that after our chosen timeout, we'll stop and just process whatever we have
-        var desiredTimeout = 90000;
+        var desiredTimeout = 30000; // todo: this timeout should be configurable by the user
         setTimeout(
           function _reachedTimeoutHandler(){
             WALconsole.namedLog("getRelationItems", "Reached timeout", currentGetRowsCounter);
@@ -4283,9 +4307,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       tabReached = true;
       if (msg.demonstration_time_relation.length >= bestLengthSoFar){
         bestLengthSoFar = msg.demonstration_time_relation.length;
-        this.setNewAttributes(msg.selector, msg.selector_version, msg.exclude_first, msg.columns, msg.demonstration_time_relation, msg.num_rows_in_demo, msg.next_type, msg.next_button_selector);
-        RecorderUI.updateDisplayedRelation(this);
-        RecorderUI.setColumnColors(msg.colors, msg.columns, msg.tab_id);
+        if (bestLengthSoFar > 0){
+          this.setNewAttributes(msg.selector, msg.selector_version, msg.exclude_first, msg.columns, msg.demonstration_time_relation, msg.num_rows_in_demo, msg.next_type, msg.next_button_selector);
+          RecorderUI.updateDisplayedRelation(this);
+          RecorderUI.setColumnColors(msg.colors, msg.columns, msg.tab_id);
+        }
+        else{
+          // still need to give the user the option to add a new column, even if we have no selector so far
+          RecorderUI.setColumnColors([], [], msg.tab_id);
+        }
       }
     };
 
@@ -4870,6 +4900,271 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 || statement instanceof WebAutomationLanguage.OutputRowStatement);
     }
 
+    function determineNextBlockStartIndex(loopyStatements){
+      var nextBlockStartIndex = loopyStatements.length;
+      for (var i = 0; i < loopyStatements.length; i++){
+        if (!ringerBased(loopyStatements[i])){ // todo: is this the right condition?
+          nextBlockStartIndex = i;
+          break;
+        }
+      }
+
+      if (nextBlockStartIndex === 0){
+        WALconsole.namedLog("rbb", "nextBlockStartIndex was 0!  this shouldn't happen!", loopyStatements);
+        throw("nextBlockStartIndex 0");
+      }
+      return nextBlockStartIndex;
+    }
+
+    function selectBasicBlockStatements(loopyStatements, nextBlockStartIndex){
+      var basicBlockStatements = [];
+      for (var i = 0; i < nextBlockStartIndex; i++){
+        basicBlockStatements.push(loopyStatements[i]);
+      }
+
+      return basicBlockStatements;
+    }
+
+    function makeTraceFromStatements(basicBlockStatements){
+      var trace = [];
+      // label each trace item with the basicBlock statement being used
+      var withinScrapeSection = false;
+      for (var i = 0; i < basicBlockStatements.length; i++){
+
+        var cleanTrace = basicBlockStatements[i].cleanTrace;
+
+        // first let's figure out whether we're even doing anything with this statement
+        if (basicBlockStatements[i].contributesTrace === TraceContributions.NONE){
+          continue; // don't need this one.  just skip
+        }
+        else if (basicBlockStatements[i].contributesTrace === TraceContributions.FOCUS){
+          // let's just change the cleanTrace so that it only grabs the focus events
+          console.log("Warning: we're including a focus event, which might cause problems.  If you see weird behavior, check this first.");
+          cleanTrace = _.filter(cleanTrace, function(ev){return ev.data.type === "focus";});
+        }
+
+        _.each(cleanTrace, function(ev){EventM.setTemporaryStatementIdentifier(ev, i);});
+
+        // ok, now let's deal with speeding up the trace based on knowing that scraping shouldn't change stuff, so we don't need to wait after it
+        if (withinScrapeSection){
+          // don't need to wait after scraping.  scraping doesn't change stuff.
+          if (cleanTrace.length > 0){
+            cleanTrace[0].timing.ignoreWait = true;
+          }
+        }
+        if (basicBlockStatements[i] instanceof WebAutomationLanguage.ScrapeStatement){
+          withinScrapeSection = true;
+          for (var j = 1; j < cleanTrace.length; j++){cleanTrace[j].timing.ignoreWait = true;} // the first event may need to wait after whatever came before
+        }
+        else{
+          withinScrapeSection = false;
+        }
+
+        // let's see if we can adapt mac-recorded traces to linux if necessary...
+        // todo: clean this up, make it work for different transitions...
+        var osString = window.navigator.platform;
+        if (osString.indexOf("Linux") > -1){
+          //console.log(basicBlockStatements[i].outputPageVars && basicBlockStatements[i].outputPageVars.length > 0);
+          if (basicBlockStatements[i].outputPageVars && basicBlockStatements[i].outputPageVars.length > 0){
+            _.each(cleanTrace, function(ev){
+              if (ev.data.metaKey){ // hey, digging into the ev data here is gross.  todo: fix that
+                ev.data.ctrlKeyOnLinux = true;
+              }
+              EventM.setTemporaryStatementIdentifier(ev, i);});
+          }
+        }
+
+        trace = trace.concat(cleanTrace);
+      }
+      return trace;
+    }
+
+    function doTheReplay(runnableTrace, config, basicBlockStatements, runObject, loopyStatements, nextBlockStartIndex, callback, options){
+      SimpleRecord.replay(runnableTrace, config, function(replayObject){
+        // use what we've observed in the replay to update page variables
+        WALconsole.namedLog("rbb", "replayObject", replayObject);
+
+        // based on the replay object, we need to update any pagevars involved in the trace;
+        var trace = [];
+        _.each(basicBlockStatements, function(statement){trace = trace.concat(statement.trace);}); // want the trace with display data, not the clean trace
+        
+        //updatePageVars(trace, replayObject.record.events);
+        // ok, it's time to update the pageVars, but remember that's going to involve checking whether we got a reasonable page
+        var allPageVarsOk = function(){
+          // statements may need to do something based on this trace, so go ahead and do any extra processing
+          for (var i = 0; i < basicBlockStatements.length; i++){
+            WALconsole.namedLog("rbb", "calling postReplayProcessing on", basicBlockStatements[i]);
+            basicBlockStatements[i].postReplayProcessing(runObject, replayObject.record.events, i);
+          }
+
+          // once we're done replaying, have to replay the remainder of the script
+          program.runBasicBlock(runObject, loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
+        };
+        updatePageVars(trace, replayObject.record.events, allPageVarsOk);
+
+      },
+      // ok, we also want some error handling functions
+      {
+        nodeFindingWithUserRequiredFeaturesFailure: function(replayObject, ringerContinuation){
+          // todo: note that continuation doesn't actually have a continuation yet because of Ringer-level implementation
+          // if you decide to start using it, you'll have to go back and fix that.  see record-replay/mainpanel_main.js
+
+          // for now, if we fail to find a node where the user has insisted it has a certain set of features, we want to just skip the row
+          // essentially want the continue action, so we want the callback that's supposed to happen at the end of running the rest of the script for this iteration
+          // so we'll skip doing  program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback) (as above)
+          // instead we'll just do the callback
+          WALconsole.warn("rbb: couldn't find a node based on user-required features.  skipping the rest of this row.");
+
+          // even though couldn't complete the whole trace, still need to do updatePageVars because that's how we figure out which
+          // tab is associated with which pagevar, so that we can go ahead and do tab closing and back button pressing at the end
+          
+          var allPageVarsOk = function(){ // this is partly the same as the other allPageVarsOk
+            // in the continuation, we'll do the actual move onto the next statement
+            options.skipMode = true;
+            //options.skipCommitInThisIteration = true; // for now we'll assume that this means we'd want to try again in future in case something new is added
+
+            // once we're done replaying, have to replay the remainder of the script
+            // want to skip the rest of the loop body, so go straight to callback
+            callback();
+          };
+
+          var trace = [];
+          _.each(basicBlockStatements, function(statement){trace = trace.concat(statement.trace);}); // want the trace with display data, not the clean trace
+          updatePageVars(trace, replayObject.record.events, allPageVarsOk);
+        },
+        portFailure: function(replayObject, ringerContinuation){
+          // for now I haven't seen enough of these failures in person to know a good way to fix them
+          // for now just treat them like a node finding failure and continue
+
+          WALconsole.warn("rbb: port failure.  ugh.");
+
+          // even though couldn't complete the whole trace, still need to do updatePageVars because that's how we figure out which
+          // tab is associated with which pagevar, so that we can go ahead and do tab closing and back button pressing at the end
+          
+          var allPageVarsOk = function(){ // this is partly the same as the other allPageVarsOk
+            // in the continuation, we'll do the actual move onto the next statement
+            options.skipMode = true;
+            //options.skipCommitInThisIteration = true; // for now we'll assume that this means we'd want to try again in future in case something new is added
+
+            // once we're done replaying, have to replay the remainder of the script
+            // want to skip the rest of the loop body, so go straight to callback
+            callback();
+          };
+
+          var trace = [];
+          _.each(basicBlockStatements, function(statement){trace = trace.concat(statement.trace);}); // want the trace with display data, not the clean trace
+          updatePageVars(trace, replayObject.record.events, allPageVarsOk);
+        }
+      }
+      );
+    };
+
+    function checkEnoughMemoryToCloneTrace(memoryData, trace){
+      var approximateMemoryPerEvent = 133333; // bytes
+      //if (data.availableCapacity/data.capacity < 0.1){ // this is for testing
+      return (memoryData.capacity - memoryData.availableCapacity) > approximateMemoryPerEvent * trace.length * 5;
+    }
+
+    function splitOnEnoughMemoryToCloneTrace(trace, ifEnoughMemory, ifNotEnoughMemory){
+      chrome.system.memory.getInfo(function(data){
+        if (checkEnoughMemoryToCloneTrace(data, trace)){
+          ifEnoughMemory();
+        }
+        else{
+          ifNotEnoughMemory();
+        }
+      });
+    }
+
+    function runBasicBlockWithRinger(loopyStatements, options, runObject, callback){
+      var nextBlockStartIndex = determineNextBlockStartIndex(loopyStatements); 
+      var basicBlockStatements = selectBasicBlockStatements(loopyStatements, nextBlockStartIndex);
+      basicBlockStatements = markNonTraceContributingStatements(basicBlockStatements);
+
+      var haveAllNecessaryRelationNodes = doWeHaveRealRelationNodesWhereNecessary(basicBlockStatements, runObject.environment);
+      if (!haveAllNecessaryRelationNodes){
+        // ok, we're going to have to skip this iteration, because we're supposed to open a page and we just won't know how to
+        WALconsole.warn("Had to skip an iteration because of lacking the node we'd need to open a new page");
+        // todo: should probably also warn the contents of the various relation variables at this iteration that we're skipping
+
+        // we're essentially done 'replaying', have to replay the remainder of the script
+        // and we're doing continue, so set the continue flag to true
+        options.skipMode = true;
+        program.runBasicBlock(runObject, loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
+        return;
+      }
+
+      // make the trace we'll replay
+      var trace = makeTraceFromStatements(basicBlockStatements);
+      if (trace.length < 1){
+        // ok, no point actually running Ringer here...  let's skip straight to the 'callback!'
+        // statements may need to do something as post-processing, even without a replay so go ahead and do any extra processing
+        for (var i = 0; i < basicBlockStatements.length; i++){
+          WALconsole.namedLog("rbb", "calling postReplayProcessing on", basicBlockStatements[i]);
+          basicBlockStatements[i].postReplayProcessing(runObject, [], i);
+        }
+        // once we're done replaying, have to replay the remainder of the script
+        program.runBasicBlock(runObject, loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
+        return;
+      }
+
+      // ok, passArguments below is going to clone the trace, and the trace is huge
+      // so currently thinking this may often be the place where we get close to running out of memory
+      // so let's check and make sure we have enough memory
+      // and if we don't, let's make sure the user really wants to continue
+
+      var continueWithScriptExecuted = false;
+
+      function continueWithScript(){
+        continueWithScriptExecuted = true;
+
+        // now that we have the trace, let's figure out how to parameterize it
+        // note that this should only be run once the current___ variables in the statements have been updated!  otherwise won't know what needs to be parameterized, will assume nothing
+        // should see in future whether this is a reasonable way to do it
+        WALconsole.namedLog("rbb", "trace", trace);
+        var parameterizedTrace = pbv(trace, basicBlockStatements);
+        // now that we've run parameterization-by-value, have a function, let's put in the arguments we need for the current run
+        WALconsole.namedLog("rbb", "parameterizedTrace", parameterizedTrace);
+        var runnableTrace = passArguments(parameterizedTrace, basicBlockStatements, runObject.environment);
+        var config = parameterizedTrace.getConfig();
+        config.targetWindowId = runObject.window;
+        WALconsole.namedLog("rbb", "runnableTrace", runnableTrace, config);
+
+        // the above works because we've already put in VariableUses for statement arguments that use relation items, for all statements within a loop, so currNode for those statements will be a variableuse that uses the relation
+        // however, because we're only running these basic blocks, any uses of relation items (in invisible events) that happen before the for loop will not get parameterized, 
+        // since their statement arguments won't be changed, and they won't be part of the trace that does have statement arguments changed (and thus get the whole trace parameterized for that)
+        // I don't see right now how this could cause issues, but it's worth thinking about
+        
+        doTheReplay(runnableTrace, config, basicBlockStatements, runObject, loopyStatements, nextBlockStartIndex, callback, options);
+      }
+
+      splitOnEnoughMemoryToCloneTrace(trace,
+        function(){ // if enough memory
+          // plenty of memory.  carry on.
+          continueWithScript();
+        },
+        function(){ // if not enough memory
+          // yikes, there's a pretty small amount of memory available at this point.  are you sure you want to go on?
+          var text = "Looks like we're pretty close to running out of memory.  If we keep going, the extension might crash.  Continue anyway?";
+          var buttonText = "Continue";
+          var dialogDiv = RecorderUI.continueAfterDialogue(text, buttonText, continueWithScript);
+
+          // we might like to check now and then to see if more memory has been freed up, so that we could start again
+          MiscUtilities.repeatUntil(
+            function(){
+              splitOnEnoughMemoryToCloneTrace(trace,
+                function(){ // enough memory now, so we actually want to continue
+                  dialogDiv.remove(); // get rid of that dialog, so user doesn't see it
+                  continueWithScript();
+                },
+                function(){}); // if there's not enough memory, just don't do anything, keep waiting for user
+            }, // repeat this
+            function(){return continueWithScriptExecuted;}, // until this
+            function(){}, // don't have any functions to run after the condition is reached
+            60000, false); // just check every minute
+        });
+    }
+
     this.runBasicBlock = function _runBasicBlock(runObject, loopyStatements, callback, options){
       if (options === undefined){options = {};}
       var skipMode = options.skipMode;
@@ -5040,15 +5335,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       else {
         WALconsole.namedLog("rbb", "rbb: r+r.");
         // the fun stuff!  we get to run a basic block with the r+r layer
-        var basicBlockStatements = [];
-        var nextBlockStartIndex = loopyStatements.length;
-        for (var i = 0; i < loopyStatements.length; i++){
-          if (!ringerBased(loopyStatements[i])){ // todo: is this the right condition?
-            nextBlockStartIndex = i;
-            break;
-          }
-          basicBlockStatements.push(loopyStatements[i]);
-        }
 
         if (skipMode || breakMode){
           // in this case, when we're basically 'continue'ing, we should do nothing, so just go on to the next statement without doing anything else
@@ -5056,189 +5342,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           return;
         }
 
-        if (nextBlockStartIndex === 0){
-          WALconsole.namedLog("rbb", "nextBlockStartIndex was 0!  this shouldn't happen!", loopyStatements);
-          throw("nextBlockStartIndex 0");
-        }
-
-        basicBlockStatements = markNonTraceContributingStatements(basicBlockStatements);
-
-        var haveAllNecessaryRelationNodes = doWeHaveRealRelationNodesWhereNecessary(basicBlockStatements, runObject.environment);
-        if (!haveAllNecessaryRelationNodes){
-          // ok, we're going to have to skip this iteration, because we're supposed to open a page and we just won't know how to
-          WALconsole.warn("Had to skip an iteration because of lacking the node we'd need to open a new page");
-          // todo: should probably also warn the contents of the various relation variables at this iteration that we're skipping
-
-          // we're essentially done 'replaying', have to replay the remainder of the script
-          // and we're doing continue, so set the continue flag to true
-          options.skipMode = true;
-          program.runBasicBlock(runObject, loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
-          return;
-        }
-
-        // make the trace we'll replay
-        var trace = [];
-        // label each trace item with the basicBlock statement being used
-        var withinScrapeSection = false;
-        for (var i = 0; i < basicBlockStatements.length; i++){
-
-          var cleanTrace = basicBlockStatements[i].cleanTrace;
-
-          // first let's figure out whether we're even doing anything with this statement
-          if (basicBlockStatements[i].contributesTrace === TraceContributions.NONE){
-            continue; // don't need this one.  just skip
-          }
-          else if (basicBlockStatements[i].contributesTrace === TraceContributions.FOCUS){
-            // let's just change the cleanTrace so that it only grabs the focus events
-            console.log("Warning: we're including a focus event, which might cause problems.  If you see weird behavior, check this first.");
-            cleanTrace = _.filter(cleanTrace, function(ev){return ev.data.type === "focus";});
-          }
-
-          _.each(cleanTrace, function(ev){EventM.setTemporaryStatementIdentifier(ev, i);});
-
-          // ok, now let's deal with speeding up the trace based on knowing that scraping shouldn't change stuff, so we don't need to wait after it
-          if (withinScrapeSection){
-            // don't need to wait after scraping.  scraping doesn't change stuff.
-            if (cleanTrace.length > 0){
-              cleanTrace[0].timing.ignoreWait = true;
-            }
-          }
-          if (basicBlockStatements[i] instanceof WebAutomationLanguage.ScrapeStatement){
-            withinScrapeSection = true;
-            for (var j = 1; j < cleanTrace.length; j++){cleanTrace[j].timing.ignoreWait = true;} // the first event may need to wait after whatever came before
-          }
-          else{
-            withinScrapeSection = false;
-          }
-
-          // let's see if we can adapt mac-recorded traces to linux if necessary...
-          // todo: clean this up, make it work for different transitions...
-          var osString = window.navigator.platform;
-          if (osString.indexOf("Linux") > -1){
-            //console.log(basicBlockStatements[i].outputPageVars && basicBlockStatements[i].outputPageVars.length > 0);
-            if (basicBlockStatements[i].outputPageVars && basicBlockStatements[i].outputPageVars.length > 0){
-              _.each(cleanTrace, function(ev){
-                if (ev.data.metaKey){ // hey, digging into the ev data here is gross.  todo: fix that
-                  ev.data.ctrlKeyOnLinux = true;
-                }
-                EventM.setTemporaryStatementIdentifier(ev, i);});
-            }
-          }
-
-          trace = trace.concat(cleanTrace);
-        }
-
-        if (trace.length < 1){
-          // ok, no point actually running Ringer here...
-          // console.log("no events for r+r to run in these loopyStatements: ", loopyStatements);
-          // let's skip straight to the 'callback!'
-
-          // statements may need to do something as post-processing, even without a replay so go ahead and do any extra processing
-          for (var i = 0; i < basicBlockStatements.length; i++){
-            WALconsole.namedLog("rbb", "calling postReplayProcessing on", basicBlockStatements[i]);
-            basicBlockStatements[i].postReplayProcessing(runObject, [], i);
-          }
-          // once we're done replaying, have to replay the remainder of the script
-          program.runBasicBlock(runObject, loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
-          return;
-        }
-
-        // now that we have the trace, let's figure out how to parameterize it
-        // note that this should only be run once the current___ variables in the statements have been updated!  otherwise won't know what needs to be parameterized, will assume nothing
-        // should see in future whether this is a reasonable way to do it
-        WALconsole.namedLog("rbb", "trace", trace);
-        var parameterizedTrace = pbv(trace, basicBlockStatements);
-        // now that we've run parameterization-by-value, have a function, let's put in the arguments we need for the current run
-        WALconsole.namedLog("rbb", "parameterizedTrace", parameterizedTrace);
-        var runnableTrace = passArguments(parameterizedTrace, basicBlockStatements, runObject.environment);
-        var config = parameterizedTrace.getConfig();
-        WALconsole.namedLog("rbb", "runnableTrace", runnableTrace);
-
-        // the above works because we've already put in VariableUses for statement arguments that use relation items, for all statements within a loop, so currNode for those statements will be a variableuse that uses the relation
-        // however, because we're only running these basic blocks, any uses of relation items (in invisible events) that happen before the for loop will not get parameterized, 
-        // since their statement arguments won't be changed, and they won't be part of the trace that does have statement arguments changed (and thus get the whole trace parameterized for that)
-        // I don't see right now how this could cause issues, but it's worth thinking about
-
-        WALconsole.namedLog("rbb", "runnableTrace", runnableTrace, config);
-
-        config.targetWindowId = runObject.window;
-        SimpleRecord.replay(runnableTrace, config, function(replayObject){
-          // use what we've observed in the replay to update page variables
-          WALconsole.namedLog("rbb", "replayObject", replayObject);
-
-          // based on the replay object, we need to update any pagevars involved in the trace;
-          var trace = [];
-          _.each(basicBlockStatements, function(statement){trace = trace.concat(statement.trace);}); // want the trace with display data, not the clean trace
-          
-          //updatePageVars(trace, replayObject.record.events);
-          // ok, it's time to update the pageVars, but remember that's going to involve checking whether we got a reasonable page
-          var allPageVarsOk = function(){
-            // statements may need to do something based on this trace, so go ahead and do any extra processing
-            for (var i = 0; i < basicBlockStatements.length; i++){
-              WALconsole.namedLog("rbb", "calling postReplayProcessing on", basicBlockStatements[i]);
-              basicBlockStatements[i].postReplayProcessing(runObject, replayObject.record.events, i);
-            }
-
-            // once we're done replaying, have to replay the remainder of the script
-            program.runBasicBlock(runObject, loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback, options);
-          };
-          updatePageVars(trace, replayObject.record.events, allPageVarsOk);
-
-        },
-        // ok, we also want some error handling functions
-        {
-          nodeFindingWithUserRequiredFeaturesFailure: function(replayObject, ringerContinuation){
-            // todo: note that continuation doesn't actually have a continuation yet because of Ringer-level implementation
-            // if you decide to start using it, you'll have to go back and fix that.  see record-replay/mainpanel_main.js
-
-            // for now, if we fail to find a node where the user has insisted it has a certain set of features, we want to just skip the row
-            // essentially want the continue action, so we want the callback that's supposed to happen at the end of running the rest of the script for this iteration
-            // so we'll skip doing  program.runBasicBlock(loopyStatements.slice(nextBlockStartIndex, loopyStatements.length), callback) (as above)
-            // instead we'll just do the callback
-            WALconsole.warn("rbb: couldn't find a node based on user-required features.  skipping the rest of this row.");
-
-            // even though couldn't complete the whole trace, still need to do updatePageVars because that's how we figure out which
-            // tab is associated with which pagevar, so that we can go ahead and do tab closing and back button pressing at the end
-            
-            var allPageVarsOk = function(){ // this is partly the same as the other allPageVarsOk
-              // in the continuation, we'll do the actual move onto the next statement
-              options.skipMode = true;
-              //options.skipCommitInThisIteration = true; // for now we'll assume that this means we'd want to try again in future in case something new is added
-
-              // once we're done replaying, have to replay the remainder of the script
-              // want to skip the rest of the loop body, so go straight to callback
-              callback();
-            };
-
-            var trace = [];
-            _.each(basicBlockStatements, function(statement){trace = trace.concat(statement.trace);}); // want the trace with display data, not the clean trace
-            updatePageVars(trace, replayObject.record.events, allPageVarsOk);
-          },
-          portFailure: function(replayObject, ringerContinuation){
-            // for now I haven't seen enough of these failures in person to know a good way to fix them
-            // for now just treat them like a node finding failure and continue
-
-            WALconsole.warn("rbb: port failure.  ugh.");
-
-            // even though couldn't complete the whole trace, still need to do updatePageVars because that's how we figure out which
-            // tab is associated with which pagevar, so that we can go ahead and do tab closing and back button pressing at the end
-            
-            var allPageVarsOk = function(){ // this is partly the same as the other allPageVarsOk
-              // in the continuation, we'll do the actual move onto the next statement
-              options.skipMode = true;
-              //options.skipCommitInThisIteration = true; // for now we'll assume that this means we'd want to try again in future in case something new is added
-
-              // once we're done replaying, have to replay the remainder of the script
-              // want to skip the rest of the loop body, so go straight to callback
-              callback();
-            };
-
-            var trace = [];
-            _.each(basicBlockStatements, function(statement){trace = trace.concat(statement.trace);}); // want the trace with display data, not the clean trace
-            updatePageVars(trace, replayObject.record.events, allPageVarsOk);
-          }
-        }
-        );
+        runBasicBlockWithRinger(loopyStatements, options, runObject, callback);
       }
     }
 
@@ -5457,6 +5561,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }
         }
       }
+
       return pTrace.getStandardTrace();
     }
 
@@ -6021,8 +6126,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.relations = _.without(this.relations, relationObj);
 
       // now let's actually remove any loops that were trying to use this relation
-      newChildStatements = removeLoopsForRelation(this.loopyStatements, relationObj);
+      var newChildStatements = removeLoopsForRelation(this.loopyStatements, relationObj);
       this.updateChildStatements(newChildStatements);
+      this.insertLoops(); // if the removed relation was using the same cell as another potential relation, that one may now be relevant
 
       RecorderUI.updateDisplayedScript();
       RecorderUI.updateDisplayedRelations();

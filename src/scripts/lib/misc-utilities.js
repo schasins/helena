@@ -1,7 +1,7 @@
 
 var WALconsole = (function _WALconsole() { var pub = {};
 
-  pub.debugging = true;
+  pub.debugging = false;
   pub.showWarnings = true;
   pub.namedDebugging = []; //["rbb"];//["getRelationItems", "nextInteraction"];
   pub.styleMinimal = true;
@@ -615,6 +615,15 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
       return true;
     }
     return false;
+  };
+
+  pub.truncateDictionaryStrings = function _truncateDictionaryStrings(dict, stringLengthLimit, keysToSkip){
+    for (var key in dict){
+      var val = dict[key];
+      if (keysToSkip.indexOf(key) < 0 && typeof val === 'string' && val.length > stringLengthLimit){
+        dict[key] = val.slice(0, stringLengthLimit);
+      }
+    }
   };
 
 return pub; }());

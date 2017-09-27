@@ -201,6 +201,10 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   };
 
   pub.interpretRelationSelectorRowNodes = function _interpretRelationSelectorRowNodes(selector){
+    if (!selector.selector){
+      return [];
+    }
+
     if (selector.selector.constructor === Array){
       // the case where we need to recurse
       var selectorArray = selector.selector;
@@ -467,6 +471,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     // todo: in future, can we just order the combos by number of rowNodes included in the combo, stop once we get one that has a good selector?
     // could this avoid wasting so much time on this?  even in cases where we don't already have server-suggested to help us with smallestSubsetToConsider?
     var combos = combinations(rowNodes);
+    WALconsole.log("combos", combos);
     var maxNumCells = -1;
     var maxSelector = null;
     var maxComboSize = -1;
@@ -667,6 +672,10 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   }
 
   function xpathsToNodes(xpaths){
+    if (!xpaths || xpaths.length <= 0){
+      WALconsole.warn("Woah woah woah, why are there no xpaths.  This is probably very bad.");
+      return [];
+    }
     var nodes = [];
     for (var i = 0; i < xpaths.length; i++){
       var node = xPathToNodes(xpaths[i])[0];
@@ -708,10 +717,14 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     }
 
     var currSelectorOrSelectorList = selectorToAugment.selector;
+    if (!currSelectorOrSelectorList){ // can happen that we have no selector to agument, if we're actually demo-ing a new relation
+      currSelectorOrSelectorList = [];
+      selectorToAugment.columns = [];
+    }
     if (currSelectorOrSelectorList.constructor === Array){
       // cool, no need to mess around with the current selector's columns
       // let's just add the new selector to the list
-      selectorToAugment.selector = selectorToAugment.selector.concat([selectorToBeAdded.selector]);
+      selectorToAugment.selector = currSelectorOrSelectorList.concat([selectorToBeAdded.selector]);
     }
     else{
       // ok, this selector used to have just one.  let's go ahead and turn it into a list and make sure all its
@@ -760,25 +773,27 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
     var maxNodesCoveredByServerRelations = 0;
     var serverSuggestedRelations = msg.serverSuggestedRelations;
-    for (var i = 0; i < serverSuggestedRelations.length; i++){
-      var rel = serverSuggestedRelations[i];
-      if (rel === null){
-        continue;
-      }
-      var columns = rel.columns;
-      var relXpaths = _.pluck(columns, "xpath");
-      WALconsole.log(relXpaths);
-      var matched = 0;
-      for (var j = 0; j < xpaths.length; j++){
-        if (relXpaths.indexOf(xpaths[j]) > -1){
-          matched += 1;
+    if (serverSuggestedRelations){
+      for (var i = 0; i < serverSuggestedRelations.length; i++){
+        var rel = serverSuggestedRelations[i];
+        if (rel === null){
+          continue;
+        }
+        var columns = rel.columns;
+        var relXpaths = _.pluck(columns, "xpath");
+        WALconsole.log(relXpaths);
+        var matched = 0;
+        for (var j = 0; j < xpaths.length; j++){
+          if (relXpaths.indexOf(xpaths[j]) > -1){
+            matched += 1;
+          }
+        }
+        if (matched > maxNodesCoveredByServerRelations){
+          maxNodesCoveredByServerRelations = matched;
         }
       }
-      if (matched > maxNodesCoveredByServerRelations){
-        maxNodesCoveredByServerRelations = matched;
-      }
+      WALconsole.log("maxNodesCoveredByServerRelations", maxNodesCoveredByServerRelations);
     }
-    WALconsole.log("maxNodesCoveredByServerRelations", maxNodesCoveredByServerRelations);
 
     // if this is actually in an html table, let's take a shortcut, since some sites use massive tables and trying to run the other approach would take forever
     var selectorData = synthesizeSelectorForWholeSetTable(nodes);
@@ -794,6 +809,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     }
     var relationData = _.map(selectorData.relation, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
     selectorData.relation = relationData;
+    WALconsole.log("synthesized a selector, selectorData", selectorData);
 
     // this (above) is the candidate we auto-generate from the page, but want to compare to the relations the server suggested
     // criteria (1) largest number of target xpaths in the first row, (2) largest number of rows retrieved from the page, (3), largest num of rows in original demonstration (4) largest number of columns associated with relation
@@ -805,27 +821,29 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
     WALconsole.log("serverSuggestedRelations", serverSuggestedRelations, "selectorData", selectorData);
     var serverSuggestedRelations = msg.serverSuggestedRelations;
-    for (var i = 0; i < serverSuggestedRelations.length; i++){
-      var rel = serverSuggestedRelations[i];
-      if (rel === null){
-        continue;
-      }
-      var selector_obj = Selector(rel.selector, rel.exclude_first, rel.columns);
-      var relationNodes = pub.interpretRelationSelector(selector_obj, rel.selector_version);
-      if (relationNodes.length === 0){
-        // no need to consider empty one
-        continue;
-      }
-      var relationData = _.map(relationNodes, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
-      rel.relation = relationData; 
-      recordComparisonAttributesServerSelector(rel, xpaths);
+    if (serverSuggestedRelations){
+      for (var i = 0; i < serverSuggestedRelations.length; i++){
+        var rel = serverSuggestedRelations[i];
+        if (rel === null){
+          continue;
+        }
+        var selector_obj = Selector(rel.selector, rel.exclude_first, rel.columns);
+        var relationNodes = pub.interpretRelationSelector(selector_obj, rel.selector_version);
+        if (relationNodes.length === 0){
+          // no need to consider empty one
+          continue;
+        }
+        var relationData = _.map(relationNodes, function(row){return _.map(row, function(cell){return NodeRep.nodeToMainpanelNodeRepresentation(cell);});});
+        rel.relation = relationData; 
+        recordComparisonAttributesServerSelector(rel, xpaths);
 
-      WALconsole.log("default", rel, "new", currBestSelector);
-      // use the server-provided rel as our default, since that'll make the server-side processing when we save the relation easier, and also gives us the nice names
-      var newBestSelector = bestSelector(rel, currBestSelector);
-      if (newBestSelector !== currBestSelector){
-        currBestSelector = newBestSelector;
-        bestSelectorIsNew = false;
+        WALconsole.log("default", rel, "new", currBestSelector);
+        // use the server-provided rel as our default, since that'll make the server-side processing when we save the relation easier, and also gives us the nice names
+        var newBestSelector = bestSelector(rel, currBestSelector);
+        if (newBestSelector !== currBestSelector){
+          currBestSelector = newBestSelector;
+          bestSelectorIsNew = false;
+        }
       }
     }
 
@@ -840,7 +858,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       var uncoveredNodes = xpathsToNodes(uncoveredSoFar);
       var additionalSelector = synthesizeSelectorForSubsetThatProducesLargestRelation(uncoveredNodes, 0);
       // now reason about the length of the lists and whether it even makes sense to pair them
-      if (currBestSelector.relation.length == additionalSelector.relation.length){
+      if (additionalSelector && currBestSelector.relation.length == additionalSelector.relation.length){
         WALconsole.log("We're adding an additional selector.", additionalSelector);
         currBestSelector = addSelectorToSelector(currBestSelector, additionalSelector);
         WALconsole.log("currBestSelector", currBestSelector);
@@ -936,7 +954,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
  **********************************************************************/
 
   var currentSelectorToEdit = null;
-  var initialSelectorEmptyOnThisPage = false;
+  var currentSelectorEmptyOnThisPage = false;
   pub.editRelation = function _editRelation(msg){
     if (currentSelectorToEdit !== null){
       // we've already set up to edit a selector, and we should never use the same tab to edit multiples
@@ -954,7 +972,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         //setTimeout(editingSetup, 1000);
 	// but also need to send the editing colors just in case
 	       pub.sendSelector(currentSelectorToEdit);
-         initialSelectorEmptyOnThisPage = true;
+         currentSelectorEmptyOnThisPage = true;
         return;
       }
       pub.highlightSelector(currentSelectorToEdit);
@@ -1064,7 +1082,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
     var target = event.target;
 
-    if (initialSelectorEmptyOnThisPage){
+    if (currentSelectorEmptyOnThisPage){
       // ok, it's empty right now, need to make a new one
       if (!currentSelectorToEdit.origSelector){
         currentSelectorToEdit.origSelector = JSON.parse(JSON.stringify(currentSelectorToEdit)); // deepcopy
@@ -1080,6 +1098,8 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       pub.newSelectorGuess(currentSelectorToEdit);
       // and let's go back to using .selector as the current one we want to edit and play with
       currentSelectorToEdit.selector = currentSelectorToEdit.currentIndividualSelector;
+      currentSelectorToEdit.positive_nodes = [target];
+      currentSelectorEmptyOnThisPage = false;
       return;
     }
 
@@ -1382,6 +1402,18 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     utilities.sendMessage("content", "mainpanel", "freshRelationItems", respMsg);
   }
 
+  function extractFromRelationRep(rel, attributes){
+    var extractorFunc = function(cell){return _.map(attributes, function(a){return cell[a];});};
+    var processedRel = _.map(rel, function(row){return _.map(row, function(cell){return extractorFunc(cell);});});
+    return processedRel;
+  }
+
+  function mainpanelRepresentationOfRelationsEqual(r1, r2){
+    var r1Visible = extractFromRelationRep(r1, ["text", "frame"]); // todo: are these the right attributes to use?
+    var r2Visible = extractFromRelationRep(r2, ["text", "frame"]); // todo: are these the right attributes to use?
+    return _.isEqual(r1Visible, r2Visible);
+  }
+
   var relationFinderIdCounter = 0;
   pub.getFreshRelationItemsHelper = function _getFreshRelationItemsHelper(msg){
     var strMsg = selectorId(msg);
@@ -1438,13 +1470,10 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
          
         // create an observer instance
         var observer = new MutationObserver(function(mutations) {
-          console.log("MutationObserver fired", cell);
-          console.log(cell.___relationFinderId___);
           // get rid of the old id, now that it's essentially a different node
           delete cell.___relationFinderId___;
           // stop observing
           observer.disconnect();
-          console.log(cell.___relationFinderId___);
         });
         // configuration of the observer:
         var config = { attributes: true, childList: true, characterData: true };
@@ -1465,7 +1494,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       for (var i = 0; i < relationNodesIds.length; i++){
         var row = relationNodesIds[i];
         // todo: should we be looking for whether some are new, or all?  requring all can fail with ajax-updated pages
-        // ex: say we're scraping a bunch of papers from a single conference.  conference element will stay the same,
+        // ex: say we're scraping a bunch of papers from a single conference.  conference cell of row will stay the same,
         // so conference node won't get updated and its id won't get wiped.
         // in this case, even requiring some to be new could be a problem if we're only scraping that single column
         // so todo: come up with a better solution
@@ -1501,8 +1530,10 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
     var relationData = pub.relationNodesToMainpanelNodeRepresentation(relationNodes);
     var crd = currentRelationData[strMsg];
-    if (crd && crd.length === relationData.length && _.isEqual(crd, relationData)){
-      // this check should now be unnecessary.  todo: clean it up!
+    // we can also have the problem where everything looks new, because everything technically gets updated, 
+    // even though some of it is old data, didn't need to be redrawn. so need to do a text check too
+    // so that's why we'll compare to the crd, figure out whether the head looks like it's actually old data
+    if (crd && crd.length === relationData.length && mainpanelRepresentationOfRelationsEqual(crd, relationData)){
       // data still looks the same as it looked before.  no new items yet.
       console.log("No new items yet because the data is actualy equal");
       console.log(crd, relationData);
@@ -1512,15 +1543,24 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     nextInteractionSinceLastGetFreshRelationItems[strMsg] = false;
     // we only want the fresh ones!
     var newItems = relationData; // start by assuming that's everything
-    if (crd && _.isEqual(crd, relationData.slice(0, crd.length))){
+    if (crd){
+      WALconsole.log("crd, relationData, relationData slice", crd, relationData, relationData.slice(0,crd.length), _.isEqual(crd, relationData.slice(0, crd.length)))
+    }
+    if (crd && mainpanelRepresentationOfRelationsEqual(crd, relationData.slice(0, crd.length))){
       // cool, this is a case of loading more into the same page, so we want to just grab the end
-      // again, this should now be unnecessary because we already filter to only new rows.  todo: clean it up
       newItems = relationData.slice(crd.length, relationData.length);
     }
-    currentRelationData[strMsg] = relationData;
-    currentRelationSeenNodes[strMsg] = _.without(currentRelationSeenNodes[strMsg].concat(_.flatten(relationNodesIds)), null);
-    WALconsole.log("actual new items", newItems);
-    return {type: RelationItemsOutputs.NEWITEMS, relation: newItems};
+
+    // it's important that we don't wipe out the currentRelationdata[strMsg] unless we actually have new data
+    // if we're doing a more interaction, might have 0 rows in an intermediate state, but then still need
+    // to trim the top off the list based on having already collected the data
+    if (relationData.length > 0){
+      currentRelationData[strMsg] = relationData;
+      currentRelationSeenNodes[strMsg] = _.without(currentRelationSeenNodes[strMsg].concat(_.flatten(relationNodesIds)), null);
+      WALconsole.log("actual new items", newItems);
+      return {type: RelationItemsOutputs.NEWITEMS, relation: newItems};
+    }
+
   };
 
 

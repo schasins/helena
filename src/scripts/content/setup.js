@@ -72,6 +72,7 @@ MiscUtilities.repeatUntil(
  **********************************************************************/
 
 var NodeRep = (function _NodeRep() { var pub = {};
+
 	pub.nodeToMainpanelNodeRepresentation = function _nodeToMainpanelNodeRepresentation(node){
 	  if (node === null){
 	    return {

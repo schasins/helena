@@ -148,6 +148,10 @@ function getFeatures(element){
     }
   }
 
+  // for some pages, the strings for various text-y things get crazy long
+  // we're going to play around with truncating them to see if this helps with some memory issues
+  var stringLengthLimit = 300; // todo: is this a good limit?
+  MiscUtilities.truncateDictionaryStrings(info, stringLengthLimit, ["value", "xpath"]);
 
   return info;
 }

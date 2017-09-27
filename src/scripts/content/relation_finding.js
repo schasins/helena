@@ -341,7 +341,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   }
 
   function columnsFromNodeAndSubnodes(node, subnodes){
-    columns = [];
+    var columns = [];
     for (var i = 0; i < subnodes.length; i++){
       var xpath = nodeToXPath(subnodes[i]);
       var suffix = suffixFromAncestor(node, subnodes[i]);

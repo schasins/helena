@@ -79,6 +79,7 @@ var NodeRep = (function _NodeRep() { var pub = {};
 	    	text: "", 
 	    	link: "", 
 	    	xpath: "", 
+	    	value: "",
 	    	frame: SimpleRecord.getFrameId(), 
 	    	source_url: window.location.href,
 	    	top_frame_source_url: tabTopUrl,
@@ -89,6 +90,7 @@ var NodeRep = (function _NodeRep() { var pub = {};
 	  	text: NodeRep.nodeToText(node), 
 	  	link: NodeRep.nodeToLink(node), 
 	  	xpath: nodeToXPath(node), 
+	  	value: NodeRep.nodeToValue(node),
 	  	frame: SimpleRecord.getFrameId(),
     	source_url: window.location.href,
     	top_frame_source_url: tabTopUrl,
@@ -106,12 +108,16 @@ var NodeRep = (function _NodeRep() { var pub = {};
 	    return "";
 	  }
 	  return pars[0].href;
-	}
+	};
 
 	pub.nodeToText = function _nodeToText(node){
 	  //var text = node.innerText;
 	  return getElementText(node);
-	}
+	};
+
+	pub.nodeToValue = function _nodeTovalue(node){
+		return node.value;
+	};
 
 	function getElementText(el){
 	  var text = getElementTextHelper(el);

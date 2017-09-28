@@ -374,9 +374,16 @@ function getFeatures(element){
   var getTargetForSimilarityFilteredByText = function(targetInfo, filterFeatures) {
     WALconsole.log("getTargetForSimilarityFiltered", targetInfo, filterFeatures);
     if (filterFeatures === undefined){ filterFeatures = []; }
-    //console.log("getTargetForSimilarityFilteredByText", targetInfo);
-    var unfilteredCandidates = getAllSimilarityCandidates(targetInfo); // recall that this could be just the body node if nothing's loaded yet
-    WALconsole.log("unfilteredCandidatesFeatures", unfilteredCandidatesFeatures);
+
+    var unfilteredCandidates = [];
+    if (filterFeatures.indexOf("xpath") > -1){
+      // this is a special case, where we can just speed it up by using the xpath they want, since it's a required feature
+      var nodes = xPathToNodes(targetInfo.xpath);
+      unfilteredCandidates = nodes;
+    }
+    else{
+      unfilteredCandidates = getAllSimilarityCandidates(targetInfo); // recall that this could be just the body node if nothing's loaded yet
+    }
 
     // soon we'll filter by text, since we're doing getTargetForSimilarityFilteredByText
     // but we need to filter based on the user-provided filterFeatures (the ones required to be stable) first
@@ -447,10 +454,9 @@ function getFeatures(element){
       // we've already had to find this node on this page.  go ahead and use the cached node.
       var cachedNode = identifiedNodesCache[xpath];
       // unless the page has changed and that node's not around anymore!
-      if ($.inArray(cachedNode, $("*")) > -1){
+      if (document.body.contains(cachedNode)){
         return cachedNode;
       }
-      return cachedNode;
     }
 
     // we have a useXpathOnly flag set to true when the top level has parameterized on xpath, and normal node addressing approach should be ignored

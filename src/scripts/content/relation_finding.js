@@ -263,13 +263,33 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     return allCells;
   };
 
+  pub.interpretPulldownSelector = function(selector){
+    var allSelectNodes = $("select");
+    // then just index into it, because our current approach to pulldowns is crazy simplistic
+    var selectorNode = allSelectNodes[selector.index];
+    var optionNodes = extractOptionNodesFromSelectorNode(selectorNode);
+    optionNodes = optionNodes.splice(selector.exclude_first, optionNodes.length);
+    return optionNodes;
+  }
+
   pub.interpretRelationSelector = function _interpretRelationSelector(selector){
-    var rowNodeLists = pub.interpretRelationSelectorRowNodes(selector);
-    WALconsole.log("rowNodeLists", rowNodeLists);
-    // ok, now that we have some row nodes, time to extract the individual cells
-    var cells = pub.interpretRelationSelectorCellNodes(selector, rowNodeLists);
-    WALconsole.log("cells", cells);
-    return cells;
+    if (selector.selector_version === 1 || selector.selector_version === undefined){ // should really get rid of undefined, probably...
+      var rowNodeLists = pub.interpretRelationSelectorRowNodes(selector);
+      WALconsole.log("rowNodeLists", rowNodeLists);
+      // ok, now that we have some row nodes, time to extract the individual cells
+      var cells = pub.interpretRelationSelectorCellNodes(selector, rowNodeLists);
+      WALconsole.log("cells", cells);
+      return cells;      
+    }
+    else if (selector.selector_version === 2){
+      var optionNodes = pub.interpretPulldownSelector(selector);
+      var cells = _.map(optionNodes, function(o){return [o];});
+      return cells;
+    }
+    else{
+      console.log(selector);
+      throw new Error("Unknown selectorTypeVersion");
+    }
   };
 
 
@@ -355,7 +375,12 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
   }
 
   function Selector(dict, exclude_first, columns, positive_nodes, negative_nodes){
-    return {selector: dict, exclude_first: exclude_first, columns: columns, positive_nodes: positive_nodes, negative_nodes: negative_nodes};
+    return {selector: dict, 
+              exclude_first: exclude_first, 
+              columns: columns, 
+              positive_nodes: positive_nodes, 
+              negative_nodes: negative_nodes,
+              selector_version: 1}; // this form of Selector object should only be used for version 1 selectors, or else change this
   }
 
   function synthesizeSelector(positive_nodes, negative_nodes, columns, features){
@@ -760,6 +785,71 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     }
   }
 
+  function extractOptionNodesFromSelectorNode(node){
+    var options = $(node).find("option");
+    return options;
+  }
+
+  function extractOptionsRelationFromSelectorNode(node){
+    var options = extractOptionNodesFromSelectorNode(node);
+    var optionsRelation = _.map(options, function(o){return [NodeRep.nodeToMainpanelNodeRepresentation(o)];});
+    return optionsRelation;
+  }
+
+  function makeRelationsForPulldownXpaths(msg, pulldownxpaths){
+    var pulldownRelations = [];
+    var selectNodes = $("select");
+    for (var i = 0; i < pulldownxpaths.length; i++){
+      var xpath = pulldownxpaths[i];
+      var newMsg = {page_var_name: msg.pageVarName, url: window.location.href}; // this pageVarName is used by the mainpanel to keep track of which pages have been handled already
+      var node = xPathToNodes(xpath)[0];
+      if (!node){
+        continue; // right thing to do?
+      }
+      var index = selectNodes.index(node);
+      var options = extractOptionNodesFromSelectorNode(node);
+      var optionsRelation = extractOptionsRelationFromSelectorNode(node);
+      var firstRowXpath = optionsRelation[0][0].xpath;
+      var excludeFirst = 0;
+      for (var j = 0; j < options.length; j++){
+        var op = options[j];
+        if (op.value === ""){
+          excludeFirst = j + 1;
+        }
+        else{
+          // as soon as we find any option with a value, assume it's the start
+          break;
+        }
+      }
+      if (excludeFirst === options.length){
+        // ugh, they all had no value.  guess we have no info
+        excludeFirst = 0;
+      }
+      optionsRelation = optionsRelation.splice(excludeFirst, optionsRelation.length);
+
+      newMsg.relation_id = null;
+      newMsg.name = "pulldown_" + (index + 1);
+      // for a pulldown menu, there better be no more items
+      newMsg.next_type = NextTypes.NONE;
+      newMsg.next_button_selector = null;
+      newMsg.exclude_first = excludeFirst; // todo: can we do better?  extra recording info?
+      newMsg.num_rows_in_demonstration = options.length;
+      newMsg.selector = {type: "pulldown", index: index};
+      newMsg.selector_version = 2; // 2 is for pulldown selectors?
+      newMsg.columns = [{
+        id: null,
+        index: 0, // only one column
+        name: "option",
+        suffix: [],
+        xpath: firstRowXpath
+      }];
+      newMsg.first_page_relation = optionsRelation;  
+
+      pulldownRelations.push(newMsg);
+    }
+    return pulldownRelations;
+  }
+
   var processedCount = 0;
   var processedLikelyRelationRequest = false;
   pub.likelyRelation = function _likelyRelation(msg){
@@ -768,7 +858,23 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       // may end up sending multiples if we're sent the inciting message multiple times because the page loads slowly
       return;
     }
+
     var xpaths = msg.xpaths;
+
+    // we're going to do something a little different for the case where one or more nodes come from pulldown menus
+    var pulldownxpaths = [];
+    for (var i = 0; i < xpaths.length; i++){
+      var xpath = xpaths[i].toLowerCase();
+      if (xpath.indexOf("/select[") > -1){
+        // ok, we've grabbed something from a pulldown
+        pulldownxpaths.push(xpath);
+      }
+    }
+    // for the non-pulldown xpaths, we'll proceed with normal processing
+    xpaths = _.difference(xpaths, pulldownxpaths);
+    // for pulldown xpaths, we'll do something different
+    var pulldownRelations = makeRelationsForPulldownXpaths(msg, pulldownxpaths);
+
     var nodes = xpathsToNodes(xpaths);
 
     var maxNodesCoveredByServerRelations = 0;
@@ -828,7 +934,8 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
           continue;
         }
         var selector_obj = Selector(rel.selector, rel.exclude_first, rel.columns);
-        var relationNodes = pub.interpretRelationSelector(selector_obj, rel.selector_version);
+        selector_obj.selector_version = rel.selector_version;
+        var relationNodes = pub.interpretRelationSelector(selector_obj);
         if (relationNodes.length === 0){
           // no need to consider empty one
           continue;
@@ -893,7 +1000,11 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     newMsg.columns = currBestSelector.columns;
     newMsg.first_page_relation = currBestSelector.relation;
 
-    if (currBestSelector.relation.length < 1){
+    if (pulldownRelations.length > 0){
+      newMsg.pulldown_relations = pulldownRelations;
+    }
+
+    if (currBestSelector.relation.length < 1 && pulldownRelations.length < 1){
       processedCount += 1;
       if (processedCount < 10){
         // ok, looks like we don't actually have any data yet.  might be because data hasn't fully loaded on page yet
@@ -910,6 +1021,10 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
   pub.getRelationItems = function _getRelationItems(msg, sendMsg){
     if (sendMsg === undefined){ sendMsg = true; }
+    console.log("msg", msg);
+    if (!msg.selector_version){
+      console.log("No selector version!!!");
+    }
     var relation = pub.interpretRelationSelector(msg);
     var relationData = pub.relationNodesToMainpanelNodeRepresentation(relation);
     if (sendMsg){
@@ -1310,7 +1425,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
         button = min_candidate;
       }
     }
-    console.log("button", button);
+    WALconsole.log("button", button);
     return button;
   }
 
@@ -1398,7 +1513,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
 
   pub.getFreshRelationItems = function _getFreshRelationItems(msg){
     var respMsg = pub.getFreshRelationItemsHelper(msg);
-    console.log('respMsg', respMsg);
+    WALconsole.log('respMsg', respMsg);
     utilities.sendMessage("content", "mainpanel", "freshRelationItems", respMsg);
   }
 
@@ -1420,7 +1535,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     WALconsole.log("noMoreItemsAvailable", noMoreItemsAvailable[strMsg], noMoreItemsAvailable);
     if (noMoreItemsAvailable[strMsg]){
       // that's it, we're done.  last use of the next interaction revealed there's nothing left
-      console.log("no more items at all, because noMoreItemsAvailable was set.");
+      WALconsole.log("no more items at all, because noMoreItemsAvailable was set.");
       return {type: RelationItemsOutputs.NOMOREITEMS, relation: null};
     }
     // below is commented out in case there are cases where after first load, it may take a while for the data to all get there (get empty list first, that kind of deal)  Does that happen or is this a wasted opportunity to cache?
@@ -1509,10 +1624,10 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       if (msg.next_type === NextTypes.NEXTBUTTON){
         // this is a next interaction, so we should never have overlap.  wait until everything is new
         if (relationNodes.length !== newRows.length){
-      	  console.log("sending no new items yet because we found some repeated items and it's a next button.  is that bad?");
-      	  console.log("alreadySeenRelationNodeIds", alreadySeenRelationNodeIds.length, alreadySeenRelationNodeIds);
-      	  console.log("relationNodes", relationNodes.length, relationNodes);
-      	  console.log("newRows", newRows.length, newRows);
+      	  WALconsole.log("sending no new items yet because we found some repeated items and it's a next button.  is that bad?");
+      	  WALconsole.log("alreadySeenRelationNodeIds", alreadySeenRelationNodeIds.length, alreadySeenRelationNodeIds);
+      	  WALconsole.log("relationNodes", relationNodes.length, relationNodes);
+      	  WALconsole.log("newRows", newRows.length, newRows);
           // looks like some of our rows weren't new, so next button hasn't happened yet
 
           WALconsole.log("newRows", newRows);
@@ -1535,8 +1650,8 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     // so that's why we'll compare to the crd, figure out whether the head looks like it's actually old data
     if (crd && crd.length === relationData.length && mainpanelRepresentationOfRelationsEqual(crd, relationData)){
       // data still looks the same as it looked before.  no new items yet.
-      console.log("No new items yet because the data is actualy equal");
-      console.log(crd, relationData);
+      WALconsole.log("No new items yet because the data is actualy equal");
+      WALconsole.log(crd, relationData);
       return {type: RelationItemsOutputs.NONEWITEMSYET, relation: null};
     }
     // whee, we have some new stuff.  we can update the state

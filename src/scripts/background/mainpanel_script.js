@@ -2363,6 +2363,45 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return pbvs;
     };
 
+    this.parameterizeForString = function(relation, column, nodeRep, string, type){
+      if (string === null || string === undefined){
+        // can't parameterize for a cell that has null text
+        return;
+      }
+      var textLower = string.toLowerCase();
+      if (type === "text"){
+        var startIndex = this.typedStringLower.indexOf(textLower);
+        if (startIndex > -1){
+          // cool, this is the column for us then
+          var components = [];
+          var left = string.slice(0, startIndex);
+          if (left.length > 0){
+            components.push(left)
+          }
+          components.push(new WebAutomationLanguage.NodeVariable(column.name, nodeRep, null, null, NodeSources.RELATIONEXTRACTOR));
+          var right = string.slice(startIndex + this.typedString.length, string.length);
+          if (right.length > 0){
+            components.push(right)
+          }
+          this.currentTypedString = new WebAutomationLanguage.Concatenate(components);
+          this.typedStringParameterizationRelation = relation;
+          return true;
+        }
+      }
+      if (type === "value"){
+        // usually we only care about the text of nodes, but sometimes we may care about value
+        // in particular, it appears as though we're typing a value when we click on the 
+        // option in a pulldown/select menu.  we'll want to parameterize if it's exactly the same
+        if (textLower === this.typedStringLower){
+          var nodeVar = new WebAutomationLanguage.NodeVariable(column.name, nodeRep, null, null, NodeSources.RELATIONEXTRACTOR);
+          this.currentTypedString = nodeVar;
+          this.typedStringParameterizationRelation = relation;
+          return true;
+        }
+      }
+      return false;
+    }
+
     this.parameterizeForRelation = function _parameterizeForRelation(relation){
       var relationColumnUsed = parameterizeNodeWithRelation(this, relation, this.pageVar);
 
@@ -2372,28 +2411,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var firstRowNodeRepresentations = relation.firstRowNodeRepresentations();
         for (var i = 0; i < columns.length; i++){
           var text = columns[i].firstRowText;
-          if (text === null || text === undefined){
-            // can't parameterize for a cell that has null text
-            continue;
-          }
-          var textLower = text.toLowerCase();
-          var startIndex = this.typedStringLower.indexOf(textLower);
-          if (startIndex > -1){
-            // cool, this is the column for us then
-            var components = [];
-            var left = text.slice(0, startIndex);
-            if (left.length > 0){
-              components.push(left)
-            }
-            components.push(new WebAutomationLanguage.NodeVariable(columns[i].name, firstRowNodeRepresentations[i], null, null, NodeSources.RELATIONEXTRACTOR));
-            var right = text.slice(startIndex + this.typedString.length, text.length);
-            if (right.length > 0){
-              components.push(right)
-            }
-            this.currentTypedString = new WebAutomationLanguage.Concatenate(components);
-            this.typedStringParameterizationRelation = relation;
-            return [relationColumnUsed, columns[i]];
-          }
+          var paramed = this.parameterizeForString(relation, columns[i], firstRowNodeRepresentations[i], text, "text");
+          if (paramed){ return [relationColumnUsed, columns[i]]; }
+          var value = columns[i].firstRowValue;
+          var paramed = this.parameterizeForString(relation, columns[i], firstRowNodeRepresentations[i], value, "value");
+          if (paramed){ return [relationColumnUsed, columns[i]]; }
         }
       }
 
@@ -3226,6 +3248,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // this is a duplicate, current loop iteration already done, so we're ready to skip to the next
           // so actually nothing should happen.  the whole entityscope should be a no-op
           entityScope.duplicatesInARow += 1;
+          WALconsole.namedLog("duplicates", "new duplicate", entityScope.duplicatesInARow);
           if (rbboptions.breakAfterXDuplicatesInARow && entityScope.duplicatesInARow >= rbboptions.breakAfterXDuplicatesInARow){
             // ok, we're actually in a special case, because not only are we not doing the body of the entityScope, we're actually breaking out of this loop
             rbboptions.breakMode = true;
@@ -3807,9 +3830,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
       if (relation.demonstrationTimeRelation[0]){
         var firstRowCell = findByXpath(relation.demonstrationTimeRelation[0], colObject.xpath); // for now we're aligning the demonstration items with everything else via xpath.  may not always be best
+        if (!firstRowCell && colObject.xpath.toLowerCase().indexOf("/option[") > -1){
+          // we're in the weird case where we interacted with a pulldown.  assume the options remain the same
+          // even though we never recorded the option during record-time
+          firstRowCell = relation.demonstrationTimeRelation[0][0]; // only one column for pulldown menus
+        }
         if (firstRowCell){
           colObject.firstRowXpath = firstRowCell.xpath;
           colObject.firstRowText = firstRowCell.text;
+          colObject.firstRowValue = firstRowCell.value;
         }
       }
       colObject.index = index;
@@ -3823,6 +3852,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     function initialize(){
       relation.firstRowXPaths = _.pluck(relation.demonstrationTimeRelation[0], "xpath");
       relation.firstRowTexts = _.pluck(relation.demonstrationTimeRelation[0], "text");
+      relation.firstRowValues = _.pluck(relation.demonstrationTimeRelation[0], "value");
     }
     
     if (doInitialization){
@@ -3934,6 +3964,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
       if (usedByTextStatement(statement, this.firstRowTexts)){
         return true;
+      }
+      // one last check, just to see if the typed string is exactly the 'value' (not text) of one node (as in pulldown interaction)
+      for (var i = 0; i < this.firstRowValues.length; i++){
+        if (statement.typedStringLower === this.firstRowValues[i]){
+          return true;
+        }
       }
       // ok, neither the node nor the typed text looks like this relation's cells
       return false;
@@ -4152,7 +4188,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           MiscUtilities.repeatUntil(sendGetRelationItems, function _checkDone(){return doneArray[currentGetRowsCounter] || relationItemsRetrieved[frame];},function(){}, 1000, true);
         });
         // and let's make sure that after our chosen timeout, we'll stop and just process whatever we have
-        var desiredTimeout = 30000; // todo: this timeout should be configurable by the user
+        var desiredTimeout = 60000; // todo: this timeout should be configurable by the user
         setTimeout(
           function _reachedTimeoutHandler(){
             WALconsole.namedLog("getRelationItems", "Reached timeout", currentGetRowsCounter);
@@ -5978,7 +6014,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     };
 
-    var pagesToRelations = {};
     this.processLikelyRelation = function _processLikelyRelation(data){
       WALconsole.log(data);
       if (pagesProcessed[data.page_var_name]){
@@ -5990,23 +6025,27 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       if (data.num_rows_in_demonstration < 2 && data.next_type === NextTypes.NONE){
         // what's the point of showing a relation with only one row?
-        pagesToRelations[data.page_var_name] = null;
       }
       else{
-        var rel = new WebAutomationLanguage.Relation(data.relation_id, data.name, data.selector, data.selector_version, data.exclude_first, data.columns, data.first_page_relation, data.num_rows_in_demonstration, data.page_var_name, data.url, data.next_type, data.next_button_selector, data.frame);
-        pagesToRelations[data.page_var_name] = rel;
-        this.relations.push(rel);
-        this.relations = _.uniq(this.relations);
+        // if we have a normal selector, let's add that to our set of relations
+        if (data.selector){
+          var rel = new WebAutomationLanguage.Relation(data.relation_id, data.name, data.selector, data.selector_version, data.exclude_first, data.columns, data.first_page_relation, data.num_rows_in_demonstration, data.page_var_name, data.url, data.next_type, data.next_button_selector, data.frame);
+          this.relations.push(rel);
+          this.relations = _.uniq(this.relations);
+        }
+        // if we also have pulldown menu selectors, let's add those too
+        if (data.pulldown_relations){
+          for (var i = 0; i < data.pulldown_relations.length; i++){
+            var relMsg = data.pulldown_relations[i];
+            var rel = new WebAutomationLanguage.Relation(relMsg.relation_id, relMsg.name, relMsg.selector, relMsg.selector_version, relMsg.exclude_first, relMsg.columns, relMsg.first_page_relation, relMsg.num_rows_in_demonstration, relMsg.page_var_name, relMsg.url, relMsg.next_type, relMsg.next_button_selector, relMsg.frame);
+            this.relations.push(rel);
+            this.relations = _.uniq(this.relations);
+          }
+        }
       }
 
-      WALconsole.log(pagesToRelations, pagesToNodes);
+      WALconsole.log(pagesToNodes);
       this.insertLoops(true);
-      /*
-      if (_.difference(_.keys(pagesToNodes), _.keys(pagesToRelations)).length === 0) { // pagesToRelations now has all the pages from pagesToNodes
-        // awesome, all the pages have gotten back to us
-        setTimeout(this.insertLoops.bind(this), 0); // bind this to this, since JS runs settimeout func with this pointing to global obj
-      }
-      */
 
       // give the text relations back to the UI-handling component so we can display to user
       return this.relations;

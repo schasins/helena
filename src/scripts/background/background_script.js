@@ -45,7 +45,7 @@ var currently_on = false;
       utilities.sendMessage("background","content","tabID", {tab_id: tab.id, window_id: tab.windowId, top_frame_url: tab.url}, null, null, [tab.id]);
     });
   });
-
+  
   // one of our background services is also running http requests for content scripts because modern chrome doesn't allow https pages to do it directly
   utilities.listenForMessage("content", "background", "postForMe",function(msg){
     $.post(msg.url, msg.params, function(resp){ 

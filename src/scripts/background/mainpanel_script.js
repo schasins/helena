@@ -9,7 +9,9 @@ function setUp(){
   utilities.listenForMessage("content", "mainpanel", "scrapedData", RecorderUI.processScrapedData);
   utilities.listenForMessage("content", "mainpanel", "requestCurrentRecordingWindows", RecorderUI.sendCurrentRecordingWindows);
   utilities.listenForMessage("background", "mainpanel", "runScheduledScript", RecorderUI.runScheduledScript);
-  utilities.listenForMessage("background", "mainpanel", "pleasePrepareForRefresh", RecorderUI.prepareForPageRefresh)
+  utilities.listenForMessage("background", "mainpanel", "pleasePrepareForRefresh", RecorderUI.prepareForPageRefresh);
+
+  utilities.listenForMessage("content", "mainpanel", "requestRingerUseXpathFastMode",function(){utilities.sendMessage("mainpanel","content","ringerUseXpathFastMode", {use: ringerUseXpathFastMode});});
   
 
   MiscUtilities.useCorrectScrapingConditionStrings("#scraping_instructions", "___SCRAPINGCONDITIONSTRING___", "___LINKSCRAPINGCONDITIONSTRING___"); // important to do this one first, what with everything going all stringy
@@ -21,6 +23,8 @@ function setUp(){
   // control blockly look and feel
   Blockly.HSV_SATURATION = 0.7;
   Blockly.HSV_VALUE = 0.97;
+
+  $( document ).tooltip();
 }
 
 $(setUp);
@@ -32,6 +36,7 @@ var recordingWindowIds = [];
 var scrapingRunsCompleted = 0;
 var datasetsScraped = [];
 var currentRunObjects = [];
+var ringerUseXpathFastMode = false;
 
 /**********************************************************************
  * Guide the user through making a demonstration recording
@@ -182,6 +187,7 @@ var RecorderUI = (function () {
     var div = $("#new_script_content");
     DOMCreationUtilities.replaceContent(div, $("#script_preview")); // let's put in the script_preview node
     activateButton(div, "#run", RecorderUI.run);
+    activateButton(div, "#run_fast_mode", RecorderUI.runWithFastMode);
     activateButton(div, "#save", RecorderUI.save);
     activateButton(div, "#replay", RecorderUI.replayOriginal);
     activateButton(div, "#schedule_later", RecorderUI.scheduleLater);
@@ -204,9 +210,18 @@ var RecorderUI = (function () {
     RecorderUI.updateDisplayedRelations(inProgress);
   };
 
-  pub.run = function _run(){
+  pub.run = function _run(fastMode){
+    if (fastMode === undefined){ fastMode = false;}
+    // first set the correct fast mode, which means setting it to false if we haven't gotten true passed in
+    // might still be on from last time
+    ringerUseXpathFastMode = fastMode;
     // run whichever program is currently being displayed (so ReplayScript.prog)
     ReplayScript.prog.run({});
+  };
+
+  pub.runWithFastMode = function _runWithFastMode(){
+    // first turn on fast mode, run
+    pub.run(true);
   };
 
 

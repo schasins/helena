@@ -85,7 +85,7 @@ permalink: /
                 </span>
                 is a browser record and replay tool.
                 Ringer records a user demonstration of a web interaction and writes a straight-line replay script in a low-level language.
-                The replay script is designed to repeat the same interaction on the same webpages, even as those pages change.
+                The replay script is designed to repeat the same interaction on the same webpages, even as the pages' structures and contents change.
                 Rousillon uses Ringer as a building block to record user interactions, then generalizes the straight-line Ringer interactions into loopy, high-level Helena programs.
 
                 <div class="links">
@@ -163,6 +163,18 @@ permalink: /
 
           <div style="clear:both"></div>
 
+
+          <div class="paper project">
+            <div class="header">
+              <div class="lead">The Helena Ecosystem</div>
+            </div>
+            <p>
+              The tools described on this page build on each other.  The Rousillon browser extension uses Ringer to record user interactions.  Ringer's output is a straight-line replay script in a low-level language, which we feed as input to a generalizer.  The generalizer produces a loopy Helena program.  Finally, Rousillon runs the Helena program to execute the web task or collect the target web data.  The diagram below illustrates how the components interact.
+            </p>
+            <img src="./index_files/diagram.svg" alt="A diagram illustrating how our tools fit together.">
+          </div><!-- /diagram -->
+
+          <div style="clear:both"></div>
 
         </div>
         <div class="footer">

@@ -2378,41 +2378,28 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return pbvs;
     };
 
-    this.parameterizeForString = function(relation, column, nodeRep, string, type){
+    this.parameterizeForString = function(relation, column, nodeRep, string){
       if (string === null || string === undefined){
         // can't parameterize for a cell that has null text
         return;
       }
       var textLower = string.toLowerCase();
-      if (type === "text"){
-        var startIndex = this.typedStringLower.indexOf(textLower);
-        if (startIndex > -1){
-          // cool, this is the column for us then
-          var components = [];
-          var left = string.slice(0, startIndex);
-          if (left.length > 0){
-            components.push(left)
-          }
-          components.push(new WebAutomationLanguage.NodeVariable(column.name, nodeRep, null, null, NodeSources.RELATIONEXTRACTOR));
-          var right = string.slice(startIndex + this.typedString.length, string.length);
-          if (right.length > 0){
-            components.push(right)
-          }
-          this.currentTypedString = new WebAutomationLanguage.Concatenate(components);
-          this.typedStringParameterizationRelation = relation;
-          return true;
+      var startIndex = this.typedStringLower.indexOf(textLower);
+      if (startIndex > -1){
+        // cool, this is the column for us then
+        var components = [];
+        var left = string.slice(0, startIndex);
+        if (left.length > 0){
+          components.push(left)
         }
-      }
-      if (type === "value"){
-        // usually we only care about the text of nodes, but sometimes we may care about value
-        // in particular, it appears as though we're typing a value when we click on the 
-        // option in a pulldown/select menu.  we'll want to parameterize if it's exactly the same
-        if (textLower === this.typedStringLower){
-          var nodeVar = new WebAutomationLanguage.NodeVariable(column.name, nodeRep, null, null, NodeSources.RELATIONEXTRACTOR);
-          this.currentTypedString = nodeVar;
-          this.typedStringParameterizationRelation = relation;
-          return true;
+        components.push(new WebAutomationLanguage.NodeVariable(column.name, nodeRep, null, null, NodeSources.RELATIONEXTRACTOR));
+        var right = string.slice(startIndex + this.typedString.length, string.length);
+        if (right.length > 0){
+          components.push(right)
         }
+        this.currentTypedString = new WebAutomationLanguage.Concatenate(components);
+        this.typedStringParameterizationRelation = relation;
+        return true;
       }
       return false;
     }
@@ -2426,10 +2413,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var firstRowNodeRepresentations = relation.firstRowNodeRepresentations();
         for (var i = 0; i < columns.length; i++){
           var text = columns[i].firstRowText;
-          var paramed = this.parameterizeForString(relation, columns[i], firstRowNodeRepresentations[i], text, "text");
-          if (paramed){ return [relationColumnUsed, columns[i]]; }
-          var value = columns[i].firstRowValue;
-          var paramed = this.parameterizeForString(relation, columns[i], firstRowNodeRepresentations[i], value, "value");
+          var paramed = this.parameterizeForString(relation, columns[i], firstRowNodeRepresentations[i], text);
           if (paramed){ return [relationColumnUsed, columns[i]]; }
         }
       }
@@ -3979,12 +3963,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
       if (usedByTextStatement(statement, this.firstRowTexts)){
         return true;
-      }
-      // one last check, just to see if the typed string is exactly the 'value' (not text) of one node (as in pulldown interaction)
-      for (var i = 0; i < this.firstRowValues.length; i++){
-        if (statement.typedStringLower === this.firstRowValues[i]){
-          return true;
-        }
       }
       // ok, neither the node nor the typed text looks like this relation's cells
       return false;

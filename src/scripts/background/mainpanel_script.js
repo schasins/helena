@@ -1340,6 +1340,9 @@ var ReplayScript = (function _ReplayScript() {
           else if (sType === StatementTypes.KEYBOARD || sType === StatementTypes.KEYUP){
             statements.push(new WebAutomationLanguage.TypeStatement(seg));
           }
+          else if (sType === StatementTypes.PULLDOWNINTERACTION){
+            statements.push(new WebAutomationLanguage.PulldownInteractionStatement(seg));
+          }
           break;
         }
       }
@@ -1360,7 +1363,8 @@ var StatementTypes = {
   LOAD: 3,
   SCRAPE: 4,
   SCRAPELINK: 5,
-  KEYUP: 6
+  KEYUP: 6,
+  PULLDOWNINTERACTION: 7
 };
 
 var WebAutomationLanguage = (function _WebAutomationLanguage() {
@@ -1380,7 +1384,12 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return StatementTypes.LOAD;
     }
     else if (ev.type === "dom"){
-      if (statementToEventMapping.mouse.indexOf(ev.data.type) > -1){
+      var lowerXPath = ev.target.xpath.toLowerCase();
+      if (lowerXPath.indexOf("/select[") > -1){
+        // this was some kind of interaction with a pulldown, so we have something special for this
+        return StatementTypes.PULLDOWNINTERACTION;
+      }
+      else if (statementToEventMapping.mouse.indexOf(ev.data.type) > -1){
         if (ev.additional.scrape){
           if (ev.additional.scrape.linkScraping){
             return StatementTypes.SCRAPELINK;
@@ -2735,6 +2744,94 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return [];
     };
     this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
+      return;
+    };
+  };
+
+  pub.PulldownInteractionStatement = function _PulldownInteractionStatement(trace){
+    Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "pulldownInteraction");
+    if (trace){ // we will sometimes initialize with undefined, as when reviving a saved program
+      this.trace = trace;
+      this.cleanTrace = cleanTrace(trace);// find the record-time constants that we'll turn into parameters
+      var ev = firstVisibleEvent(trace);
+      this.pageVar = EventM.getDOMInputPageVar(ev);
+    }
+
+    this.remove = function _remove(){
+      this.parent.removeChild(this);
+    }
+
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
+    this.clearRunningState = function _clearRunningState(){
+      return;
+    }
+
+    this.toStringLines = function _toStringLines(){
+      return ["pulldown interaction"];
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      addToolboxLabel(this.blocklyLabel);
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          this.appendDummyInput()
+              .appendField("pulldown interaction");
+          this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(25);
+        }
+      };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      attachToPrevBlock(this.block, prevBlock);
+      this.block.WALStatement = this;
+      return this.block;
+    };
+
+    this.traverse = function _traverse(fn, fn2){
+      fn(this);
+      fn2(this);
+    };
+
+    this.parameterizeForRelation = function _parameterizeForRelation(relation){
+      return [];
+    };
+    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
+      return;
+    };
+
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      attachToPrevBlock(this.block, prevBlock);
+      this.block.WALStatement = this;
+      return this.block;
+    };
+
+    this.traverse = function _traverse(fn, fn2){
+      fn(this);
+      fn2(this);
+    };
+
+    this.pbvs = function _pbvs(){
+      var pbvs = [];
+      if (this.url !== this.currentUrl){
+        pbvs.push({type:"url", value: this.url});
+      }
+      return pbvs;
+    };
+
+    this.args = function _args(environment){
+      var args = [];
+      return args;
+    };
+
+    this.postReplayProcessing = function _postReplayProcessing(runObject, trace, temporaryStatementIdentifier){
       return;
     };
   };

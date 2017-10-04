@@ -2467,7 +2467,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   };
 
-  
+
   pub.PulldownInteractionStatement = function _PulldownInteractionStatement(trace){
     Revival.addRevivalLabel(this);
     setBlocklyLabel(this, "pulldownInteraction");
@@ -2476,6 +2476,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.cleanTrace = cleanTrace(trace);// find the record-time constants that we'll turn into parameters
       var ev = firstVisibleEvent(trace);
       this.pageVar = EventM.getDOMInputPageVar(ev);
+      this.node = ev.target.xpath;
     }
 
     this.remove = function _remove(){
@@ -2519,6 +2520,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.parameterizeForRelation = function _parameterizeForRelation(relation){
+      // always parameterize for a use of the pulldown
       return [];
     };
     this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
@@ -5730,7 +5732,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // but it should really probably be per-frame, not per tab
       for (var i = 0; i < this.statements.length; i++){
         var s = this.statements[i];
-        if ( (s instanceof WebAutomationLanguage.ScrapeStatement) || (s instanceof WebAutomationLanguage.ClickStatement) ){
+        if ( (s instanceof WebAutomationLanguage.ScrapeStatement) || (s instanceof WebAutomationLanguage.ClickStatement) || (s instanceof WebAutomationLanguage.PulldownInteractionStatement) ){
           var xpath = s.node; // todo: in future, should get the whole node info, not just the xpath, but this is sufficient for now
           var pageVarName = s.pageVar.name; // pagevar is better than url for helping us figure out what was on a given logical page
           var url = s.pageVar.recordTimeUrl;

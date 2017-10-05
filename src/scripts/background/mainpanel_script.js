@@ -2532,7 +2532,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         pbvs.push({type:"tab", value: originalTab(this)});
       }
       if (this.currentNode instanceof WebAutomationLanguage.NodeVariable && this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
-        pbvs.push({type:"node", value: this.origOptionXpath});
+        pbvs.push({type:"node", value: this.node});
       }
       return pbvs;
     };
@@ -2543,16 +2543,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (col){
         this.origTrace = this.trace;
         this.origCleanTrace = this.cleanTrace;
-        var ev = firstVisibleEvent(this.trace);
-        // now let's clone that first event, modify it to do what we want
-        // then update the trace and cleanTrace
-        var newEv = MiscUtilities.dirtyDeepcopy(ev); // clone it.  update it.  put the xpath in the right places.  put a delta for 'selected' being true
-        var origXpath = col.xpath;
-        this.origOptionXpath = origXpath; // we don't really need to change this to the option...  todo: just use the select, change what we pass into the pbvs aboe?
-        newEv.target.xpath = origXpath;
-        newEv.target.snapshot = {xpath: origXpath}; // throw out all the rest of the snapshot items
-        newEv.meta.forceProp = ({selected: true});
-        this.trace = [newEv];
+        var trace = MiscUtilities.dirtyDeepcopy(this.trace); // clone it.  update it.  put the xpath in the right places.  put a delta for 'selected' being true
+        for (var i = 0; i < trace.length; i++){
+          if (trace[i].meta){
+            trace[i].meta.forceProp = ({selected: true});
+          }
+        }
+        this.trace = trace;
         this.cleanTrace = cleanTrace(this.trace);
       }
       return [col];

@@ -1,7 +1,7 @@
 
 var WALconsole = (function _WALconsole() { var pub = {};
 
-  pub.debugging = false;
+  pub.debugging = true;
   pub.showWarnings = true;
   pub.namedDebugging = ["duplicates"]; //["rbb"];//["getRelationItems", "nextInteraction"];
   pub.styleMinimal = true;
@@ -624,6 +624,10 @@ var MiscUtilities = (function _MiscUtilities() { var pub = {};
         dict[key] = val.slice(0, stringLengthLimit);
       }
     }
+  };
+
+  pub.dirtyDeepcopy = function _dirtyDeepcopy(obj){
+    return JSON.parse(JSON.stringify(obj));
   };
 
 return pub; }());

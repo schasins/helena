@@ -647,6 +647,13 @@ function simulate(events, startIndex) {
       addonPreReplay[j](target, oEvent, eventRecord, events);
     }
 
+    /* sometimes a tool will want to force us to set a target property before dispatching event */
+    if (eventRecord.meta.forceProp){
+      for (var key in eventRecord.meta.forceProp){
+        target[key] = eventRecord.meta.forceProp[key];
+      }
+    }
+
     /* actually dispatch the event */ 
     dispatchingEvent = true;
     target.dispatchEvent(oEvent);

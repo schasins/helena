@@ -1372,7 +1372,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   var statementToEventMapping = {
     mouse: ['click','dblclick','mousedown','mousemove','mouseout','mouseover','mouseup'],
-    keyboard: ['keydown','keyup','keypress','textinput','paste','input']
+    keyboard: ['keydown','keyup','keypress','textinput','paste','input'],
+    dontcare: ['blur']
   };
 
   // helper function.  returns the StatementType (see above) that we should associate with the argument event, or null if the event is invisible
@@ -1384,6 +1385,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return StatementTypes.LOAD;
     }
     else if (ev.type === "dom"){
+      if (statementToEventMapping.dontcare.indexOf(ev.data.type) > -1){
+        return null; // who cares where blur events go
+      }
       var lowerXPath = ev.target.xpath.toLowerCase();
       if (lowerXPath.indexOf("/select[") > -1){
         // this was some kind of interaction with a pulldown, so we have something special for this
@@ -1502,7 +1506,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       for (var i = 0; i < relation.firstRowXPaths.length; i++){
         var firstRowXpath = relation.firstRowXPaths[i];
-        if (firstRowXpath === statement.origNode){
+        if (firstRowXpath === statement.origNode || 
+            (statement instanceof WebAutomationLanguage.PulldownInteractionStatement && firstRowXpath.indexOf(statement.origNode) > -1)){
           statement.relation = relation;
           var name = relation.columns[i].name;
           var nodeRep = nodeRepresentations[i];
@@ -2477,6 +2482,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var ev = firstVisibleEvent(trace);
       this.pageVar = EventM.getDOMInputPageVar(ev);
       this.node = ev.target.xpath;
+      this.origNode = this.node;
     }
 
     this.remove = function _remove(){
@@ -2519,12 +2525,56 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       fn2(this);
     };
 
+    this.pbvs = function _pbvs(){
+      var pbvs = [];
+      if (currentTab(this)){
+        // do we actually know the target tab already?  if yes, go ahead and paremterize that
+        pbvs.push({type:"tab", value: originalTab(this)});
+      }
+      if (this.currentNode instanceof WebAutomationLanguage.NodeVariable && this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
+        pbvs.push({type:"node", value: this.origOptionXpath});
+      }
+      return pbvs;
+    };
+
     this.parameterizeForRelation = function _parameterizeForRelation(relation){
-      // always parameterize for a use of the pulldown
-      return [];
+      var col = parameterizeNodeWithRelation(this, relation, this.pageVar);
+      // if we did actually parameterize, we need to do something kind of weird.  need to replace the trace with something that just sets 'selected' to true for the target node
+      if (col){
+        this.origTrace = this.trace;
+        this.origCleanTrace = this.cleanTrace;
+        var ev = firstVisibleEvent(this.trace);
+        // now let's clone that first event, modify it to do what we want
+        // then update the trace and cleanTrace
+        var newEv = MiscUtilities.dirtyDeepcopy(ev); // clone it.  update it.  put the xpath in the right places.  put a delta for 'selected' being true
+        var origXpath = col.xpath;
+        this.origOptionXpath = origXpath; // we don't really need to change this to the option...  todo: just use the select, change what we pass into the pbvs aboe?
+        newEv.target.xpath = origXpath;
+        newEv.target.snapshot = {xpath: origXpath}; // throw out all the rest of the snapshot items
+        newEv.meta.forceProp = ({selected: true});
+        this.trace = [newEv];
+        this.cleanTrace = cleanTrace(this.trace);
+      }
+      return [col];
     };
     this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
-      return;
+      var col = unParameterizeNodeWithRelation(this, relation);
+      // if we did find a col, need to undo the thing where we replaced the trace with the 'selected' update, put the old trace back in
+      if (col){
+        this.trace = this.origTrace;
+        this.cleanTrace = this.origCleanTrace;
+        this.origTrace = null; // just to be clean
+        this.origCleanTrace = null;
+      }
+    };
+
+    this.args = function _args(environment){
+      var args = [];
+      args.push({type:"tab", value: currentTab(this)});
+      if (this.currentNode instanceof WebAutomationLanguage.NodeVariable && this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
+        args.push({type:"node", value: currentNodeXpath(this, environment)});
+      }
+      return args;
     };
 
 
@@ -2538,19 +2588,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.traverse = function _traverse(fn, fn2){
       fn(this);
       fn2(this);
-    };
-
-    this.pbvs = function _pbvs(){
-      var pbvs = [];
-      if (this.url !== this.currentUrl){
-        pbvs.push({type:"url", value: this.url});
-      }
-      return pbvs;
-    };
-
-    this.args = function _args(environment){
-      var args = [];
-      return args;
     };
 
     this.postReplayProcessing = function _postReplayProcessing(runObject, trace, temporaryStatementIdentifier){
@@ -4055,14 +4092,30 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       columnObj.name = v;
     };
 
+    function usedByPulldownStatement(statement, firstRowXPaths){
+      if (statement instanceof WebAutomationLanguage.PulldownInteractionStatement){
+        var xpath = statement.node;
+        for (var i = 0; i < firstRowXPaths.length; i++){
+          var cXpath = firstRowXPaths[i];
+          if (cXpath.indexOf(xpath) > -1){ // so if the xpath of the pulldown menu appears in the xpath of the first row cell
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
     this.usedByStatement = function _usedByStatement(statement){
-      if (!((statement instanceof WebAutomationLanguage.ScrapeStatement) || (statement instanceof WebAutomationLanguage.ClickStatement) || (statement instanceof WebAutomationLanguage.TypeStatement) || (statement instanceof WebAutomationLanguage.LoadStatement))){
+      if (!((statement instanceof WebAutomationLanguage.ScrapeStatement) || (statement instanceof WebAutomationLanguage.ClickStatement) || (statement instanceof WebAutomationLanguage.TypeStatement) || (statement instanceof WebAutomationLanguage.LoadStatement) || (statement instanceof WebAutomationLanguage.PulldownInteractionStatement))){
         return false;
       }
       if (statement.pageVar && this.pageVarName === statement.pageVar.name && this.firstRowXPaths.indexOf(statement.node) > -1){
         return true;
       }
       if (usedByTextStatement(statement, this.firstRowTexts)){
+        return true;
+      }
+      if (usedByPulldownStatement(statement, this.firstRowXPaths)){
         return true;
       }
       // ok, neither the node nor the typed text looks like this relation's cells
@@ -5027,7 +5080,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 || statement instanceof WebAutomationLanguage.ClickStatement
                 || statement instanceof WebAutomationLanguage.ScrapeStatement
                 || statement instanceof WebAutomationLanguage.TypeStatement
-                || statement instanceof WebAutomationLanguage.OutputRowStatement);
+                || statement instanceof WebAutomationLanguage.OutputRowStatement
+                || statement instanceof WebAutomationLanguage.PulldownInteractionStatement
+                );
     }
 
     function determineNextBlockStartIndex(loopyStatements){

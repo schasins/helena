@@ -282,7 +282,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       return cells;      
     }
     else if (selector.selector_version === 2){
-      var optionNodes = pub.interpretPulldownSelector(selector);
+      var optionNodes = pub.interpretPulldownSelector(selector.selector); // todo: ugh, gross that we descend here butnot in the above
       var cells = _.map(optionNodes, function(o){return [o];});
       return cells;
     }

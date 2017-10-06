@@ -825,7 +825,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       newMsg.columns = [{
         id: null,
         index: 0, // only one column
-        name: "option",
+        name: newMsg.name + "_option",
         suffix: [],
         xpath: firstRowXpath
       }];

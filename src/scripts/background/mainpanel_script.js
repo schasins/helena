@@ -5225,6 +5225,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     function doTheReplay(runnableTrace, config, basicBlockStatements, runObject, loopyStatements, nextBlockStartIndex, callback, options){
+      // first let's throw out any wait time on the first event, since no need to wait for that
+      if (runnableTrace.length > 0){
+        runnableTrace[0].timing.waitTime = 0;
+      }
       SimpleRecord.replay(runnableTrace, config, function(replayObject){
         // use what we've observed in the replay to update page variables
         WALconsole.namedLog("rbb", "replayObject", replayObject);

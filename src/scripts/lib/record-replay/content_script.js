@@ -495,6 +495,13 @@ function simulate(events, startIndex) {
       return;
     }
 
+    if (!target && eventRecord.data.type === "blur"){
+      // never wait to run blur event on node that doesn't currently exist.  doesn't make any sense to do that
+      replayLog.warn('timeout finding target for blur event, skip event: ', events, i);
+      // we timed out with this target, so lets skip the event
+      i++;
+    }
+
     /* if no target exists, lets try to dispatch this event a little bit in
      *the future, and hope the page changes */
     if (!target || target === "TIMEDOUTNODE" || target === "REQUIREDFEATUREFAILURE") {

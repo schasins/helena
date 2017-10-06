@@ -2525,17 +2525,20 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       fn2(this);
     };
 
-    this.pbvs = function _pbvs(){
-      var pbvs = [];
-      if (currentTab(this)){
-        // do we actually know the target tab already?  if yes, go ahead and paremterize that
-        pbvs.push({type:"tab", value: originalTab(this)});
+    function deleteAPropDelta(trace, propertyName){
+      for (var i = 0; i< trace.length; i++){
+        if (trace[i].type !== "dom"){ continue;}
+        var deltas = trace[i].meta.deltas;
+        if (deltas){
+          for (var j = 0; j < deltas.length; j++){
+            var delta = deltas[j];
+            if (delta.divergingProp === propertyName){
+              deltas.splice(j, 1); // throw out the relevant delta
+            }
+          }
+        }
       }
-      if (this.currentNode instanceof WebAutomationLanguage.NodeVariable && this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
-        pbvs.push({type:"node", value: this.node});
-      }
-      return pbvs;
-    };
+    }
 
     this.parameterizeForRelation = function _parameterizeForRelation(relation){
       var col = parameterizeNodeWithRelation(this, relation, this.pageVar);
@@ -2549,11 +2552,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
             trace[i].meta.forceProp = ({selected: true});
           }
         }
+        deleteAPropDelta(trace, "value"); // don't try to update the value of select node just update the selectindex
         this.trace = trace;
         this.cleanTrace = cleanTrace(this.trace);
       }
       return [col];
     };
+
     this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
       var col = unParameterizeNodeWithRelation(this, relation);
       // if we did find a col, need to undo the thing where we replaced the trace with the 'selected' update, put the old trace back in
@@ -2565,11 +2570,62 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     };
 
+    function firstUpdateToProp(trace, propertyName){
+      for (var i = 0; i< trace.length; i++){
+        if (trace[i].type !== "dom"){ continue;}
+        var deltas = trace[i].meta.deltas;
+        if (deltas){
+          for (var j = 0; j < deltas.length; j++){
+            var delta = deltas[j];
+            if (delta.divergingProp === propertyName){
+              var props = delta.changed.prop;
+              for (var key in props){
+                if (key === propertyName){
+                  // phew, finally found it.  grab it from the changed, not the original snapshot (want what it changed to)
+                  return delta.changed.prop[key];
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    this.pbvs = function _pbvs(){
+      var pbvs = [];
+      if (currentTab(this)){
+        // do we actually know the target tab already?  if yes, go ahead and paremterize that
+        pbvs.push({type:"tab", value: originalTab(this)});
+      }
+      if (this.currentNode instanceof WebAutomationLanguage.NodeVariable && this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
+        //pbvs.push({type:"node", value: this.node});
+        // crucial to make sure that selectedIndex for the select node gets updated
+        // otherwise things don't change and it doesn't matter if change event is raised
+        // what index was selected in the recording?
+        var origVal = firstUpdateToProp(this.trace, "selectedIndex");
+        var originalValDict = {property: "selectedIndex", value: origVal};
+        pbvs.push({type:"property", value: originalValDict});
+      }
+      return pbvs;
+    };
+
     this.args = function _args(environment){
       var args = [];
       args.push({type:"tab", value: currentTab(this)});
       if (this.currentNode instanceof WebAutomationLanguage.NodeVariable && this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
-        args.push({type:"node", value: currentNodeXpath(this, environment)});
+        //args.push({type:"node", value: currentNodeXpath(this, environment)});
+        // crucial to make sure that selectedIndex for the select node gets updated
+        // otherwise things don't change and it doesn't matter if change event is raised
+
+        // extract the correct selectedIndex from the xpath of the current option node
+        var xpath = currentNodeXpath(this, environment);
+        WALconsole.log("currentNodeXpath", xpath);
+        var segments = xpath.split("[")
+        var indexOfNextOption = segments[segments.length - 1].split("]")[0]; 
+        indexOfNextOption = parseInt(indexOfNextOption);
+        var valDict = {property: "selectedIndex", value: indexOfNextOption};
+
+        args.push({type:"property", value: valDict});
       }
       return args;
     };
@@ -4363,7 +4419,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     var getNextRowCounter = 0;
     this.getNextRow = function _getNextRow(pageVar, callback){ // has to be called on a page, since a relation selector can be applied to many pages.  higher-level tool must control where to apply
-      // todo: this is a very simplified version that assumes there's only one page of results.  add the rest soon.
 
       // ok, what's the page info on which we're manipulating this relation?
       WALconsole.log(pageVar.pageRelations);
@@ -4383,6 +4438,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         prinfo.runNextInteraction = false; // have to turn that flag back off so we don't fall back into here after running the next interaction
         getNextRowCounter += 1;
         // ok, we had some data but we've run out.  time to try running the next button interaction and see if we can retrieve some more
+
+        // the one exception, the case where we don't even want to bother asking the page is if we already know
+        // there's no next button, no way to get additional pages.  in that case, just know the loop is done
+        // and call the callback with false as the moreRows argument
+        if (this.nextType === NextTypes.NOMOREITEMS || (!this.nextButtonSelector && this.nextType !== NextTypes.SCROLLFORMORE )){
+          callback(false);
+          return;
+        }
 
         // the function for continuing once we've done a next interaction
         var continueWithANewPage = function _continueWithANewPage(){
@@ -5390,6 +5453,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         function cleanupAfterLoopEnd(){
           loopStatement.rowsSoFar = 0;
 
+          var prinfo = loopStatement.pageVar.pageRelations[loopStatement.relation.name+"_"+loopStatement.relation.id];
+          WALconsole.log("prinfo in cleanup", prinfo);
+          // have to get rid of this prinfo in case (as when a pulldown menu is dynamically adjusted
+          // by another, and so we want to come back and get it again later) we'll want to scrape
+          // the same relation fresh from the same page later
+          loopStatement.pageVar.pageRelations[loopStatement.relation.name+"_"+loopStatement.relation.id] = undefined;
+
           // time to run end-of-loop-cleanup on the various bodyStatements
           loopStatement.traverse(function(statement){
             if (statement.endOfLoopCleanup){
@@ -5672,6 +5742,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           else if (currPbv.type === "frame"){
             pTrace.parameterizeFrame(pname, currPbv.value);
           }
+          else if (currPbv.type === "property"){
+            pTrace.parameterizeProperty(pname, currPbv.value);
+          }
           else{
             WALconsole.log("Tried to do pbv on a type we don't know.");
           }
@@ -5737,6 +5810,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }
           else if (currArg.type === "frame"){
             pTrace.useFrame(pname, currArg.value);
+          }
+          else if (currArg.type === "property"){
+            pTrace.useProperty(pname, currArg.value);
           }
           else{
             WALconsole.log("Tried to do pbv on a type we don't know. (Arg provision.)");

@@ -719,6 +719,7 @@ function fixDeltas(recordDeltas, replayDeltas, lastTarget) {
       var divProp = delta.divergingProp;
       if (params.replay.compensation == CompensationAction.FORCED) {
         element[divProp] = delta.orig.prop[divProp];
+        WALconsole.log("updated prop", divProp, " to ", delta.orig.prop[divProp]);
       }
     }
   }
@@ -731,6 +732,7 @@ function fixDeltas(recordDeltas, replayDeltas, lastTarget) {
     if (delta.type == 'Property is different.') {
       var divProp = delta.divergingProp;
       if (params.replay.compensation == CompensationAction.FORCED) {
+        WALconsole.log("updated prop", divProp, " to ", delta.changed.prop[divProp]);
         element[divProp] = delta.changed.prop[divProp];
       }
     }

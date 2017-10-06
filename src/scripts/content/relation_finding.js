@@ -810,21 +810,7 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       var options = extractOptionNodesFromSelectorNode(node);
       var optionsRelation = extractOptionsRelationFromSelectorNode(node);
       var firstRowXpath = optionsRelation[0][0].xpath;
-      var excludeFirst = 0;
-      for (var j = 0; j < options.length; j++){
-        var op = options[j];
-        if (op.value === ""){
-          excludeFirst = j + 1;
-        }
-        else{
-          // as soon as we find any option with a value, assume it's the start
-          break;
-        }
-      }
-      if (excludeFirst === options.length){
-        // ugh, they all had no value.  guess we have no info
-        excludeFirst = 0;
-      }
+      var excludeFirst = 0; // convenient to always use 0 so we can correctly index into the relation
       optionsRelation = optionsRelation.splice(excludeFirst, optionsRelation.length);
 
       newMsg.relation_id = null;
@@ -1503,6 +1489,12 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
       }
     }
     else if (next_button_type === NextTypes.NONE){
+      // there's no next button, so it's usually safe to assume there are no more items
+      // exception is when we have, for instance, a dropdown that gets updated because of other dropdowns
+      // when that happens, don't want to say there are no more items available.
+      // current idea for dealing with this...just don't ask to run the next interaction in the case
+      // where we know there's no next button, so this won't get set, and we can just come back and ask
+      // after doing whatever causes new items, ask for new items and be pleasantly surprised that some are there
       noMoreItemsAvailable[sid] = true;
     }
     else{

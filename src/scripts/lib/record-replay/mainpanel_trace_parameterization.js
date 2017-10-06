@@ -38,6 +38,56 @@ function ParameterizedTrace(trace){
 			}
 		}
 	};
+
+	/* property parameterization */
+
+	this.parameterizeProperty = function(parameter_name, original_value) {
+		var propertyName = original_value.property;
+		var propertyOriginalValue = original_value.value;
+		for (var i = 0; i< trace.length; i++){
+			if (trace[i].type !== "dom"){ continue;}
+			var deltas = trace[i].meta.deltas;
+			if (deltas){
+				for (var j = 0; j < deltas.length; j++){
+					var delta = deltas[j];
+					if (delta.divergingProp === propertyName){
+						var props = delta.changed.prop;
+						for (var key in props){
+							if (key === propertyName && props[key] === propertyOriginalValue){
+								// phew, finally found it.  put in the placeholder
+								WALconsole.log("putting a hole in for a prop", original_value);
+								delta.changed.prop[key] = {name: parameter_name, value: null, orig_value: propertyOriginalValue};
+							}
+						}
+					}
+				}
+			}
+		}
+	};
+
+	this.useProperty = function(parameter_name, value) {
+		var propertyName = value.property;
+		var propertyValue = value.value;
+		for (var i = 0; i< trace.length; i++){
+			if (trace[i].type !== "dom"){ continue;}
+			var deltas = trace[i].meta.deltas;
+			if (deltas){
+				for (var j = 0; j < deltas.length; j++){
+					var delta = deltas[j];
+					if (delta.divergingProp === propertyName){
+						var props = delta.changed.prop;
+						for (var key in props){
+							if (key === propertyName && props[key].name === parameter_name){
+								// phew, finally found it.
+								WALconsole.log("use prop", value);
+								delta.changed.prop[key].value = propertyValue;
+							}
+						}
+					}
+				}
+			}
+		}
+	};
 	
 	/* user-typed string parameterization */
 	
@@ -325,6 +375,21 @@ function ParameterizedTrace(trace){
 						if (xpath === correction_xpath){
 							var d = prop_corrections[correction_xpath];
 							deltaReplace(cloned_trace[i].meta.deltas, d.prop, d.orig_value, d.value);		
+						}
+					}
+				}
+				// do explicit pbv prop corrections (for deltas that we need to cause)
+				var deltas = cloned_trace[i].meta.deltas;
+				if (deltas){
+					for (var j = 0; j < deltas.length; j++){
+						var delta = deltas[j];
+						var props = delta.changed.prop;
+						for (var key in props){
+							if (props[key] && props[key].value){
+								// phew, finally found it.  put in the placeholder
+								WALconsole.log("Correcting prop to", props[key].value);
+								cloned_trace[i].meta.deltas[j].changed.prop[key] = props[key].value;
+							}
 						}
 					}
 				}

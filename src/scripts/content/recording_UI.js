@@ -188,6 +188,10 @@ var Scraping = (function _Scraping() { var pub = {};
   pub.startProcessingScrape = function _startProcessingScrape(){
     additional_recording_handlers_on.scrape = true;
     additional_recording_filters_on.scrape = true;
+    if (!currentlyRecording()){
+      // don't want to run this visualization stuff if we're in replay mode rather than recording mode, even though of course we're recording during replay
+      return;
+    }
     currentHighlightNode = Highlight.highlightNode(mostRecentMousemoveTarget, "#E04343", true, false); // want highlight shown now, want clicks to fall through
   }
 
@@ -198,11 +202,19 @@ var Scraping = (function _Scraping() { var pub = {};
   }
 
   pub.scrapingMousein = function _scrapingMousein(event){
+    if (!currentlyRecording()){
+      // don't want to run this visualization stuff if we're in replay mode rather than recording mode, even though of course we're recording during replay
+      return;
+    }
     Highlight.clearHighlight(currentHighlightNode);
     currentHighlightNode = Highlight.highlightNode(MiscUtilities.targetFromEvent(event), "#E04343", true, false);
   };
 
   pub.scrapingMouseout = function _scrapingMouseout(event){
+    if (!currentlyRecording()){
+      // don't want to run this visualization stuff if we're in replay mode rather than recording mode, even though of course we're recording during replay
+      return;
+    }
     Highlight.clearHighlight(currentHighlightNode);
   };
 

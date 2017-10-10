@@ -495,6 +495,13 @@ function simulate(events, startIndex) {
       return;
     }
 
+    if (!target && eventRecord.data.type === "blur"){
+      // never wait to run blur event on node that doesn't currently exist.  doesn't make any sense to do that
+      replayLog.warn('timeout finding target for blur event, skip event: ', events, i);
+      // we timed out with this target, so lets skip the event
+      i++;
+    }
+
     /* if no target exists, lets try to dispatch this event a little bit in
      *the future, and hope the page changes */
     if (!target || target === "TIMEDOUTNODE" || target === "REQUIREDFEATUREFAILURE") {
@@ -647,6 +654,13 @@ function simulate(events, startIndex) {
       addonPreReplay[j](target, oEvent, eventRecord, events);
     }
 
+    /* sometimes a tool will want to force us to set a target property before dispatching event */
+    if (eventRecord.meta.forceProp){
+      for (var key in eventRecord.meta.forceProp){
+        target[key] = eventRecord.meta.forceProp[key];
+      }
+    }
+
     /* actually dispatch the event */ 
     dispatchingEvent = true;
     target.dispatchEvent(oEvent);
@@ -712,6 +726,7 @@ function fixDeltas(recordDeltas, replayDeltas, lastTarget) {
       var divProp = delta.divergingProp;
       if (params.replay.compensation == CompensationAction.FORCED) {
         element[divProp] = delta.orig.prop[divProp];
+        WALconsole.log("updated prop", divProp, " to ", delta.orig.prop[divProp]);
       }
     }
   }
@@ -724,6 +739,7 @@ function fixDeltas(recordDeltas, replayDeltas, lastTarget) {
     if (delta.type == 'Property is different.') {
       var divProp = delta.divergingProp;
       if (params.replay.compensation == CompensationAction.FORCED) {
+        WALconsole.log("updated prop", divProp, " to ", delta.changed.prop[divProp]);
         element[divProp] = delta.changed.prop[divProp];
       }
     }

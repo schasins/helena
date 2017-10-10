@@ -1,0 +1,10 @@
+# global settings
+title: "Helena"
+description: "Web Automation for End Users"
+
+# build settings
+exclude: ["readme.md"]
+
+sass:
+  # Where you keep your scss files
+  sass_dir: assets/css/

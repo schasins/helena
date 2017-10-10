@@ -9,6 +9,11 @@ var targetFunctions;
 var saveTargetInfo;
 var markTimedOut;
 var markNonExistantFeatures;
+var ringerUseXpathFastMode = false; // good for speed, bad for evolving webpages.
+
+
+utilities.listenForMessage("mainpanel", "content", "ringerUseXpathFastMode", function(msg){ringerUseXpathFastMode = msg.use;});
+utilities.sendMessage("content", "mainpanel", "requestRingerUseXpathFastMode", {});
 
 (function() {
   var log = getLog('target');
@@ -371,13 +376,12 @@ function getFeatures(element){
     return getTargetForSimilarityHelper(targetInfo, candidates);
   };
 
-  var xpathOnly = true; // good for speed, bad for evolving webpages.  todo: make this a user-facing optimizaiton option
   var getTargetForSimilarityFilteredByText = function(targetInfo, filterFeatures) {
     WALconsole.log("getTargetForSimilarityFiltered", targetInfo, filterFeatures);
     if (filterFeatures === undefined){ filterFeatures = []; }
 
     var unfilteredCandidates = [];
-    if (xpathOnly || filterFeatures.indexOf("xpath") > -1){
+    if (ringerUseXpathFastMode || filterFeatures.indexOf("xpath") > -1){
       // this is a special case, where we can just speed it up by using the xpath they want, since it's a required feature
       var nodes = xPathToNodes(targetInfo.xpath);
       unfilteredCandidates = nodes;

@@ -9,7 +9,9 @@ function setUp(){
   utilities.listenForMessage("content", "mainpanel", "scrapedData", RecorderUI.processScrapedData);
   utilities.listenForMessage("content", "mainpanel", "requestCurrentRecordingWindows", RecorderUI.sendCurrentRecordingWindows);
   utilities.listenForMessage("background", "mainpanel", "runScheduledScript", RecorderUI.runScheduledScript);
-  utilities.listenForMessage("background", "mainpanel", "pleasePrepareForRefresh", RecorderUI.prepareForPageRefresh)
+  utilities.listenForMessage("background", "mainpanel", "pleasePrepareForRefresh", RecorderUI.prepareForPageRefresh);
+
+  utilities.listenForMessage("content", "mainpanel", "requestRingerUseXpathFastMode",function(){utilities.sendMessage("mainpanel","content","ringerUseXpathFastMode", {use: ringerUseXpathFastMode});});
   
 
   MiscUtilities.useCorrectScrapingConditionStrings("#scraping_instructions", "___SCRAPINGCONDITIONSTRING___", "___LINKSCRAPINGCONDITIONSTRING___"); // important to do this one first, what with everything going all stringy
@@ -21,6 +23,8 @@ function setUp(){
   // control blockly look and feel
   Blockly.HSV_SATURATION = 0.7;
   Blockly.HSV_VALUE = 0.97;
+
+  $( document ).tooltip();
 }
 
 $(setUp);
@@ -32,6 +36,7 @@ var recordingWindowIds = [];
 var scrapingRunsCompleted = 0;
 var datasetsScraped = [];
 var currentRunObjects = [];
+var ringerUseXpathFastMode = false;
 
 /**********************************************************************
  * Guide the user through making a demonstration recording
@@ -182,6 +187,7 @@ var RecorderUI = (function () {
     var div = $("#new_script_content");
     DOMCreationUtilities.replaceContent(div, $("#script_preview")); // let's put in the script_preview node
     activateButton(div, "#run", RecorderUI.run);
+    activateButton(div, "#run_fast_mode", RecorderUI.runWithFastMode);
     activateButton(div, "#save", RecorderUI.save);
     activateButton(div, "#replay", RecorderUI.replayOriginal);
     activateButton(div, "#schedule_later", RecorderUI.scheduleLater);
@@ -204,9 +210,18 @@ var RecorderUI = (function () {
     RecorderUI.updateDisplayedRelations(inProgress);
   };
 
-  pub.run = function _run(){
+  pub.run = function _run(fastMode){
+    if (fastMode === undefined){ fastMode = false;}
+    // first set the correct fast mode, which means setting it to false if we haven't gotten true passed in
+    // might still be on from last time
+    ringerUseXpathFastMode = fastMode;
     // run whichever program is currently being displayed (so ReplayScript.prog)
     ReplayScript.prog.run({});
+  };
+
+  pub.runWithFastMode = function _runWithFastMode(){
+    // first turn on fast mode, run
+    pub.run(true);
   };
 
 
@@ -1325,6 +1340,9 @@ var ReplayScript = (function _ReplayScript() {
           else if (sType === StatementTypes.KEYBOARD || sType === StatementTypes.KEYUP){
             statements.push(new WebAutomationLanguage.TypeStatement(seg));
           }
+          else if (sType === StatementTypes.PULLDOWNINTERACTION){
+            statements.push(new WebAutomationLanguage.PulldownInteractionStatement(seg));
+          }
           break;
         }
       }
@@ -1345,7 +1363,8 @@ var StatementTypes = {
   LOAD: 3,
   SCRAPE: 4,
   SCRAPELINK: 5,
-  KEYUP: 6
+  KEYUP: 6,
+  PULLDOWNINTERACTION: 7
 };
 
 var WebAutomationLanguage = (function _WebAutomationLanguage() {
@@ -1353,7 +1372,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   var statementToEventMapping = {
     mouse: ['click','dblclick','mousedown','mousemove','mouseout','mouseover','mouseup'],
-    keyboard: ['keydown','keyup','keypress','textinput','paste','input']
+    keyboard: ['keydown','keyup','keypress','textinput','paste','input'],
+    dontcare: ['blur']
   };
 
   // helper function.  returns the StatementType (see above) that we should associate with the argument event, or null if the event is invisible
@@ -1365,7 +1385,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return StatementTypes.LOAD;
     }
     else if (ev.type === "dom"){
-      if (statementToEventMapping.mouse.indexOf(ev.data.type) > -1){
+      if (statementToEventMapping.dontcare.indexOf(ev.data.type) > -1){
+        return null; // who cares where blur events go
+      }
+      var lowerXPath = ev.target.xpath.toLowerCase();
+      if (lowerXPath.indexOf("/select[") > -1){
+        // this was some kind of interaction with a pulldown, so we have something special for this
+        return StatementTypes.PULLDOWNINTERACTION;
+      }
+      else if (statementToEventMapping.mouse.indexOf(ev.data.type) > -1){
         if (ev.additional.scrape){
           if (ev.additional.scrape.linkScraping){
             return StatementTypes.SCRAPELINK;
@@ -1478,7 +1506,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
       for (var i = 0; i < relation.firstRowXPaths.length; i++){
         var firstRowXpath = relation.firstRowXPaths[i];
-        if (firstRowXpath === statement.origNode){
+        if (firstRowXpath === statement.origNode || 
+            (statement instanceof WebAutomationLanguage.PulldownInteractionStatement && firstRowXpath.indexOf(statement.origNode) > -1)){
           statement.relation = relation;
           var name = relation.columns[i].name;
           var nodeRep = nodeRepresentations[i];
@@ -2363,41 +2392,28 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return pbvs;
     };
 
-    this.parameterizeForString = function(relation, column, nodeRep, string, type){
+    this.parameterizeForString = function(relation, column, nodeRep, string){
       if (string === null || string === undefined){
         // can't parameterize for a cell that has null text
         return;
       }
       var textLower = string.toLowerCase();
-      if (type === "text"){
-        var startIndex = this.typedStringLower.indexOf(textLower);
-        if (startIndex > -1){
-          // cool, this is the column for us then
-          var components = [];
-          var left = string.slice(0, startIndex);
-          if (left.length > 0){
-            components.push(left)
-          }
-          components.push(new WebAutomationLanguage.NodeVariable(column.name, nodeRep, null, null, NodeSources.RELATIONEXTRACTOR));
-          var right = string.slice(startIndex + this.typedString.length, string.length);
-          if (right.length > 0){
-            components.push(right)
-          }
-          this.currentTypedString = new WebAutomationLanguage.Concatenate(components);
-          this.typedStringParameterizationRelation = relation;
-          return true;
+      var startIndex = this.typedStringLower.indexOf(textLower);
+      if (startIndex > -1){
+        // cool, this is the column for us then
+        var components = [];
+        var left = string.slice(0, startIndex);
+        if (left.length > 0){
+          components.push(left)
         }
-      }
-      if (type === "value"){
-        // usually we only care about the text of nodes, but sometimes we may care about value
-        // in particular, it appears as though we're typing a value when we click on the 
-        // option in a pulldown/select menu.  we'll want to parameterize if it's exactly the same
-        if (textLower === this.typedStringLower){
-          var nodeVar = new WebAutomationLanguage.NodeVariable(column.name, nodeRep, null, null, NodeSources.RELATIONEXTRACTOR);
-          this.currentTypedString = nodeVar;
-          this.typedStringParameterizationRelation = relation;
-          return true;
+        components.push(new WebAutomationLanguage.NodeVariable(column.name, nodeRep, null, null, NodeSources.RELATIONEXTRACTOR));
+        var right = string.slice(startIndex + this.typedString.length, string.length);
+        if (right.length > 0){
+          components.push(right)
         }
+        this.currentTypedString = new WebAutomationLanguage.Concatenate(components);
+        this.typedStringParameterizationRelation = relation;
+        return true;
       }
       return false;
     }
@@ -2411,10 +2427,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var firstRowNodeRepresentations = relation.firstRowNodeRepresentations();
         for (var i = 0; i < columns.length; i++){
           var text = columns[i].firstRowText;
-          var paramed = this.parameterizeForString(relation, columns[i], firstRowNodeRepresentations[i], text, "text");
-          if (paramed){ return [relationColumnUsed, columns[i]]; }
-          var value = columns[i].firstRowValue;
-          var paramed = this.parameterizeForString(relation, columns[i], firstRowNodeRepresentations[i], value, "value");
+          var paramed = this.parameterizeForString(relation, columns[i], firstRowNodeRepresentations[i], text);
           if (paramed){ return [relationColumnUsed, columns[i]]; }
         }
       }
@@ -2458,6 +2471,183 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
   };
+
+
+  pub.PulldownInteractionStatement = function _PulldownInteractionStatement(trace){
+    Revival.addRevivalLabel(this);
+    setBlocklyLabel(this, "pulldownInteraction");
+    if (trace){ // we will sometimes initialize with undefined, as when reviving a saved program
+      this.trace = trace;
+      this.cleanTrace = cleanTrace(trace);// find the record-time constants that we'll turn into parameters
+      var ev = firstVisibleEvent(trace);
+      this.pageVar = EventM.getDOMInputPageVar(ev);
+      this.node = ev.target.xpath;
+      this.origNode = this.node;
+    }
+
+    this.remove = function _remove(){
+      this.parent.removeChild(this);
+    }
+
+    this.prepareToRun = function _prepareToRun(){
+      return;
+    };
+    this.clearRunningState = function _clearRunningState(){
+      return;
+    }
+
+    this.toStringLines = function _toStringLines(){
+      return ["pulldown interaction"];
+    };
+
+    this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
+      addToolboxLabel(this.blocklyLabel);
+      Blockly.Blocks[this.blocklyLabel] = {
+        init: function() {
+          this.appendDummyInput()
+              .appendField("pulldown interaction");
+          this.setPreviousStatement(true, null);
+          this.setNextStatement(true, null);
+          this.setColour(280);
+        }
+      };
+    };
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      attachToPrevBlock(this.block, prevBlock);
+      this.block.WALStatement = this;
+      return this.block;
+    };
+
+    this.traverse = function _traverse(fn, fn2){
+      fn(this);
+      fn2(this);
+    };
+
+    function deleteAPropDelta(trace, propertyName){
+      for (var i = 0; i< trace.length; i++){
+        if (trace[i].type !== "dom"){ continue;}
+        var deltas = trace[i].meta.deltas;
+        if (deltas){
+          for (var j = 0; j < deltas.length; j++){
+            var delta = deltas[j];
+            if (delta.divergingProp === propertyName){
+              deltas.splice(j, 1); // throw out the relevant delta
+            }
+          }
+        }
+      }
+    }
+
+    this.parameterizeForRelation = function _parameterizeForRelation(relation){
+      var col = parameterizeNodeWithRelation(this, relation, this.pageVar);
+      // if we did actually parameterize, we need to do something kind of weird.  need to replace the trace with something that just sets 'selected' to true for the target node
+      if (col){
+        this.origTrace = this.trace;
+        this.origCleanTrace = this.cleanTrace;
+        var trace = MiscUtilities.dirtyDeepcopy(this.trace); // clone it.  update it.  put the xpath in the right places.  put a delta for 'selected' being true
+        for (var i = 0; i < trace.length; i++){
+          if (trace[i].meta){
+            trace[i].meta.forceProp = ({selected: true});
+          }
+        }
+        deleteAPropDelta(trace, "value"); // don't try to update the value of select node just update the selectindex
+        this.trace = trace;
+        this.cleanTrace = cleanTrace(this.trace);
+      }
+      return [col];
+    };
+
+    this.unParameterizeForRelation = function _unParameterizeForRelation(relation){
+      var col = unParameterizeNodeWithRelation(this, relation);
+      // if we did find a col, need to undo the thing where we replaced the trace with the 'selected' update, put the old trace back in
+      if (col){
+        this.trace = this.origTrace;
+        this.cleanTrace = this.origCleanTrace;
+        this.origTrace = null; // just to be clean
+        this.origCleanTrace = null;
+      }
+    };
+
+    function firstUpdateToProp(trace, propertyName){
+      for (var i = 0; i< trace.length; i++){
+        if (trace[i].type !== "dom"){ continue;}
+        var deltas = trace[i].meta.deltas;
+        if (deltas){
+          for (var j = 0; j < deltas.length; j++){
+            var delta = deltas[j];
+            if (delta.divergingProp === propertyName){
+              var props = delta.changed.prop;
+              for (var key in props){
+                if (key === propertyName){
+                  // phew, finally found it.  grab it from the changed, not the original snapshot (want what it changed to)
+                  return delta.changed.prop[key];
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    this.pbvs = function _pbvs(){
+      var pbvs = [];
+      if (currentTab(this)){
+        // do we actually know the target tab already?  if yes, go ahead and paremterize that
+        pbvs.push({type:"tab", value: originalTab(this)});
+      }
+      if (this.currentNode instanceof WebAutomationLanguage.NodeVariable && this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
+        //pbvs.push({type:"node", value: this.node});
+        // crucial to make sure that selectedIndex for the select node gets updated
+        // otherwise things don't change and it doesn't matter if change event is raised
+        // what index was selected in the recording?
+        var origVal = firstUpdateToProp(this.trace, "selectedIndex");
+        var originalValDict = {property: "selectedIndex", value: origVal};
+        pbvs.push({type:"property", value: originalValDict});
+      }
+      return pbvs;
+    };
+
+    this.args = function _args(environment){
+      var args = [];
+      args.push({type:"tab", value: currentTab(this)});
+      if (this.currentNode instanceof WebAutomationLanguage.NodeVariable && this.currentNode.getSource() === NodeSources.RELATIONEXTRACTOR){ // we only want to pbv for things that must already have been extracted by relation extractor
+        //args.push({type:"node", value: currentNodeXpath(this, environment)});
+        // crucial to make sure that selectedIndex for the select node gets updated
+        // otherwise things don't change and it doesn't matter if change event is raised
+
+        // extract the correct selectedIndex from the xpath of the current option node
+        var xpath = currentNodeXpath(this, environment);
+        WALconsole.log("currentNodeXpath", xpath);
+        var segments = xpath.split("[")
+        var indexOfNextOption = segments[segments.length - 1].split("]")[0]; 
+        indexOfNextOption = parseInt(indexOfNextOption);
+        var valDict = {property: "selectedIndex", value: indexOfNextOption};
+
+        args.push({type:"property", value: valDict});
+      }
+      return args;
+    };
+
+
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+      this.block = workspace.newBlock(this.blocklyLabel);
+      attachToPrevBlock(this.block, prevBlock);
+      this.block.WALStatement = this;
+      return this.block;
+    };
+
+    this.traverse = function _traverse(fn, fn2){
+      fn(this);
+      fn2(this);
+    };
+
+    this.postReplayProcessing = function _postReplayProcessing(runObject, trace, temporaryStatementIdentifier){
+      return;
+    };
+  };
+
 
   pub.OutputRowStatement = function _OutputRowStatement(scrapeStatements){
     Revival.addRevivalLabel(this);
@@ -3955,8 +4145,21 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       columnObj.name = v;
     };
 
+    function usedByPulldownStatement(statement, firstRowXPaths){
+      if (statement instanceof WebAutomationLanguage.PulldownInteractionStatement){
+        var xpath = statement.node;
+        for (var i = 0; i < firstRowXPaths.length; i++){
+          var cXpath = firstRowXPaths[i];
+          if (cXpath.indexOf(xpath) > -1){ // so if the xpath of the pulldown menu appears in the xpath of the first row cell
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
     this.usedByStatement = function _usedByStatement(statement){
-      if (!((statement instanceof WebAutomationLanguage.ScrapeStatement) || (statement instanceof WebAutomationLanguage.ClickStatement) || (statement instanceof WebAutomationLanguage.TypeStatement) || (statement instanceof WebAutomationLanguage.LoadStatement))){
+      if (!((statement instanceof WebAutomationLanguage.ScrapeStatement) || (statement instanceof WebAutomationLanguage.ClickStatement) || (statement instanceof WebAutomationLanguage.TypeStatement) || (statement instanceof WebAutomationLanguage.LoadStatement) || (statement instanceof WebAutomationLanguage.PulldownInteractionStatement))){
         return false;
       }
       if (statement.pageVar && this.pageVarName === statement.pageVar.name && this.firstRowXPaths.indexOf(statement.node) > -1){
@@ -3965,11 +4168,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (usedByTextStatement(statement, this.firstRowTexts)){
         return true;
       }
-      // one last check, just to see if the typed string is exactly the 'value' (not text) of one node (as in pulldown interaction)
-      for (var i = 0; i < this.firstRowValues.length; i++){
-        if (statement.typedStringLower === this.firstRowValues[i]){
-          return true;
-        }
+      if (usedByPulldownStatement(statement, this.firstRowXPaths)){
+        return true;
       }
       // ok, neither the node nor the typed text looks like this relation's cells
       return false;
@@ -4219,7 +4419,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     var getNextRowCounter = 0;
     this.getNextRow = function _getNextRow(pageVar, callback){ // has to be called on a page, since a relation selector can be applied to many pages.  higher-level tool must control where to apply
-      // todo: this is a very simplified version that assumes there's only one page of results.  add the rest soon.
 
       // ok, what's the page info on which we're manipulating this relation?
       WALconsole.log(pageVar.pageRelations);
@@ -4239,6 +4438,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         prinfo.runNextInteraction = false; // have to turn that flag back off so we don't fall back into here after running the next interaction
         getNextRowCounter += 1;
         // ok, we had some data but we've run out.  time to try running the next button interaction and see if we can retrieve some more
+
+        // the one exception, the case where we don't even want to bother asking the page is if we already know
+        // there's no next button, no way to get additional pages.  in that case, just know the loop is done
+        // and call the callback with false as the moreRows argument
+        if (this.nextType === NextTypes.NOMOREITEMS || (!this.nextButtonSelector && this.nextType !== NextTypes.SCROLLFORMORE )){
+          callback(false);
+          return;
+        }
 
         // the function for continuing once we've done a next interaction
         var continueWithANewPage = function _continueWithANewPage(){
@@ -4933,7 +5140,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 || statement instanceof WebAutomationLanguage.ClickStatement
                 || statement instanceof WebAutomationLanguage.ScrapeStatement
                 || statement instanceof WebAutomationLanguage.TypeStatement
-                || statement instanceof WebAutomationLanguage.OutputRowStatement);
+                || statement instanceof WebAutomationLanguage.OutputRowStatement
+                || statement instanceof WebAutomationLanguage.PulldownInteractionStatement
+                );
     }
 
     function determineNextBlockStartIndex(loopyStatements){
@@ -5016,6 +5225,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     function doTheReplay(runnableTrace, config, basicBlockStatements, runObject, loopyStatements, nextBlockStartIndex, callback, options){
+      // first let's throw out any wait time on the first event, since no need to wait for that
+      if (runnableTrace.length > 0){
+        runnableTrace[0].timing.waitTime = 0;
+      }
       SimpleRecord.replay(runnableTrace, config, function(replayObject){
         // use what we've observed in the replay to update page variables
         WALconsole.namedLog("rbb", "replayObject", replayObject);
@@ -5246,6 +5459,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
         function cleanupAfterLoopEnd(){
           loopStatement.rowsSoFar = 0;
+
+          var prinfo = loopStatement.pageVar.pageRelations[loopStatement.relation.name+"_"+loopStatement.relation.id];
+          WALconsole.log("prinfo in cleanup", prinfo);
+          // have to get rid of this prinfo in case (as when a pulldown menu is dynamically adjusted
+          // by another, and so we want to come back and get it again later) we'll want to scrape
+          // the same relation fresh from the same page later
+          loopStatement.pageVar.pageRelations[loopStatement.relation.name+"_"+loopStatement.relation.id] = undefined;
 
           // time to run end-of-loop-cleanup on the various bodyStatements
           loopStatement.traverse(function(statement){
@@ -5529,6 +5749,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           else if (currPbv.type === "frame"){
             pTrace.parameterizeFrame(pname, currPbv.value);
           }
+          else if (currPbv.type === "property"){
+            pTrace.parameterizeProperty(pname, currPbv.value);
+          }
           else{
             WALconsole.log("Tried to do pbv on a type we don't know.");
           }
@@ -5595,6 +5818,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           else if (currArg.type === "frame"){
             pTrace.useFrame(pname, currArg.value);
           }
+          else if (currArg.type === "property"){
+            pTrace.useProperty(pname, currArg.value);
+          }
           else{
             WALconsole.log("Tried to do pbv on a type we don't know. (Arg provision.)");
           }
@@ -5641,7 +5867,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // but it should really probably be per-frame, not per tab
       for (var i = 0; i < this.statements.length; i++){
         var s = this.statements[i];
-        if ( (s instanceof WebAutomationLanguage.ScrapeStatement) || (s instanceof WebAutomationLanguage.ClickStatement) ){
+        if ( (s instanceof WebAutomationLanguage.ScrapeStatement) || (s instanceof WebAutomationLanguage.ClickStatement) || (s instanceof WebAutomationLanguage.PulldownInteractionStatement) ){
           var xpath = s.node; // todo: in future, should get the whole node info, not just the xpath, but this is sufficient for now
           var pageVarName = s.pageVar.name; // pagevar is better than url for helping us figure out what was on a given logical page
           var url = s.pageVar.recordTimeUrl;

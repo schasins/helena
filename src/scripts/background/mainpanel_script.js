@@ -5098,7 +5098,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     function checkEnoughMemoryToCloneTrace(memoryData, trace){
       var approximateMemoryPerEvent = 133333; // bytes
       //if (data.availableCapacity/data.capacity < 0.1){ // this is for testing
-      return (memoryData.capacity - memoryData.availableCapacity) > approximateMemoryPerEvent * trace.length * 5;
+      return (memoryData.capacity - memoryData.availableCapacity) > approximateMemoryPerEvent * trace.length * 2.5;
     }
 
     function splitOnEnoughMemoryToCloneTrace(trace, ifEnoughMemory, ifNotEnoughMemory){
@@ -5181,6 +5181,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         },
         function(){ // if not enough memory
           // yikes, there's a pretty small amount of memory available at this point.  are you sure you want to go on?
+	    console.log("decided we don't have enough memory.  pause.");
           var text = "Looks like we're pretty close to running out of memory.  If we keep going, the extension might crash.  Continue anyway?";
           var buttonText = "Continue";
           var dialogDiv = RecorderUI.continueAfterDialogue(text, buttonText, continueWithScript);
@@ -5188,8 +5189,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // we might like to check now and then to see if more memory has been freed up, so that we could start again
           MiscUtilities.repeatUntil(
             function(){
+	      console.log("do we have enough memory?");
               splitOnEnoughMemoryToCloneTrace(trace,
                 function(){ // enough memory now, so we actually want to continue
+		  console.log("changed our minds.  decided we do have enough memory.");
                   dialogDiv.remove(); // get rid of that dialog, so user doesn't see it
                   continueWithScript();
                 },

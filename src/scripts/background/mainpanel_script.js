@@ -1729,7 +1729,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           this.appendDummyInput()
               .appendField("load")
               .appendField(new Blockly.FieldTextInput("URL"), "url")
-              .appendField("in")
+              .appendField("into")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
@@ -1853,24 +1853,41 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
       addToolboxLabel(this.blocklyLabel);
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
-      Blockly.Blocks[this.blocklyLabel] = {
-        init: function() {
-          this.appendDummyInput()
-              .appendField("click")
-              .appendField(new Blockly.FieldTextInput("node"), "node") // switch to pulldown
-              .appendField("in")
-              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
-          this.setPreviousStatement(true, null);
-          this.setNextStatement(true, null);
-          this.setColour(280);
-        }
-      };
+      var outputOptionLabel = this.blocklyLabel+"_outputPage";
+      var shapes = [this.blocklyLabel, outputOptionLabel];
+      for (var i = 0; i < shapes.length; i++){
+        var shapeLabel = shapes[i];
+        Blockly.Blocks[shapeLabel] = {
+          init: function() {
+            var fieldsSoFar = this.appendDummyInput()
+                .appendField("click")
+                .appendField(new Blockly.FieldTextInput("node"), "node") // switch to pulldown
+                .appendField("in")
+                .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+            if (outputOptionLabel === shapeLabel){
+              fieldsSoFar = fieldsSoFar.appendField(", load page into")
+                .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "outputPage");
+            }
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(280);
+          }
+        };
+      }
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock){
-      this.block = workspace.newBlock(this.blocklyLabel);
+      if (this.outputPageVars && this.outputPageVars.length > 0){
+        this.block = workspace.newBlock(this.blocklyLabel+"_outputPage"); // see above for source of this name
+        this.block.setFieldValue(this.outputPageVars[0].toString(), "outputPage");
+      }
+      else{
+        this.block = workspace.newBlock(this.blocklyLabel);
+      }
       this.block.setFieldValue(nodeRepresentation(this), "node");
       this.block.setFieldValue(this.pageVar.toString(), "page");
+      console.log("hasOutputPage2", this.outputPageVars && this.outputPageVars.length > 0, this);
+
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
       return this.block;

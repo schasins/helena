@@ -3387,6 +3387,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 }
                 // here we actually set the entityScope's time unit, since no guarantee the user will interact with that pulldown and trigger the setting, but we have to show something, so want what we show to match with prog representation
                 if (!entityScope.physicalTimeUnit){entityScope.physicalTimeUnit = TimeUnits.YEARS;}
+                if (!entityScope.physicalTime){entityScope.physicalTime = 1;}
                 var timeUnitsFieldName = "timeunits";
                 fieldsSoFar = fieldsSoFar.appendField(new Blockly.FieldDropdown(options, function(newVal){entityScope.physicalTimeUnit = newVal; console.log(entityScope.physicalTimeUnit);}), timeUnitsFieldName);
                 fieldsSoFar = fieldsSoFar.appendField(".");

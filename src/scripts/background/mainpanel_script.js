@@ -30,13 +30,15 @@ function setUp(){
 $(setUp);
 
 var workspace = null;
-var blocklyLabels = [];
+var blocklyLabels = {"web":[],"other":[]};
 var blocklyReadjustFunc = null;
 var recordingWindowIds = [];
 var scrapingRunsCompleted = 0;
 var datasetsScraped = [];
 var currentRunObjects = [];
 var ringerUseXpathFastMode = false;
+
+var demoMode = true;
 
 /**********************************************************************
  * Guide the user through making a demonstration recording
@@ -112,8 +114,13 @@ var RecorderUI = (function () {
       return;
     }
     $toolboxDiv.html("");
-    for (var i = 0; i < blocklyLabels.length; i++){
-      $toolboxDiv.append($("<block type=\"" + blocklyLabels[i] + "\"></block>"));
+    for (var key in blocklyLabels){
+      var bls = blocklyLabels[key];
+      var $categoryDiv = $("<category name=" + key + ">");
+      for (var i = 0; i < bls.length; i++){
+        $categoryDiv.append($("<block type=\"" + bls[i] + "\"></block>"));
+      }
+      $toolboxDiv.append($categoryDiv);
     }
     workspace.updateToolbox($toolboxDiv[0]);
   }
@@ -186,6 +193,13 @@ var RecorderUI = (function () {
     if (inProgress === undefined){ inProgress = false; }
     var div = $("#new_script_content");
     DOMCreationUtilities.replaceContent(div, $("#script_preview")); // let's put in the script_preview node
+
+    // I like it when the run button just says "Run Script" for demos
+    // nice to have a reminder that it saves stuff if we're not in demo mode, but it's prettier with just run
+    if (demoMode){
+      div.find("#run").html("Run Script");
+    }
+
     activateButton(div, "#run", RecorderUI.run);
     activateButton(div, "#run_fast_mode", RecorderUI.runWithFastMode);
     activateButton(div, "#save", RecorderUI.save);
@@ -193,6 +207,16 @@ var RecorderUI = (function () {
     activateButton(div, "#schedule_later", RecorderUI.scheduleLater);
     activateButton(div, '#relation_upload', RecorderUI.uploadRelation);
     activateButton(div, '#relation_demonstration', RecorderUI.demonstrateRelation);
+
+    // let's handle the collapsibles
+    var tablesDiv = $("#relevant_tables_accordion");
+    var additionalRunOptionsDiv = $("#extra_run_options_accordion");
+    var options = {collapsible: true};
+    if (demoMode){
+      options.active = false;
+    }
+    tablesDiv.accordion(options);
+    additionalRunOptionsDiv.accordion(options);
 
     var troubleshootingDivs = $(".troubleshooting_option");
     for (var i = 0; i < troubleshootingDivs.length; i++){
@@ -632,10 +656,14 @@ var RecorderUI = (function () {
     if (updateBlockly === undefined){ updateBlockly = true; }
     WALconsole.log("updateDisplayedScript");
     var program = ReplayScript.prog;
-    var scriptString = program.toString();
     var scriptPreviewDiv = $("#new_script_content").find("#program_representation");
-    DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
-
+    if (demoMode){
+      scriptPreviewDiv.remove();
+    }
+    else{
+      var scriptString = program.toString();
+      DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
+  }
     // sometimes prog preview and stuff will have changed size, changing the shape of the div to which blockly should conform, so run the adjustment func
     blocklyReadjustFunc();
     // unfortunately the data urls used for node 'snapshots' don't show up right away
@@ -1612,9 +1640,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     obj.blocklyLabel = label;
   }
 
-  function addToolboxLabel(label){
-    blocklyLabels.push(label);
-    blocklyLabels = _.uniq(blocklyLabels);
+  function addToolboxLabel(label, category){
+    if (category === undefined){ category = "other";}
+    blocklyLabels[category].push(label);
+    blocklyLabels[category] = _.uniq(blocklyLabels[category]);
   }
 
   function attachToPrevBlock(currBlock, prevBlock){
@@ -1722,7 +1751,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
-      addToolboxLabel(this.blocklyLabel);
+      addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -1851,7 +1880,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
-      addToolboxLabel(this.blocklyLabel);
+      addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       var outputOptionLabel = this.blocklyLabel+"_outputPage";
       var shapes = [this.blocklyLabel, outputOptionLabel];
@@ -2019,7 +2048,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
-      addToolboxLabel(this.blocklyLabel);
+      addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -2361,7 +2390,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
-      addToolboxLabel(this.blocklyLabel);
+      addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -2518,7 +2547,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
-      addToolboxLabel(this.blocklyLabel);
+      addToolboxLabel(this.blocklyLabel, "web");
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
@@ -3370,6 +3399,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                   Blockly.FieldTextInput.numberValidator(); 
                   entityScope.logicalTime = parseInt(that.getFieldValue(logicalTimeFieldName));});
                 fieldsSoFar = fieldsSoFar.appendField(textInput, logicalTimeFieldName).appendField(" scrapes.");
+                if (!entityScope.logicalTime){entityScope.logicalTime = 1;}
               }
               if (i === 3){
                 var curPhysicalTime = entityScope.physicalTime;

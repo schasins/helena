@@ -209,15 +209,18 @@ var RecorderUI = (function () {
     activateButton(div, '#relation_demonstration', RecorderUI.demonstrateRelation);
 
     // let's handle the collapsibles
-    var tablesDiv = $("#relevant_tables_accordion");
-    var additionalRunOptionsDiv = $("#extra_run_options_accordion");
+    var tablesDiv = div.find("#relevant_tables_accordion");
+    var additionalRunOptionsDiv = div.find("#extra_run_options_accordion");
+    var troubleshootingDiv = div.find("#troubleshooting_accordion");
     var options = {collapsible: true};
     if (demoMode){
       options.active = false;
     }
     tablesDiv.accordion(options);
     additionalRunOptionsDiv.accordion(options);
+    troubleshootingDiv.accordion({collapsible:true, active:false}); // always want all of these to start closed
 
+    /*
     var troubleshootingDivs = $(".troubleshooting_option");
     for (var i = 0; i < troubleshootingDivs.length; i++){
       (function(){
@@ -227,6 +230,7 @@ var RecorderUI = (function () {
         controllingDiv.click(function(){DOMCreationUtilities.toggleDisplay(childDiv);});  
       })();
     }
+    */
 
     blocklyReadjustFunc = handleBlocklyEditorResizing(); // this function returns the function we want to use for resizing
 

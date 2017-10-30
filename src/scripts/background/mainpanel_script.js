@@ -3487,12 +3487,19 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         return;
       }
 
+      // this is where we should switch to checking if the current task has been locked/claimed if we're in parallel mode
+      var targetUrl = 'http://kaofang.cs.berkeley.edu:8080/transactionexists';
+      WALconsole.log("rbboptions.parallel", rbboptions.parallel);
+      if (rbboptions.parallel){
+        targetUrl = 'http://kaofang.cs.berkeley.edu:8080/locktransaction';
+      }
+
       // if we're not ignoring entityscope, we're in the case where choice depends on whether there's a saved duplicate on server
       this.currentTransaction = this.singleAnnotationItems(runObject.environment);
       // you only need to talk to the server if you're actually going to act (skip) now on the knowledge of the duplicate
       var msg = this.serverTransactionRepresentationCheck(runObject);
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/transactionexists', msg, function(resp){
-        if (resp.exists){
+      MiscUtilities.postAndRePostOnFailure(targetUrl, msg, function(resp){
+        if (resp.exists || resp.task_yours === false){
           // this is a duplicate, current loop iteration already done, so we're ready to skip to the next
           // so actually nothing should happen.  the whole entityscope should be a no-op
           entityScope.duplicatesInARow += 1;
@@ -5713,7 +5720,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     var internalOptions = ["skipMode", "breakMode", "skipCommitInThisIteration"]; // wonder if these shouldn't be moved to runObject instead of options.  yeah.  should do that.
-    var recognizedOptions = ["dataset_id", "ignoreEntityScope", "breakAfterXDuplicatesInARow", "nameAddition", "simulateError"];
+    var recognizedOptions = ["dataset_id", "ignoreEntityScope", "breakAfterXDuplicatesInARow", "nameAddition", "simulateError", "parallel"];
     this.run = function _run(options, continuation){
       if (options === undefined){options = {};}
       for (var prop in options){

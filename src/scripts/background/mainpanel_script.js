@@ -212,13 +212,13 @@ var RecorderUI = (function () {
     var tablesDiv = div.find("#relevant_tables_accordion");
     var additionalRunOptionsDiv = div.find("#extra_run_options_accordion");
     var troubleshootingDiv = div.find("#troubleshooting_accordion");
-    var options = {collapsible: true};
+    var options = {collapsible: true, heightStyle: "content"};
     if (demoMode){
       options.active = false;
     }
     tablesDiv.accordion(options);
     additionalRunOptionsDiv.accordion(options);
-    troubleshootingDiv.accordion({collapsible:true, active:false}); // always want all of these to start closed
+    troubleshootingDiv.accordion({collapsible:true, active:false, heightStyle: "content"}); // always want all of these to start closed
 
     /*
     var troubleshootingDivs = $(".troubleshooting_option");
@@ -740,6 +740,12 @@ var RecorderUI = (function () {
             }
         }
         table.prepend(tr);
+        var tds = table.find("td");
+        for (var k = 0; k < tds.length; k++){
+          var td = tds[k];
+          $(td).css("max-width", "200px");
+          $(td).css("word-wrap", "break-word");
+        }
         $div.append(table);
 
         var addAnnotationButton = $("<div>Add Annotation</div>");

@@ -5525,13 +5525,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         function cleanupAfterLoopEnd(){
           loopStatement.rowsSoFar = 0;
 
-          var prinfo = loopStatement.pageVar.pageRelations[loopStatement.relation.name+"_"+loopStatement.relation.id];
-          WALconsole.log("prinfo in cleanup", prinfo);
-          // have to get rid of this prinfo in case (as when a pulldown menu is dynamically adjusted
-          // by another, and so we want to come back and get it again later) we'll want to scrape
-          // the same relation fresh from the same page later
-          loopStatement.pageVar.pageRelations[loopStatement.relation.name+"_"+loopStatement.relation.id] = undefined;
-
+          if (loopStatement.pageVar){
+            var prinfo = loopStatement.pageVar.pageRelations[loopStatement.relation.name+"_"+loopStatement.relation.id];
+            WALconsole.log("prinfo in cleanup", prinfo);
+            // have to get rid of this prinfo in case (as when a pulldown menu is dynamically adjusted
+            // by another, and so we want to come back and get it again later) we'll want to scrape
+            // the same relation fresh from the same page later
+            loopStatement.pageVar.pageRelations[loopStatement.relation.name+"_"+loopStatement.relation.id] = undefined;  
+          }
+          
           // time to run end-of-loop-cleanup on the various bodyStatements
           loopStatement.traverse(function(statement){
             if (statement.endOfLoopCleanup){

@@ -13,7 +13,7 @@ var currently_on = false;
 
       chrome.windows.create({
 		  url: chrome.extension.getURL('pages/mainpanel.html'), 
-          width: 500, height: 800, left: 0, top: 0, 
+          width: 600, height: 800, left: 0, top: 0, 
           focused: true,
           type: 'panel'
           }, 

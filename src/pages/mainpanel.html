@@ -46,9 +46,9 @@
 	<div id="tabs">
 		
 		<ul>
-			<li><a href="#tabs-1" id="new_script">New Script</a></li>
+			<li><a href="#tabs-1" id="new_script">Current Script</a></li>
 			<li><a href="#tabs-2" id="saved_scripts">Saved Scripts</a></li>
-			<li><a href="#tabs-3" id="scheduled_script_runs">Scheduled Script Runs</a></li>
+			<li><a href="#tabs-3" id="scheduled_script_runs">Scheduled Runs</a></li>
 		</ul>
 
 		<div id="tabs-1">
@@ -88,44 +88,65 @@
 			<div id="script_preview" class="new_script_message_stage">
 
 				<button id="run">Save and Run Script</button>
-				<button id="run_fast_mode">Save and Run Script with Fast Mode</button><a href="#" title="Fast Mode only works for some scripts.  For some scripts, especially scripts that work with very large webpages, Fast Mode can really speed up the run. However, it also makes scripts less likely to find the right buttons and data.  So when you run with fast mode, check the first few rows and make sure it's getting the right information."><span class="ui-icon ui-icon-info"></span></a>
-				<button id="replay">Replay Original Recorded Script</button> (for testing)
 				<div>
-					<input type="text" id="program_name" value="program_name">
-					<button id="save">Save Script</button>
+				     <button id="save" style="float:right">Save Script</button>
+				     <span style="display: block; overflow:hidden; padding-right:2px">
+				     	<input type="text" id="program_name" value="program_name" style="width:100%; height:26px;"/>
+				     </span>
 				</div>
-				<button id="schedule_later">Schedule Later Runs of This Script</button>
+
+				<div id="extra_run_options_accordion">
+					<h3>Additional Run Options</h3>
+					<div>
+						<button id="run_fast_mode">Save and Run Script with Fast Mode</button><a href="#" title="Fast Mode only works for some scripts.  For some scripts, especially scripts that work with very large webpages, Fast Mode can really speed up the run. However, it also makes scripts less likely to find the right buttons and data.  So when you run with fast mode, check the first few rows and make sure it's getting the right information."><span class="ui-icon ui-icon-info"></span></a>
+						<button id="replay">Replay Original Recorded Script</button> (for testing)
+						<button id="schedule_later">Schedule Later Runs of This Script</button>
+					</div>
+				</div>
 
 				<div class="container" id="program_representation"></div>
 				
 				<div id="blockly_area"></div>
 				<div id="blockly_div" style="position: absolute"></div>
-				<xml id="toolbox" style="display: none"></xml>
+				<xml id="toolbox" style="display: none">
+					<category name="web"></category>
+					<category name="other"></category>
+				</xml>
 
-				<div class="container" id="relations_container">
-					<div class="title">Relevant Tables</div>
-					<div id="status_message"></div>
-					<div id="relations"></div>
-					<button id="relation_upload" class="top_margin">Upload an Additional Table</button>
-					<button id="relation_demonstration" class="top_margin">Demonstrate an Additional Table</button>
+				<div id="relevant_tables_accordion">
+					<h3>Relevant Tables</h3>
+  					<div>
+						<div id="relations_container">
+							<div id="status_message"></div>
+							<div id="relations"></div>
+							<button id="relation_upload" class="top_margin">Upload an Additional Table</button>
+							<button id="relation_demonstration" class="top_margin">Demonstrate an Additional Table</button>
+						</div>
+					</div>
 				</div>
 
 				<div class="container" id="troubleshooting">
 					<div class="title">Troubleshooting</div>
 					What kind of problem are you having?
-					<div id="duplicate_detection" class="troubleshooting_option">
-						<div class="troubleshooting_description">My script wastes time scraping the same stuff it's already scraped.</div>
-						<div class="container_child troubleshooting_option_expansion" id="duplicates_container">
-							<div class="title">Detecting Duplicates</div>
-							<div id="duplicates_container_content"></div>
+					<div id="troubleshooting_accordion">
+						<h3>My script wastes time scraping the same stuff it's already scraped.</h3>
+						<div>
+							<div id="duplicate_detection">
+								<div class="container_child" id="duplicates_container">
+									<div class="title">Detecting Duplicates</div>
+									<div id="duplicates_container_content"></div>
+								</div>
+							</div>
 						</div>
-					</div>
-					<div id="require_features" class="troubleshooting_option">
-						<div class="troubleshooting_description">My script is putting the wrong data in the columns.</div>
-						<div class="container_child troubleshooting_option_expansion" id="require_features_container">
-							<div class="title">Require Features</div>
-							One of the things you can do to make sure we get the right data in the columns is tell us more about how to figure out which item on the webpage is the right item.  Below, we've listed all the nodes that aren't collected based on being in a table, but just based on how they were used at record-time.  Click on a node to see the features of the node.  If there's a feature of the cell that you know will always be the same for all the cells that should ever be added to the column, now and in the future, you can tell us to require that it has that feature.  Just click the box that says to require that feature.  If you do this, make sure to try running it and making sure it works the way you expect!  If you change your mind, just come back here and click the feature again to say it's no longer required.
-							<div id="require_features_container_content"></div>
+						<h3>My script is putting the wrong data in the columns.</h3>
+						<div>
+							<div id="require_features">
+								<div class="container_child" id="require_features_container">
+									<div class="title">Require Features</div>
+									One of the things you can do to make sure we get the right data in the columns is tell us more about how to figure out which item on the webpage is the right item.  Below, we've listed all the nodes that aren't collected based on being in a table, but just based on how they were used at record-time.  Click on a node to see the features of the node.  If there's a feature of the cell that you know will always be the same for all the cells that should ever be added to the column, now and in the future, you can tell us to require that it has that feature.  Just click the box that says to require that feature.  If you do this, make sure to try running it and making sure it works the way you expect!  If you change your mind, just come back here and click the feature again to say it's no longer required.
+									<div id="require_features_container_content"></div>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>

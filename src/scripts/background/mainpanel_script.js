@@ -30,13 +30,15 @@ function setUp(){
 $(setUp);
 
 var workspace = null;
-var blocklyLabels = [];
+var blocklyLabels = {"web":[],"other":[]};
 var blocklyReadjustFunc = null;
 var recordingWindowIds = [];
 var scrapingRunsCompleted = 0;
 var datasetsScraped = [];
 var currentRunObjects = [];
 var ringerUseXpathFastMode = false;
+
+var demoMode = true;
 
 /**********************************************************************
  * Guide the user through making a demonstration recording
@@ -112,8 +114,13 @@ var RecorderUI = (function () {
       return;
     }
     $toolboxDiv.html("");
-    for (var i = 0; i < blocklyLabels.length; i++){
-      $toolboxDiv.append($("<block type=\"" + blocklyLabels[i] + "\"></block>"));
+    for (var key in blocklyLabels){
+      var bls = blocklyLabels[key];
+      var $categoryDiv = $("<category name=" + key + ">");
+      for (var i = 0; i < bls.length; i++){
+        $categoryDiv.append($("<block type=\"" + bls[i] + "\"></block>"));
+      }
+      $toolboxDiv.append($categoryDiv);
     }
     workspace.updateToolbox($toolboxDiv[0]);
   }
@@ -186,6 +193,13 @@ var RecorderUI = (function () {
     if (inProgress === undefined){ inProgress = false; }
     var div = $("#new_script_content");
     DOMCreationUtilities.replaceContent(div, $("#script_preview")); // let's put in the script_preview node
+
+    // I like it when the run button just says "Run Script" for demos
+    // nice to have a reminder that it saves stuff if we're not in demo mode, but it's prettier with just run
+    if (demoMode){
+      div.find("#run").html("Run Script");
+    }
+
     activateButton(div, "#run", RecorderUI.run);
     activateButton(div, "#run_fast_mode", RecorderUI.runWithFastMode);
     activateButton(div, "#save", RecorderUI.save);
@@ -194,6 +208,19 @@ var RecorderUI = (function () {
     activateButton(div, '#relation_upload', RecorderUI.uploadRelation);
     activateButton(div, '#relation_demonstration', RecorderUI.demonstrateRelation);
 
+    // let's handle the collapsibles
+    var tablesDiv = div.find("#relevant_tables_accordion");
+    var additionalRunOptionsDiv = div.find("#extra_run_options_accordion");
+    var troubleshootingDiv = div.find("#troubleshooting_accordion");
+    var options = {collapsible: true, heightStyle: "content"};
+    if (demoMode){
+      options.active = false;
+    }
+    tablesDiv.accordion(options);
+    additionalRunOptionsDiv.accordion(options);
+    troubleshootingDiv.accordion({collapsible:true, active:false, heightStyle: "content"}); // always want all of these to start closed
+
+    /*
     var troubleshootingDivs = $(".troubleshooting_option");
     for (var i = 0; i < troubleshootingDivs.length; i++){
       (function(){
@@ -203,6 +230,7 @@ var RecorderUI = (function () {
         controllingDiv.click(function(){DOMCreationUtilities.toggleDisplay(childDiv);});  
       })();
     }
+    */
 
     blocklyReadjustFunc = handleBlocklyEditorResizing(); // this function returns the function we want to use for resizing
 
@@ -632,10 +660,14 @@ var RecorderUI = (function () {
     if (updateBlockly === undefined){ updateBlockly = true; }
     WALconsole.log("updateDisplayedScript");
     var program = ReplayScript.prog;
-    var scriptString = program.toString();
     var scriptPreviewDiv = $("#new_script_content").find("#program_representation");
-    DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
-
+    if (demoMode){
+      scriptPreviewDiv.remove();
+    }
+    else{
+      var scriptString = program.toString();
+      DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
+  }
     // sometimes prog preview and stuff will have changed size, changing the shape of the div to which blockly should conform, so run the adjustment func
     blocklyReadjustFunc();
     // unfortunately the data urls used for node 'snapshots' don't show up right away
@@ -708,6 +740,12 @@ var RecorderUI = (function () {
             }
         }
         table.prepend(tr);
+        var tds = table.find("td");
+        for (var k = 0; k < tds.length; k++){
+          var td = tds[k];
+          $(td).css("max-width", "200px");
+          $(td).css("word-wrap", "break-word");
+        }
         $div.append(table);
 
         var addAnnotationButton = $("<div>Add Annotation</div>");
@@ -1612,9 +1650,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     obj.blocklyLabel = label;
   }
 
-  function addToolboxLabel(label){
-    blocklyLabels.push(label);
-    blocklyLabels = _.uniq(blocklyLabels);
+  function addToolboxLabel(label, category){
+    if (category === undefined){ category = "other";}
+    blocklyLabels[category].push(label);
+    blocklyLabels[category] = _.uniq(blocklyLabels[category]);
   }
 
   function attachToPrevBlock(currBlock, prevBlock){
@@ -1722,14 +1761,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
-      addToolboxLabel(this.blocklyLabel);
+      addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
               .appendField("load")
               .appendField(new Blockly.FieldTextInput("URL"), "url")
-              .appendField("in")
+              .appendField("into")
               .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
           this.setPreviousStatement(true, null);
           this.setNextStatement(true, null);
@@ -1851,26 +1890,43 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
-      addToolboxLabel(this.blocklyLabel);
+      addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
-      Blockly.Blocks[this.blocklyLabel] = {
-        init: function() {
-          this.appendDummyInput()
-              .appendField("click")
-              .appendField(new Blockly.FieldTextInput("node"), "node") // switch to pulldown
-              .appendField("in")
-              .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
-          this.setPreviousStatement(true, null);
-          this.setNextStatement(true, null);
-          this.setColour(280);
-        }
-      };
+      var outputOptionLabel = this.blocklyLabel+"_outputPage";
+      var shapes = [this.blocklyLabel, outputOptionLabel];
+      for (var i = 0; i < shapes.length; i++){
+        var shapeLabel = shapes[i];
+        Blockly.Blocks[shapeLabel] = {
+          init: function() {
+            var fieldsSoFar = this.appendDummyInput()
+                .appendField("click")
+                .appendField(new Blockly.FieldTextInput("node"), "node") // switch to pulldown
+                .appendField("in")
+                .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "page");
+            if (outputOptionLabel === shapeLabel){
+              fieldsSoFar = fieldsSoFar.appendField(", load page into")
+                .appendField(new Blockly.FieldDropdown(pageVarsDropDown), "outputPage");
+            }
+            this.setPreviousStatement(true, null);
+            this.setNextStatement(true, null);
+            this.setColour(280);
+          }
+        };
+      }
     };
 
     this.genBlocklyNode = function _genBlocklyNode(prevBlock){
-      this.block = workspace.newBlock(this.blocklyLabel);
+      if (this.outputPageVars && this.outputPageVars.length > 0){
+        this.block = workspace.newBlock(this.blocklyLabel+"_outputPage"); // see above for source of this name
+        this.block.setFieldValue(this.outputPageVars[0].toString(), "outputPage");
+      }
+      else{
+        this.block = workspace.newBlock(this.blocklyLabel);
+      }
       this.block.setFieldValue(nodeRepresentation(this), "node");
       this.block.setFieldValue(this.pageVar.toString(), "page");
+      console.log("hasOutputPage2", this.outputPageVars && this.outputPageVars.length > 0, this);
+
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
       return this.block;
@@ -2002,7 +2058,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
-      addToolboxLabel(this.blocklyLabel);
+      addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -2344,7 +2400,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
-      addToolboxLabel(this.blocklyLabel);
+      addToolboxLabel(this.blocklyLabel, "web");
       var pageVarsDropDown = makePageVarsDropdown(pageVars);
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
@@ -2501,7 +2557,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
     this.updateBlocklyBlock = function _updateBlocklyBlock(pageVars, relations){
-      addToolboxLabel(this.blocklyLabel);
+      addToolboxLabel(this.blocklyLabel, "web");
       Blockly.Blocks[this.blocklyLabel] = {
         init: function() {
           this.appendDummyInput()
@@ -3355,6 +3411,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                   Blockly.FieldTextInput.numberValidator(); 
                   entityScope.logicalTime = parseInt(that.getFieldValue(logicalTimeFieldName));});
                 fieldsSoFar = fieldsSoFar.appendField(textInput, logicalTimeFieldName).appendField(" scrapes.");
+                if (!entityScope.logicalTime){entityScope.logicalTime = 1;}
               }
               if (i === 3){
                 var curPhysicalTime = entityScope.physicalTime;
@@ -3372,6 +3429,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                 }
                 // here we actually set the entityScope's time unit, since no guarantee the user will interact with that pulldown and trigger the setting, but we have to show something, so want what we show to match with prog representation
                 if (!entityScope.physicalTimeUnit){entityScope.physicalTimeUnit = TimeUnits.YEARS;}
+                if (!entityScope.physicalTime){entityScope.physicalTime = 1;}
                 var timeUnitsFieldName = "timeunits";
                 fieldsSoFar = fieldsSoFar.appendField(new Blockly.FieldDropdown(options, function(newVal){entityScope.physicalTimeUnit = newVal; console.log(entityScope.physicalTimeUnit);}), timeUnitsFieldName);
                 fieldsSoFar = fieldsSoFar.appendField(".");
@@ -3431,12 +3489,19 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         return;
       }
 
+      // this is where we should switch to checking if the current task has been locked/claimed if we're in parallel mode
+      var targetUrl = 'http://kaofang.cs.berkeley.edu:8080/transactionexists';
+      WALconsole.log("rbboptions.parallel", rbboptions.parallel);
+      if (rbboptions.parallel){
+        targetUrl = 'http://kaofang.cs.berkeley.edu:8080/locktransaction';
+      }
+
       // if we're not ignoring entityscope, we're in the case where choice depends on whether there's a saved duplicate on server
       this.currentTransaction = this.singleAnnotationItems(runObject.environment);
       // you only need to talk to the server if you're actually going to act (skip) now on the knowledge of the duplicate
       var msg = this.serverTransactionRepresentationCheck(runObject);
-      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/transactionexists', msg, function(resp){
-        if (resp.exists){
+      MiscUtilities.postAndRePostOnFailure(targetUrl, msg, function(resp){
+        if (resp.exists || resp.task_yours === false){
           // this is a duplicate, current loop iteration already done, so we're ready to skip to the next
           // so actually nothing should happen.  the whole entityscope should be a no-op
           entityScope.duplicatesInARow += 1;
@@ -5313,7 +5378,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     function checkEnoughMemoryToCloneTrace(memoryData, trace){
       var approximateMemoryPerEvent = 133333; // bytes
       //if (data.availableCapacity/data.capacity < 0.1){ // this is for testing
-      return (memoryData.capacity - memoryData.availableCapacity) > approximateMemoryPerEvent * trace.length * 5;
+      return (memoryData.capacity - memoryData.availableCapacity) > approximateMemoryPerEvent * trace.length * 2.5;
     }
 
     function splitOnEnoughMemoryToCloneTrace(trace, ifEnoughMemory, ifNotEnoughMemory){
@@ -5396,6 +5461,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         },
         function(){ // if not enough memory
           // yikes, there's a pretty small amount of memory available at this point.  are you sure you want to go on?
+	    console.log("decided we don't have enough memory.  pause.");
           var text = "Looks like we're pretty close to running out of memory.  If we keep going, the extension might crash.  Continue anyway?";
           var buttonText = "Continue";
           var dialogDiv = RecorderUI.continueAfterDialogue(text, buttonText, continueWithScript);
@@ -5403,8 +5469,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           // we might like to check now and then to see if more memory has been freed up, so that we could start again
           MiscUtilities.repeatUntil(
             function(){
+	      console.log("do we have enough memory?");
               splitOnEnoughMemoryToCloneTrace(trace,
                 function(){ // enough memory now, so we actually want to continue
+		  console.log("changed our minds.  decided we do have enough memory.");
                   dialogDiv.remove(); // get rid of that dialog, so user doesn't see it
                   continueWithScript();
                 },
@@ -5459,13 +5527,15 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         function cleanupAfterLoopEnd(){
           loopStatement.rowsSoFar = 0;
 
-          var prinfo = loopStatement.pageVar.pageRelations[loopStatement.relation.name+"_"+loopStatement.relation.id];
-          WALconsole.log("prinfo in cleanup", prinfo);
-          // have to get rid of this prinfo in case (as when a pulldown menu is dynamically adjusted
-          // by another, and so we want to come back and get it again later) we'll want to scrape
-          // the same relation fresh from the same page later
-          loopStatement.pageVar.pageRelations[loopStatement.relation.name+"_"+loopStatement.relation.id] = undefined;
-
+          if (loopStatement.pageVar){
+            var prinfo = loopStatement.pageVar.pageRelations[loopStatement.relation.name+"_"+loopStatement.relation.id];
+            WALconsole.log("prinfo in cleanup", prinfo);
+            // have to get rid of this prinfo in case (as when a pulldown menu is dynamically adjusted
+            // by another, and so we want to come back and get it again later) we'll want to scrape
+            // the same relation fresh from the same page later
+            loopStatement.pageVar.pageRelations[loopStatement.relation.name+"_"+loopStatement.relation.id] = undefined;  
+          }
+          
           // time to run end-of-loop-cleanup on the various bodyStatements
           loopStatement.traverse(function(statement){
             if (statement.endOfLoopCleanup){
@@ -5654,7 +5724,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     var internalOptions = ["skipMode", "breakMode", "skipCommitInThisIteration"]; // wonder if these shouldn't be moved to runObject instead of options.  yeah.  should do that.
-    var recognizedOptions = ["dataset_id", "ignoreEntityScope", "breakAfterXDuplicatesInARow", "nameAddition", "simulateError"];
+    var recognizedOptions = ["dataset_id", "ignoreEntityScope", "breakAfterXDuplicatesInARow", "nameAddition", "simulateError", "parallel"];
     this.run = function _run(options, continuation){
       if (options === undefined){options = {};}
       for (var prop in options){

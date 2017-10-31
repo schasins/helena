@@ -2623,6 +2623,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         var segments = xpath.split("[")
         var indexOfNextOption = segments[segments.length - 1].split("]")[0]; 
         indexOfNextOption = parseInt(indexOfNextOption);
+        // our node-to-xpath converter starts counting at 1, but selectedIndex property starts counting at 0, so subtract one
+        indexOfNextOption = indexOfNextOption - 1;
         var valDict = {property: "selectedIndex", value: indexOfNextOption};
 
         args.push({type:"property", value: valDict});

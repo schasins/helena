@@ -161,13 +161,13 @@ def oneRun(programId, allDatasetsAllIterations, threadCount):
 
 	f = open("parallelDatasetUrls.txt", "a")
 	allDatasetsAllIterations.append(id)
-	f.write("http://kaofang.cs.berkeley.edu:8080/datasets/run/" + str(id) + "\n")
+	f.write("http://kaofang.cs.berkeley.edu:8080/rundetailed/run/" + str(id) + "\n")
 	# f.write("kaofang.cs.berkeley.edu:8080/downloaddetailedmultipass/" + str(newDatasetId) + "\n")
 	f.close()
 
 	for datasetId in allDatasetsAllIterations:
 		# this is just to give the user some feedback
-		print "http://kaofang.cs.berkeley.edu:8080/datasets/run/" + str(id)
+		print "http://kaofang.cs.berkeley.edu:8080/rundetailed/run/" + str(datasetId)
 
 	print "------"
 
@@ -175,7 +175,7 @@ def parallelizationTest(programIdsLs, threadCounts):
 	allDatasetsAllIterations = []
 	for threadCount in threadCounts:
 		for programId in programIdsLs:
-			oneRun(programId,allDatasetsAllIterations, 4)
+			oneRun(programId,allDatasetsAllIterations, threadCount)
 
 def main():
 	fullOOPSLABenchmarkProgIds = [128, 155, 138, 154, 145, 158, 159, 152] # todo: go back through all of these and remove maxRows!
@@ -193,9 +193,9 @@ def main():
                 #152: [[13],[25],[37]] # zimride listings
 		152: [[8]] # zimride correction run
 	}
-	currBenchmarkProgIds = [128]
+	currBenchmarkProgIds = [138, 128, 154, 145, 158, 159]
 	fullThreadCounts = [4,8,12,16]
-	currThreadCounts = [4]
+	currThreadCounts = [4, 8,12,16]
 	parallelizationTest(currBenchmarkProgIds, currThreadCounts)
 
 main()

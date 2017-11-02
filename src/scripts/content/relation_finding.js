@@ -268,7 +268,6 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     // then just index into it, because our current approach to pulldowns is crazy simplistic
     var selectorNode = allSelectNodes[selector.index];
     var optionNodes = extractOptionNodesFromSelectorNode(selectorNode);
-    optionNodes = optionNodes.splice(selector.exclude_first, optionNodes.length);
     return optionNodes;
   }
 
@@ -283,6 +282,8 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     }
     else if (selector.selector_version === 2){
       var optionNodes = pub.interpretPulldownSelector(selector.selector); // todo: ugh, gross that we descend here butnot in the above
+      console.log("selector.exclude_first", selector.exclude_first);
+      optionNodes = optionNodes.splice(selector.exclude_first, optionNodes.length);
       var cells = _.map(optionNodes, function(o){return [o];});
       return cells;
     }

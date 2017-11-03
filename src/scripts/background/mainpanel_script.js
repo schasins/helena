@@ -5285,6 +5285,16 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
               EventM.setTemporaryStatementIdentifier(ev, i);});
           }
         }
+        // and same deal with mac -> linux?  not sure this is safe in general.  but it is convenient for the moment...
+        else if (osString.indexOf("Mac") > -1){
+          if (basicBlockStatements[i].outputPageVars && basicBlockStatements[i].outputPageVars.length > 0){
+            _.each(cleanTrace, function(ev){
+              if (ev.data.ctrlKey){ // hey, digging into the ev data here is gross.  todo: fix that
+                ev.data.metaKeyOnMac = true;
+              }
+              EventM.setTemporaryStatementIdentifier(ev, i);});
+          }
+        }
 
         trace = trace.concat(cleanTrace);
       }

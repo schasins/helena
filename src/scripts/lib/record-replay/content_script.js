@@ -575,6 +575,10 @@ function simulate(events, startIndex) {
     if (eventData.ctrlKeyOnLinux && window.navigator.platform.indexOf("Linux") > -1){
       options.ctrlKey = true;
     }
+    // sometimes to adapt a script from linux to mac, want to switch from ctrl pressed to meta key pressed
+    if (eventData.metaKeyOnMac && window.navigator.platform.indexOf("Mac") > -1){
+      options.metaKey = true;
+    }
 
     var oEvent = document.createEvent(eventType);
     if (eventType == 'Event') {

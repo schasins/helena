@@ -193,10 +193,10 @@ def main():
                 #152: [[13],[25],[37]] # zimride listings
 		152: [[8]] # zimride correction run
 	}
-	currBenchmarkProgIds = [128]
+	currBenchmarkProgIds = [138]
 	fullThreadCounts = [4,8,12,16]
 	#currThreadCounts = [1, 2, 4, 6]
-	currThreadCounts = [8]
+	currThreadCounts = [1,2,4,6,8]
 	parallelizationTest(currBenchmarkProgIds, currThreadCounts)
 
 main()

@@ -155,19 +155,19 @@ def oneRun(programId, allDatasetsAllIterations, threadCount):
 			p.start()
 		
 		# below will be true if all complete within the time limit, else false
-		noErrorsRunComplete = joinProcesses(procs, 18000)
+		noErrorsRunComplete = joinProcesses(procs, 48000)
 
 	print "------"
 
 	f = open("parallelDatasetUrls.txt", "a")
 	allDatasetsAllIterations.append(id)
-	f.write("http://kaofang.cs.berkeley.edu:8080/rundetailed/run/" + str(id) + "\n")
+	f.write("http://kaofang.cs.berkeley.edu:8080/datasets/rundetailed/" + str(id) + "\n")
 	# f.write("kaofang.cs.berkeley.edu:8080/downloaddetailedmultipass/" + str(newDatasetId) + "\n")
 	f.close()
 
 	for datasetId in allDatasetsAllIterations:
 		# this is just to give the user some feedback
-		print "http://kaofang.cs.berkeley.edu:8080/rundetailed/run/" + str(datasetId)
+		print "http://kaofang.cs.berkeley.edu:8080/datasets/rundetailed/" + str(datasetId)
 
 	print "------"
 
@@ -193,9 +193,10 @@ def main():
                 #152: [[13],[25],[37]] # zimride listings
 		152: [[8]] # zimride correction run
 	}
-	currBenchmarkProgIds = [138, 128, 154, 145, 158, 159]
+	currBenchmarkProgIds = [128]
 	fullThreadCounts = [4,8,12,16]
-	currThreadCounts = [4, 8,12,16]
+	#currThreadCounts = [1, 2, 4, 6]
+	currThreadCounts = [8]
 	parallelizationTest(currBenchmarkProgIds, currThreadCounts)
 
 main()

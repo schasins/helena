@@ -2969,10 +2969,23 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var tabId = this.pageVarCurr.currentTabId();
       if (tabId !== undefined && tabId !== null){
         console.log("ClosePageStatement run removing tab", this.pageVarCurr.currentTabId());
-        chrome.tabs.remove(this.pageVarCurr.currentTabId(), function(){
+
+        // we want to remove the tab, but we should never do that if we actually mapped the wrong tab and this tab belongs somewhere else
+        // todo: in future, prevent it from mapping the wrong tab in the first place!  might involve messing with ringer layer
+        // but also with setCurrentTabId, but mostly I think with the ringer layer
+        var that = this;
+        var okToRemoveTab = _.reduce(runObject.program.pageVars, function(acc, pageVar){
+          return acc && (pageVar.currentTabId() !== that.pageVarCurr.currentTabId() || pageVar === that.pageVarCurr);
+        }, true);
+        if (okToRemoveTab){
+          chrome.tabs.remove(this.pageVarCurr.currentTabId(), function(){
             that.pageVarCurr.clearCurrentTabId();
             rbbcontinuation(rbboptions);
           }); 
+        }
+        else{
+          rbbcontinuation(rbboptions);
+        }
       }
       else{
         WALconsole.log("Warning: trying to close tab for pageVar that didn't have a tab associated at the moment.  Can happen after continue statement.");

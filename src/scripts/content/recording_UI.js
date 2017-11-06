@@ -222,7 +222,7 @@ var Scraping = (function _Scraping() { var pub = {};
   document.addEventListener('click', scrapingClick, true);
   function scrapingClick(event){
     if (currentlyScraping()){
-      event.stopPropagation();
+      event.stopImmediatePropagation();
       event.preventDefault();
     }
   }

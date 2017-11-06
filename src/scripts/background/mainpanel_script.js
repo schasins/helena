@@ -2336,7 +2336,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (onlyKeydowns){
         this.onlyKeydowns = true;
       }
-      var onlyKeyups = _.reduce(textEntryEvents, function(acc, e){return acc && e.data.type === "keyup"}, true);
+      var onlyKeyups = _.reduce(textEntryEvents, function(acc, e){return acc && (e.data.type === "keyup" || !EventM.getVisible(e))}, true); // all events are keyups or invisible
       if (onlyKeyups){
         this.onlyKeyups = true;
       }
@@ -6095,6 +6095,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // ok, for now we're only going to get rid of the keydown and keyup statements
       // they're in sets because may ultimately want to try manipulating scraping statements in the middle if they don't have dom events (as when relation parameterized)
       // but for now we'll stick with this
+
+      // todo: I'd like to get rid of the above and switch to just checking for a given event whether all contained events had additional.scrape set
+      // the only complication is the focus thing mentioned below
 
       for (var i = 0; i < sets.length; i++){
         var set = sets[i];

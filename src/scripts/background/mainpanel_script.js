@@ -4579,7 +4579,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           var currentGetNextRowCounter = getNextRowCounter;
           WALconsole.namedLog("getRelationItems", currentGetNextRowCounter, "requestNext");
           utilities.sendMessage("mainpanel", "content", "runNextInteraction", relation.messageRelationRepresentation(), null, null, [pageVar.currentTabId()]);};
-        MiscUtilities.repeatUntil(sendRunNextInteraction, function(){return stopRequestingNext;},function(){}, 10000, false);
+        MiscUtilities.repeatUntil(sendRunNextInteraction, function(){return stopRequestingNext;},function(){}, 17000, false);
       }
       else {
         // we still have local rows that we haven't used yet.  just advance the counter to change which is our current row

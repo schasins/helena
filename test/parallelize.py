@@ -132,7 +132,7 @@ def joinProcesses(procs, timeoutInSeconds):
                 return False
    
 
-def oneRun(programId, allDatasetsAllIterations, threadCount):
+def oneRun(programId, allDatasetsAllIterations, threadCount, timeoutInSeconds):
 	noErrorsRunComplete = False
 	id = None
 
@@ -155,7 +155,7 @@ def oneRun(programId, allDatasetsAllIterations, threadCount):
 			p.start()
 		
 		# below will be true if all complete within the time limit, else false
-		noErrorsRunComplete = joinProcesses(procs, 48000)
+		noErrorsRunComplete = joinProcesses(procs, timeoutInSeconds)
 
 	print "------"
 
@@ -171,11 +171,11 @@ def oneRun(programId, allDatasetsAllIterations, threadCount):
 
 	print "------"
 
-def parallelizationTest(programIdsLs, threadCounts):
+def parallelizationTest(programIdsLs, threadCounts, timeoutInSeconds):
 	allDatasetsAllIterations = []
 	for threadCount in threadCounts:
 		for programId in programIdsLs:
-			oneRun(programId,allDatasetsAllIterations, threadCount)
+			oneRun(programId,allDatasetsAllIterations, threadCount, timeoutInSeconds)
 
 def main():
 	fullOOPSLABenchmarkProgIds = [128, 155, 138, 154, 145, 158, 159, 152] # todo: go back through all of these and remove maxRows!
@@ -193,10 +193,10 @@ def main():
                 #152: [[13],[25],[37]] # zimride listings
 		152: [[8]] # zimride correction run
 	}
-	currBenchmarkProgIds = [138]
+	currBenchmarkProgIds = [152] # 479 was new yelp rest features, 467 is new twitter
 	fullThreadCounts = [4,8,12,16]
 	#currThreadCounts = [1, 2, 4, 6]
 	currThreadCounts = [1,2,4,6,8]
-	parallelizationTest(currBenchmarkProgIds, currThreadCounts)
+	parallelizationTest(currBenchmarkProgIds, currThreadCounts, 86400)
 
 main()

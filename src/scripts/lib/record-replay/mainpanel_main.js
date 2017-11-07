@@ -1317,6 +1317,10 @@ var Replay = (function ReplayClosure() {
           return;
         }
 
+        // we have a replay port, which also means we know which tab it's going to
+        // let's make the tab be the active/visible tab so we can see what's happening
+        chrome.tabs.update(replayPort.port.sender.tab.id, {selected: true});
+
         /* sometimes we use special no-op events to make sure that a page has gone through our alignment process without actually executing a dom event on it */
         if (v.data.type === "noop"){
           this.incrementIndex();

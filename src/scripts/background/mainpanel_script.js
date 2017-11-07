@@ -4543,6 +4543,9 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         );
       };
 
+      // if we're trying to get relation items from a page, we should have it visible
+      chrome.tabs.update(tabId, {selected: true});
+
       // ok, let's figure out whether to send the message to all frames in the tab or only the top frame
       if (relation.frame === 0){
         // for now, it's only when the frame index is 0, meaning it's the top-level frame, that we decide on using a single frame ahead of time

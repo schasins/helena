@@ -2898,17 +2898,25 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     this.run = function _run(runObject, rbbcontinuation, rbboptions){
       WALconsole.log("run back statement");
+	// if something went wrong, we won't have a pagevar tabid, ugh
+	if (!this.pageVarCurr.currentTabId()){
+	    rbbcontinuation(rbboptions);
+	    return;
+	}
+	var pageVarTabId = this.pageVarCurr.currentTabId();
+	this.pageVarCurr.clearCurrentTabId();
 
       // ok, the only thing we're doing right now is trying to run this back button, so the next time we see a tab ask for an id
       // it should be because of this -- yes, theoretically there could be a process we started earlier that *just* decided to load a new top-level page
       // but that should probably be rare.  todo: is that actually rare?
+	var that = this;
       utilities.listenForMessageOnce("content", "mainpanel", "requestTabID", function _backListener(data){
         WALconsole.log("back completed");
-        backStatement.pageVarBack.setCurrentTabId(backStatement.pageVarCurr.tabId, function(){rbbcontinuation(rbboptions);});
+        backStatement.pageVarBack.setCurrentTabId(pageVarTabId, function(){rbbcontinuation(rbboptions);});
       });
 
       // send a back message to pageVarCurr
-      utilities.sendMessage("mainpanel", "content", "backButton", {}, null, null, [this.pageVarCurr.currentTabId()]);
+      utilities.sendMessage("mainpanel", "content", "backButton", {}, null, null, [pageVarTabId]);
       // todo: is it enough to just send this message and hope all goes well, or do we need some kind of acknowledgement?
       // update pageVarBack to make sure it has the right tab associated
 
@@ -2984,6 +2992,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           }); 
         }
         else{
+	  // it's still ok to clear current tab, but don't close it
+	  that.pageVarCurr.clearCurrentTabId();
           rbbcontinuation(rbboptions);
         }
       }
@@ -5466,10 +5476,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     function checkEnoughMemoryToCloneTrace(memoryData, trace){
       var approximateMemoryPerEvent = 133333; // bytes
       //if (data.availableCapacity/data.capacity < 0.1){ // this is for testing
-      return (memoryData.capacity - memoryData.availableCapacity) > approximateMemoryPerEvent * trace.length * 2.5;
+      return (memoryData.availableCapacity) > approximateMemoryPerEvent * trace.length * 2.5;
     }
 
     function splitOnEnoughMemoryToCloneTrace(trace, ifEnoughMemory, ifNotEnoughMemory){
+   var check = function(){
       chrome.system.memory.getInfo(function(data){
         if (checkEnoughMemoryToCloneTrace(data, trace)){
           ifEnoughMemory();
@@ -5478,6 +5489,14 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           ifNotEnoughMemory();
         }
       });
+};
+	try {
+	    check();
+	}
+	catch(err){
+	    // just try again until it works
+	    setTimeout(function(){splitOnEnoughMemoryToCloneTrace(trace, ifEnoughMemory, ifNotEnoughMemory);}, 1000);
+	}
     }
 
     function runBasicBlockWithRinger(loopyStatements, options, runObject, callback){

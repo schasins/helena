@@ -10,6 +10,12 @@ import numpy as np
 import random
 import requests
 
+"""
+from pyvirtualdisplay import Display
+display = Display(visible=0, size=(800, 800))  
+display.start()
+"""
+
 unpackedExtensionPath = "../src"
 
 
@@ -25,7 +31,8 @@ elif platform == "darwin":
 def newDriver(profile):
 	chrome_options = Options()
 	chrome_options.add_argument("--load-extension=" + unpackedExtensionPath)
-	chrome_options.add_argument("user-data-dir=profiles/" + profile)
+	# chrome_options.add_argument("user-data-dir=profiles/" + profile)
+        chrome_options.add_argument("--display=:0") 
 
 	driver = webdriver.Chrome(chromeDriverPath, chrome_options=chrome_options)
 
@@ -140,7 +147,7 @@ def oneRun(programId, allDatasetsAllIterations, threadCount, timeoutInSeconds):
 
 		# ok, before we can do anything else, we need to get the dataset id that we'll use for all of the 'threads'
 		# 'http://kaofang.cs.berkeley.edu:8080/newprogramrun', {name: dataset.name, program_id: dataset.program_id}
-		r = requests.post('http://kaofang.cs.berkeley.edu:8080/newprogramrun', data = {"name": str(programId)+"_"+str(threadCount), "program_id": programId})
+		r = requests.post('http://kaofang.cs.berkeley.edu:8080/newprogramrun', data = {"name": str(programId)+"_"+str(threadCount)+"_noprofile", "program_id": programId})
 		output = r.json()
 		id = output["run_id"]
 		print "current parallel run's dataset id:", id
@@ -151,7 +158,7 @@ def oneRun(programId, allDatasetsAllIterations, threadCount, timeoutInSeconds):
 			procs.append(p)
 
 		for p in procs:
-			time.sleep(2) # don't overload; also, wait for thing to load
+			time.sleep(.1) # don't overload; also, wait for thing to load
 			p.start()
 		
 		# below will be true if all complete within the time limit, else false
@@ -193,10 +200,10 @@ def main():
                 #152: [[13],[25],[37]] # zimride listings
 		152: [[8]] # zimride correction run
 	}
-	currBenchmarkProgIds = [152] # 479 was new yelp rest features, 467 is new twitter
+	currBenchmarkProgIds = [509] # 483 is new yelp revs. 480 is new yelp menu. 479 was new yelp rest features, 467 is new twitter, 481 is new yelp reviews, 492 is new craigslist, 509 is new menu
 	fullThreadCounts = [4,8,12,16]
 	#currThreadCounts = [1, 2, 4, 6]
-	currThreadCounts = [1,2,4,6,8]
+	currThreadCounts = [8,1,2,4,6]
 	parallelizationTest(currBenchmarkProgIds, currThreadCounts, 86400)
 
 main()

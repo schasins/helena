@@ -4660,6 +4660,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // we still have local rows that we haven't used yet.  just advance the counter to change which is our current row
         // the easy case :)
         prinfo.currentRowsCounter += 1;
+        console.log("current row", prinfo.currentRows[prinfo.currentRowsCounter][0], this, this.name);
         callback(true);
       }
     }

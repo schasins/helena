@@ -267,8 +267,15 @@ var RelationFinder = (function _RelationFinder() { var pub = {};
     var allSelectNodes = $("select");
     // then just index into it, because our current approach to pulldowns is crazy simplistic
     var selectorNode = allSelectNodes[selector.index];
-    var optionNodes = extractOptionNodesFromSelectorNode(selectorNode);
-    return optionNodes;
+    console.log("selector: ", selector, selector.index, selectorNode);
+    if ($(selectorNode).is(':enabled')){
+      console.log("selector not enabled");
+      var optionNodes = extractOptionNodesFromSelectorNode(selectorNode);
+      return optionNodes;
+    }
+    console.log("selector is enabled");
+    // else, we know which pulldown we want, but it's disabled right now.  let's wait
+    return [];
   }
 
   pub.interpretRelationSelector = function _interpretRelationSelector(selector){

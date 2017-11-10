@@ -3563,6 +3563,64 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.duplicatesInARow = 0;
     };
 
+    function hash(str){
+      // from https://github.com/darkskyapp/string-hash
+      // The hashing function returns a number between 0 and 4294967295 (inclusive).
+
+      var hash = 5381;
+      var i = str.length;
+
+      while(i) {
+        hash = (hash * 33) ^ str.charCodeAt(--i);
+      }
+
+      /* JavaScript does bitwise operations (like XOR, above) on 32-bit signed
+       * integers. Since we want the results to be always positive, convert the
+       * signed int to an unsigned by doing an unsigned bitshift. */
+      return hash >>> 0;
+    }
+
+    function transactionToHash(currentTransaction){
+      var transactionStr = "";
+      for (var i = 0; i < currentTransaction.length; i++){
+        transactionStr += "_" + currentTransaction[i].attr + "___" + currentTransaction[i].val;
+      }
+      var h = hash(transactionStr);
+      WALconsole.log(transactionStr, h);
+      return h;
+    }
+
+    function isThisMyWorkBasedOnHash(currentTransaction, hashBasedParallelObject){
+      var numThreads = hashBasedParallelObject.numThreads;
+      var thisThreadIndex = hashBasedParallelObject.thisThreadIndex;
+      var h = transactionToHash(currentTransaction);
+      // The hashing function returns a number between 0 and 4294967295 (inclusive)
+      var limitLow = (thisThreadIndex / numThreads) * 4294967295;
+      var limitHigh = ((thisThreadIndex + 1) / numThreads) * 4294967295;
+      if (h >= limitLow && h <= limitHigh){
+        return true;
+      }
+      return false;
+    }
+
+    // for testing only!  no reason to actually use this!
+    var bins = {};
+    function bin(currentTransaction){
+      var lim = 8;
+      for (var i = 0; i < lim; i++){
+        var res = isThisMyWorkBasedOnHash(currentTransaction, {numThreads: lim, thisThreadIndex: i});
+        if (res){
+          if (i in bins){
+            bins[i] = bins[i] + 1;
+          }
+          else{
+            bins[i] = 1;
+          }
+        }
+      }
+      console.log("bins", bins);
+    }
+
     this.currentTransaction = null;
     this.duplicatesInARow = 0; // make sure to set this to 0 at the beginning of a loop!
     this.run = function _run(runObject, rbbcontinuation, rbboptions){
@@ -3570,19 +3628,38 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       if (rbboptions.ignoreEntityScope || this.skippingStrategy === SkippingStrategies.NEVER){
         // this is the case where we just want to assume there's no duplicate because we're pretending the annotation isn't there
         // or we have the never-skip strategy on
+        // or we're in hashBasedParallel mode and the hash tells us it's not our work
         runObject.program.runBasicBlock(runObject, entityScope.bodyStatements, rbbcontinuation, rbboptions);
         return;
       }
 
+      // if we're not ignoring entityscope, we're in the case where choice depends on whether there's a saved duplicate on server
+      this.currentTransaction = this.singleAnnotationItems(runObject.environment);
+
+      var inParallelMode = rbboptions.parallel;
+
+      // let's check if we're divvying work up based on hashes
+      if (rbboptions.hashBasedParallel && rbboptions.hashBasedParallel.on){
+        if (!isThisMyWorkBasedOnHash(this.currentTransaction, rbboptions.hashBasedParallel)){
+          // this isn't our responsibility in any case.  no need to talk to server.  just skip
+          rbbcontinuation(rbboptions);
+          return; // very important to return after the skip
+        }
+        else{
+          // ok, let's just fall back into treating it like normal parallel mode
+          // todo: we should actually fall back into normal skip block mode, not parallel, but parallel
+          // mode is an easy way to convert all our skip blocks to skipping only from this run
+          // which is convenient for the time being
+          inParallelMode = true;
+        }
+      }
+
       // this is where we should switch to checking if the current task has been locked/claimed if we're in parallel mode
       var targetUrl = 'http://kaofang.cs.berkeley.edu:8080/transactionexists';
-      WALconsole.log("rbboptions.parallel", rbboptions.parallel);
-      if (rbboptions.parallel){
+      if (inParallelMode){
         targetUrl = 'http://kaofang.cs.berkeley.edu:8080/locktransaction';
       }
 
-      // if we're not ignoring entityscope, we're in the case where choice depends on whether there's a saved duplicate on server
-      this.currentTransaction = this.singleAnnotationItems(runObject.environment);
       // you only need to talk to the server if you're actually going to act (skip) now on the knowledge of the duplicate
       var msg = this.serverTransactionRepresentationCheck(runObject);
       MiscUtilities.postAndRePostOnFailure(targetUrl, msg, function(resp){
@@ -4660,7 +4737,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         // we still have local rows that we haven't used yet.  just advance the counter to change which is our current row
         // the easy case :)
         prinfo.currentRowsCounter += 1;
-        console.log("current row", prinfo.currentRows[prinfo.currentRowsCounter][0], this, this.name);
         callback(true);
       }
     }
@@ -5832,7 +5908,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     }
 
     var internalOptions = ["skipMode", "breakMode", "skipCommitInThisIteration"]; // wonder if these shouldn't be moved to runObject instead of options.  yeah.  should do that.
-    var recognizedOptions = ["dataset_id", "ignoreEntityScope", "breakAfterXDuplicatesInARow", "nameAddition", "simulateError", "parallel"];
+    var recognizedOptions = ["dataset_id", "ignoreEntityScope", "breakAfterXDuplicatesInARow", "nameAddition", "simulateError", "parallel", "hashBasedParallel"];
     this.run = function _run(options, continuation){
       if (options === undefined){options = {};}
       for (var prop in options){

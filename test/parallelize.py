@@ -52,6 +52,7 @@ def runScrapingProgramHelper(driver, progId, optionsStr):
 	runCurrentProgramJS = """
 	function repeatUntilReadyToRun(){
 		console.log("repeatUntilReadyToRun");
+        // ringerUseXpathFastMode = true; // just for the peru one.  remove this later
 		if (!ReplayScript.prog){
 			setTimeout(repeatUntilReadyToRun, 100);
 		}
@@ -139,7 +140,7 @@ def joinProcesses(procs, timeoutInSeconds):
                 return False
    
 
-def oneRun(programId, allDatasetsAllIterations, threadCount, timeoutInSeconds):
+def oneRun(programId, allDatasetsAllIterations, threadCount, timeoutInSeconds, mode):
 	noErrorsRunComplete = False
 	id = None
 
@@ -154,11 +155,16 @@ def oneRun(programId, allDatasetsAllIterations, threadCount, timeoutInSeconds):
 
 		procs = []
 		for i in range(threadCount):
-			p = RunProgramProcess(str(i), programId, '{parallel:true, dataset_id: '+ str(id) +'}')
+			optionStr = "parallel:true"
+			if (mode == "hashBased"):
+				# a more complicated param in this case
+				optionStr = "hashBasedParallel: {on: true, numThreads: " + str(threadCount) + ", thisThreadIndex: " + str(i) + "}"
+				# print optionStr
+			p = RunProgramProcess(str(i), programId, '{' + optionStr + ', dataset_id: '+ str(id) +'}')
 			procs.append(p)
 
 		for p in procs:
-			time.sleep(.1) # don't overload; also, wait for thing to load
+			time.sleep(2) # don't overload; also, wait for thing to load
 			p.start()
 		
 		# below will be true if all complete within the time limit, else false
@@ -178,32 +184,32 @@ def oneRun(programId, allDatasetsAllIterations, threadCount, timeoutInSeconds):
 
 	print "------"
 
-def parallelizationTest(programIdsLs, threadCounts, timeoutInSeconds):
+def parallelizationTest(programIdsLs, threadCounts, timeoutInSeconds, mode):
 	allDatasetsAllIterations = []
 	for threadCount in threadCounts:
 		for programId in programIdsLs:
-			oneRun(programId,allDatasetsAllIterations, threadCount, timeoutInSeconds)
+			oneRun(programId,allDatasetsAllIterations, threadCount, timeoutInSeconds, mode)
 
 def main():
-	fullOOPSLABenchmarkProgIds = [128, 155, 138, 154, 145, 158, 159, 152] # todo: go back through all of these and remove maxRows!
-	simulatedErrorLocs = {
-		128: [[27], [54], [81]], # community foundations
-                #143: [[1,525], [2,350], [3,175]], # old twitter
-		155: [[2,100],[3,200],[4,300]], # new twitter
-                138: [[10], [20], [30]], # craigslist
-                #149: [[1, 1903], [1, 3805], [7, 1005]], # old yelp reviews
-		154: [[4,225], [8,150], [12,75]], # new yelp reviews
-                #145: [[10], [20], [30]], # yelp restaurant features
-                145: [[10]], # yelp restaurant features the correction run
-                158: [[10,20],[20,4],[30,7]], # yelp menu items
-                159: [[10,20],[20,4],[30,7]], # yelp menu items (the mac version)
-                #152: [[13],[25],[37]] # zimride listings
-		152: [[8]] # zimride correction run
-	}
-	currBenchmarkProgIds = [509] # 483 is new yelp revs. 480 is new yelp menu. 479 was new yelp rest features, 467 is new twitter, 481 is new yelp reviews, 492 is new craigslist, 509 is new menu
-	fullThreadCounts = [4,8,12,16]
-	#currThreadCounts = [1, 2, 4, 6]
-	currThreadCounts = [8,1,2,4,6]
-	parallelizationTest(currBenchmarkProgIds, currThreadCounts, 86400)
+        mode = "hashBased"
+        fullBenchmarkProgIds = [
+                              128, #community foundations
+                              479, #yelp restaurants
+                              467, #twitter tweets
+                              483, #yelp reviews
+                              507, #craigslist listings
+                              509, #yelp menu items
+                              152 #zimride
+                              ]
+
+        # fullThreadCounts = [1,2,4,6,8]
+        fullThreadCounts = [4]
+        if (mode == "lockBased"):
+                parallelizationTest(fullBenchmarkProgIds, fullThreadCounts, 86400, mode)
+        elif (mode == "hashBased"):
+                parallelizationTest(fullBenchmarkProgIds, fullThreadCounts, 86400, mode)
+        if (mode == "caseStudy"):
+                parallelizationTest([519], [8], 864000, "lockBased")
+                
 
 main()

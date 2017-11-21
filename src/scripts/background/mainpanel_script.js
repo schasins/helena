@@ -315,7 +315,9 @@ var RecorderUI = (function () {
         var serializedProg = ServerTranslationUtilities.JSONifyProgram(prog);
         var msg = {id: progId, serialized_program: serializedProg, relation_objects: relationObjsSerialized, name: name};
         MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg, function(){
-          // do we need to do anything else if it successfully saves?
+          // we've finished the save thing, so tell the user
+          var status = div.find("#program_save_status");
+          status.html("Saved");
         });
       }, 0);
       // ok, we've set it up to do the actual program saving, but we already have the id, so do the postIdRetrievalContinuation
@@ -323,6 +325,10 @@ var RecorderUI = (function () {
         postIdRetrievalContinuation(progId);
       }
     });
+    // we've sent the save thing, so tell the user
+    var status = div.find("#program_save_status");
+    status.html("Saving...");
+    status.css("display", "inline");
   };
 
   pub.replayOriginal = function _replayOriginal(){
@@ -4195,7 +4201,10 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var columns = this.columns; // again, nodeVariables and columns must be aligned
       for (var i = 0; i < columns.length; i++){
         var currNodeRep = this.getCurrentNodeRep(pageVar, columns[i]);
+        // this way is bad, bc keeping node variables aligned is bad : 
+        // todo, factor out
         nodeVariables[i].setCurrentNodeRep(environment, currNodeRep);
+        environment.envBind(columns[i].name, currNodeRep);
       }
       WALconsole.log("updateNodeVariables Relation completed");
     }
@@ -4617,7 +4626,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
           MiscUtilities.repeatUntil(sendGetRelationItems, function _checkDone(){return doneArray[currentGetRowsCounter] || relationItemsRetrieved[frame];},function(){}, 1000, true);
         });
         // and let's make sure that after our chosen timeout, we'll stop and just process whatever we have
-        var desiredTimeout = 60000; // todo: this timeout should be configurable by the user
+        var desiredTimeout = 30000; // todo: this timeout should be configurable by the user
         setTimeout(
           function _reachedTimeoutHandler(){
             WALconsole.namedLog("getRelationItems", "Reached timeout", currentGetRowsCounter);

@@ -191,7 +191,7 @@ def parallelizationTest(programIdsLs, threadCounts, timeoutInSeconds, mode):
 			oneRun(programId,allDatasetsAllIterations, threadCount, timeoutInSeconds, mode)
 
 def main():
-        mode = "hashBased"
+        mode = "sensitivity"
         fullBenchmarkProgIds = [
                               128, #community foundations
                               479, #yelp restaurants
@@ -208,8 +208,11 @@ def main():
                 parallelizationTest(fullBenchmarkProgIds, fullThreadCounts, 86400, mode)
         elif (mode == "hashBased"):
                 parallelizationTest(fullBenchmarkProgIds, fullThreadCounts, 86400, mode)
-        if (mode == "caseStudy"):
+        elif (mode == "caseStudy"):
                 parallelizationTest([519], [8], 864000, "lockBased")
+        elif (mode == "sensitivity"):
+        		# parallelizationTest([542,543,544], [4], 864000, "lockBased") # craigslist
+        		parallelizationTest([549,548,547], [4], 864000, "lockBased")
                 
 
 main()

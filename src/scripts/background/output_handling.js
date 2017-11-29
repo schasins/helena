@@ -39,17 +39,7 @@ var OutputHandler = (function _OutputHandler() {
     this.setup = function _setup(){
       this.outstandingDataSaveRequests = 0;
       if (!program.id){
-        if (program === ReplayScript.prog){
-          RecorderUI.save(function(progId){
-            // ok good, now we have a program id
-            dataset.program_id = progId;
-            dataset.getProgramRunAndSubRun();
-          });
-        }
-        else{
-          WALconsole.warn("Yo, this is going to fail to save a dataset, because we haven't put in a good way to save a prog (with it's name!) outside of recorderui yet.");
-          // todo: actually do that.  fix that
-        }
+        WALconsole.warn("Yo, this is going to fail to save a dataset, because somehow you got to trying to save a dataset without having saved the program that collects it.");
       }
       else{
         // awesome, we already know the associated program's id, don't need to save it now

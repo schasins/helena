@@ -2,22 +2,19 @@
 
 function setUp(){
 
-  //messages received by this component
-  //utilities.listenForMessage("content", "mainpanel", "selectorAndListData", processSelectorAndListData);
-  //utilities.listenForMessage("content", "mainpanel", "nextButtonData", processNextButtonData);
-  //utilities.listenForMessage("content", "mainpanel", "moreItems", moreItems);
+  // messages received by this component
+  // utilities.listenForMessage("content", "mainpanel", "selectorAndListData", processSelectorAndListData);
+  // utilities.listenForMessage("content", "mainpanel", "nextButtonData", processNextButtonData);
+  // utilities.listenForMessage("content", "mainpanel", "moreItems", moreItems);
   utilities.listenForMessage("content", "mainpanel", "scrapedData", RecorderUI.processScrapedData);
   utilities.listenForMessage("content", "mainpanel", "requestCurrentRecordingWindows", RecorderUI.sendCurrentRecordingWindows);
   utilities.listenForMessage("background", "mainpanel", "runScheduledScript", RecorderUI.runScheduledScript);
   utilities.listenForMessage("background", "mainpanel", "pleasePrepareForRefresh", RecorderUI.prepareForPageRefresh);
-
   utilities.listenForMessage("content", "mainpanel", "requestRingerUseXpathFastMode",function(){utilities.sendMessage("mainpanel","content","ringerUseXpathFastMode", {use: ringerUseXpathFastMode});});
   
-
+  // the UI needs to show keyboard shortcuts for scraping, so call the below so they show the right thing for the various OSs
   MiscUtilities.useCorrectScrapingConditionStrings("#scraping_instructions", "___SCRAPINGCONDITIONSTRING___", "___LINKSCRAPINGCONDITIONSTRING___"); // important to do this one first, what with everything going all stringy
-  //handle user interactions with the mainpanel
-  //$("button").button(); 
-  //$( "#tabs" ).tabs();
+  // handle user interactions with the mainpanel
   RecorderUI.setUpRecordingUI();
 
   // control blockly look and feel
@@ -25,6 +22,17 @@ function setUp(){
   Blockly.HSV_VALUE = 0.97;
 
   $( document ).tooltip();
+
+  // the blockly thing hovers over a node, so it's important that we call its update function whenever that node may have moved
+  var observer = new MutationObserver(function(mutations, observer) {
+      blocklyReadjustFunc();
+  });
+
+  // Register the element root you want to look for changes
+  observer.observe(document, {
+    subtree: true,
+    attributes: true
+  });
 }
 
 $(setUp);

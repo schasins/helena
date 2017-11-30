@@ -316,38 +316,22 @@ var RecorderUI = (function () {
     var prog = pub.currentHelenaProgram;
     var div = $("#new_script_content");
     var name = div.find("#program_name").get(0).value;
-    prog.name = name;
-    var msg = {id: prog.id, name: name};
-    console.log("about to post", (new Date().getTime()/1000));
-    // this first request is just to get us the right program id to associate any later stuff with.  it won't actually save the program
-    // saving the program takes a long time, so we don't want other stuff to wait on it, will do it in background
-    MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg, function(response){
-      console.log("server responded to program save");
-      var progId = response.program.id;
-      prog.id = progId;
-      // ok, now that we know the right program id (in cases where there wasn't one to begin with) we can save the actual program
-      // but it can take a long time for programs to arrive at server, so don't make other stuff wait on it.  just send it in the background
-      setTimeout(function(){
-        var relationObjsSerialized = _.map(
-          _.filter(prog.relations, function(rel){return rel instanceof WebAutomationLanguage.Relation;}), // todo: in future, don't filter.  actually save textrelations too
-          ServerTranslationUtilities.JSONifyRelation);
-        var serializedProg = ServerTranslationUtilities.JSONifyProgram(prog);
-        var msg = {id: progId, serialized_program: serializedProg, relation_objects: relationObjsSerialized, name: name};
-        MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg, function(){
-          // we've finished the save thing, so tell the user
-          var status = div.find("#program_save_status");
-          status.html("Saved");
-        });
-      }, 0);
-      // ok, we've set it up to do the actual program saving, but we already have the id, so do the postIdRetrievalContinuation
-      if (postIdRetrievalContinuation && _.isFunction(postIdRetrievalContinuation)){
-        postIdRetrievalContinuation(progId);
-      }
-    });
-    // we've sent the save thing, so tell the user
-    var status = div.find("#program_save_status");
-    status.html("Saving...");
-    status.css("display", "inline");
+
+    // ok, time to call the func that actually interacts with the server
+    // saveToServer(progName, postIdRetrievalContinuation, saveStartedHandler, saveCompletedHandler)
+    var saveStartedHandler = function(){
+      // we've sent the save thing, so tell the user
+      var status = div.find("#program_save_status");
+      status.html("Saving...");
+      status.css("display", "inline");
+    };
+    var saveCompletedHandler = function(){
+      // we've finished the save thing, so tell the user
+      var status = div.find("#program_save_status");
+      status.html("Saved");
+    };
+
+    prog.saveToServer(name, postIdRetrievalContinuation, saveStartedHandler, saveCompletedHandler);
   };
 
   pub.replayOriginal = function _replayOriginal(){
@@ -1005,7 +989,7 @@ var RecorderUI = (function () {
   pub.loadSavedScripts = function _loadSavedScripts(){
     WALconsole.log("going to load saved scripts.");
     var savedScriptsDiv = $("#saved_script_list");
-    $.get('http://kaofang.cs.berkeley.edu:8080/programs/', {}, function(response){
+    var handler = function(response){
       WALconsole.log(response);
       var arrayOfArrays = _.map(response, function(prog){
         var date = $.format.date(prog.date * 1000, "dd/MM/yyyy HH:mm")
@@ -1025,7 +1009,8 @@ var RecorderUI = (function () {
         })();
       }
       savedScriptsDiv.html(html);
-    });
+    }
+    HelenaServerInteractions.loadSavedPrograms(handler);
   };
 
   pub.loadScheduledScripts = function _loadScheduledScripts(){
@@ -1071,16 +1056,15 @@ var RecorderUI = (function () {
 
   pub.loadSavedDataset = function _loadSavedDataset(datasetId){
     WALconsole.log("loading dataset: ", datasetId);
-    console.log('http://kaofang.cs.berkeley.edu:8080/programfordataset/'+datasetId);
-    $.get('http://kaofang.cs.berkeley.edu:8080/programfordataset/'+datasetId, {}, function(response){
-      var progId = response.program_id;
+    var handler = function(progId){
       pub.loadSavedProgram(progId);
-    });
+    }
+    HelenaServerInteractions.loadSavedDataset(datasetId, handler);
   };
 
   pub.loadSavedProgram = function _loadSavedProgram(progId, continuation){
     WALconsole.log("loading program: ", progId);
-    $.get('http://kaofang.cs.berkeley.edu:8080/programs/'+progId, {}, function(response){
+    var handler = function(response){
       WALconsole.log("received program: ", response);
       var revivedProgram = ServerTranslationUtilities.unJSONifyProgram(response.program.serialized_program);
       revivedProgram.id = response.program.id; // if id was only assigned when it was saved, serialized_prog might not have that info yet
@@ -1091,7 +1075,8 @@ var RecorderUI = (function () {
       if (continuation){
         continuation();
       }
-    });
+    }
+    HelenaServerInteractions.loadSavedProgram(progId, handler);
   };
 
   pub.updateRowsSoFar = function _updateRowsSoFar(runTabId, num){

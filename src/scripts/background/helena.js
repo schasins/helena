@@ -3756,6 +3756,48 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
     };
 
+    // for saving a program to the server
+    // progName is the name you want to give the program
+    // postIdRetrievalContinuation ... because saving the full program can take a really long time, it's best to
+    //    just keep going as soon as you have the necessary program id, let the saving happen in the background
+    //    so that's what your postIdRetrievalContinuation should do
+    // saveStartedHandler ... if you want to give some UI feedback about having started the save, here's the spot
+    // saveCompletedHandler ... if you want to give some UI feedback about having completed the full save (including
+    //    the full program, not just having retrieved the correct program id), here's the spot
+    this.saveToServer = function _saveToServer(progName, postIdRetrievalContinuation, saveStartedHandler, saveCompletedHandler){
+      var prog = this;
+      prog.name = progName;
+      var msg = {id: prog.id, name: name};
+      WALconsole.log("about to post", (new Date().getTime()/1000));
+      // this first request is just to get us the right program id to associate any later stuff with.  it won't actually save the program
+      // saving the program takes a long time, so we don't want other stuff to wait on it, will do it in background
+      MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg, function(response){
+        WALconsole.log("server responded to program save");
+        var progId = response.program.id;
+        prog.id = progId;
+        // ok, now that we know the right program id (in cases where there wasn't one to begin with) we can save the actual program
+        // but it can take a long time for programs to arrive at server, so don't make other stuff wait on it.  just send it in the background
+        setTimeout(function(){
+          var relationObjsSerialized = _.map(
+            _.filter(prog.relations, function(rel){return rel instanceof WebAutomationLanguage.Relation;}), // todo: in future, don't filter.  actually save textrelations too
+            ServerTranslationUtilities.JSONifyRelation);
+          var serializedProg = ServerTranslationUtilities.JSONifyProgram(prog);
+          var msg = {id: progId, serialized_program: serializedProg, relation_objects: relationObjsSerialized, name: name};
+          MiscUtilities.postAndRePostOnFailure('http://kaofang.cs.berkeley.edu:8080/saveprogram', msg, function(){
+            // we've finished the save thing, so tell the user
+            saveCompletedHandler();
+          });
+        }, 0);
+
+        // ok, we've set it up to do the actual program saving, but we already have the id, so do the postIdRetrievalContinuation
+        if (postIdRetrievalContinuation && _.isFunction(postIdRetrievalContinuation)){
+          postIdRetrievalContinuation(progId);
+        }
+      });
+      // we've sent the save thing, so tell the user
+      saveStartedHandler();
+    };
+
     // a convenient way to traverse the statements of a program
     // todo: currently no way to halt traversal, may ultimately want fn arg to return boolean to do that
     this.traverse = function _traverse(fn, fn2){

@@ -1,5 +1,3 @@
-//open mainpanel
-
 'use strict'
 
 var currently_on = false;

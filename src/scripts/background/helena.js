@@ -14,9 +14,18 @@ var StatementTypes = {
   PULLDOWNINTERACTION: 7
 };
 
+// these are outside because they're useful for controling the tool via selenium and so on
+// but should really be hidden soon.  todo: hide them
+var scrapingRunsCompleted = 0;
+var datasetsScraped = [];
+var currentRunObjects = [];
+var recordingWindowIds = [];
+
 var WebAutomationLanguage = (function _WebAutomationLanguage() {
   var pub = {};
   var UIObject = null;
+
+  pub.blocklyLabels = {"web":[],"other":[]};
 
   /* some of the things we do within the objects that represent the programs, statements,
   and expressions should update the UI object that's serving as the IDE.  the UI
@@ -35,7 +44,6 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
   pub.setUIObject = function _setUIObject(obj){
     if (obj){
       UIObject = obj;
-      console.log("UIObject", UIObject, obj);
     }
   };
 
@@ -283,8 +291,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
 
   function addToolboxLabel(label, category){
     if (category === undefined){ category = "other";}
-    blocklyLabels[category].push(label);
-    blocklyLabels[category] = _.uniq(blocklyLabels[category]);
+    pub.blocklyLabels[category].push(label);
+    pub.blocklyLabels[category] = _.uniq(pub.blocklyLabels[category]);
   }
 
   function attachToPrevBlock(currBlock, prevBlock){
@@ -302,11 +310,11 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     parentConnection.connect(childConnection);
   }
 
-  function genBlocklyBlocksSeq(statements){
+  function genBlocklyBlocksSeq(statements, workspace){
     var foundFirstNonNull = false;
     var lastBlock = null;
     for (var i = 0; i < statements.length; i++){
-      var newBlock = statements[i].genBlocklyNode(lastBlock);
+      var newBlock = statements[i].genBlocklyNode(lastBlock, workspace);
       if (newBlock !== null){ // handle the fact that there could be null-producing nodes in the middle, and need to connect around those
         lastBlock = newBlock;
         // also, if this is our first non-null block it's the one we'll want to return
@@ -408,7 +416,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
     };
 
-    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       this.block.setFieldValue(encodeURIComponent(this.cUrlString()), "url");
       this.block.setFieldValue(this.outputPageVar.toString(), "page");
@@ -546,7 +554,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     };
 
-    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       if (this.outputPageVars && this.outputPageVars.length > 0){
         this.block = workspace.newBlock(this.blocklyLabel+"_outputPage"); // see above for source of this name
         this.block.setFieldValue(this.outputPageVars[0].toString(), "outputPage");
@@ -738,7 +746,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
     };
 
-    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       if (this.relation){
         // scrapes a relation node, so don't let the user name the node here probably?
         this.block = workspace.newBlock(this.blocklyLabel);
@@ -1047,7 +1055,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
     };
 
-    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       if (!this.onlyKeyups && !this.onlyKeydowns){
         this.block = workspace.newBlock(this.blocklyLabel);
         this.block.setFieldValue(this.stringRep(), "text");
@@ -1200,7 +1208,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
     };
 
-    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
@@ -1320,7 +1328,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
     };
 
 
-    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
@@ -1397,7 +1405,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
     };
 
-    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
@@ -1518,7 +1526,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // we don't display back presses for now
     };
 
-    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       return null;
     };
 
@@ -1591,7 +1599,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       return;
     };
 
-    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       // ok, we're not actually making a block
       return null;
     };
@@ -1675,7 +1683,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
     };
 
-    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
@@ -1746,7 +1754,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
     };
 
-    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
@@ -1807,7 +1815,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
     };
 
-    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
@@ -1889,7 +1897,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
     };
 
-    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       attachToPrevBlock(this.block, prevBlock);
       this.block.WALStatement = this;
@@ -2050,7 +2058,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       MINUTES: "minutes"
     }
 
-    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       var customBlocklyLabel = this.blocklyLabel + this.id;
       var name = this.name;
       var ancestorAnnotations = this.ancestorAnnotations;
@@ -2174,7 +2182,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       attachToPrevBlock(this.block, prevBlock);
 
       // handle the body statements
-      var firstNestedBlock = genBlocklyBlocksSeq(this.bodyStatements);
+      var firstNestedBlock = genBlocklyBlocksSeq(this.bodyStatements, workspace);
       attachNestedBlocksToWrapper(this.block, firstNestedBlock);
 
       this.block.WALStatement = this;
@@ -2501,7 +2509,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       };
     };
 
-    this.genBlocklyNode = function _genBlocklyNode(prevBlock){
+    this.genBlocklyNode = function _genBlocklyNode(prevBlock, workspace){
       this.block = workspace.newBlock(this.blocklyLabel);
       this.block.setFieldValue(this.relation.name, "list");
       if (this.pageVar){
@@ -2510,7 +2518,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       attachToPrevBlock(this.block, prevBlock);
 
       // handle the body statements
-      var firstNestedBlock = genBlocklyBlocksSeq(this.bodyStatements);
+      var firstNestedBlock = genBlocklyBlocksSeq(this.bodyStatements, workspace);
       attachNestedBlocksToWrapper(this.block, firstNestedBlock);
 
       this.block.WALStatement = this;
@@ -3346,10 +3354,8 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
                     // drat.  tab doesn't actually even exist.  the only way we could continue is just restart from the beginning
                     // becuase this is a list page.  so we just don't know what else to do
                     console.log(chrome.runtime.lastError.message);
-                    WALconsole.warn("Having to restart from the beginning because a list page just wasn't present.");
-                    // todo: should probably have a better solution here.  Maybe just break?  For a nested loop that's probably better.  for outer lop, maybe not
-                    var runObject = currentRunObjects[0]; // todo: this is a terrible way to access it!!!!!
-                    runObject.program.restartFromBeginning(runObject);
+                    WALconsole.warn("No idea what to do, so we're breaking -- a list page just wasn't present, so didn't know what to do next.");
+                    return;
                 } else {
                     // Tab exists.  so we can try reloading it, see how it goes
                     chrome.tabs.reload(pageVar.currentTabId(), {}, function(){
@@ -3728,7 +3734,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       }
     };
 
-    this.displayBlockly = function _displayBlockly(){
+    this.displayBlockly = function _displayBlockly(workspace){
       var statementLs = this.loopyStatements;
       if (this.loopyStatements.length === 0){
         statementLs = this.statements;
@@ -3740,7 +3746,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       // get the individual statements to produce their corresponding blockly blocks
       var lastBlock = null;
       for (var i = 0; i < statementLs.length; i++){
-        var newBlock = statementLs[i].genBlocklyNode(lastBlock);
+        var newBlock = statementLs[i].genBlocklyNode(lastBlock, workspace);
         if (newBlock !== null){ // handle the fact that there could be null-producing nodes in the middle, and need to connect around those
           lastBlock = newBlock;
         }

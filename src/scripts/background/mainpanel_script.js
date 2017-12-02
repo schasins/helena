@@ -1,65 +1,53 @@
 'use strict'
 
-function setUp(){
-
-  // messages received by this component
-  // utilities.listenForMessage("content", "mainpanel", "selectorAndListData", processSelectorAndListData);
-  // utilities.listenForMessage("content", "mainpanel", "nextButtonData", processNextButtonData);
-  // utilities.listenForMessage("content", "mainpanel", "moreItems", moreItems);
-  utilities.listenForMessage("content", "mainpanel", "scrapedData", RecorderUI.processScrapedData);
-  utilities.listenForMessage("content", "mainpanel", "requestCurrentRecordingWindows", RecorderUI.sendCurrentRecordingWindows);
-  utilities.listenForMessage("background", "mainpanel", "runScheduledScript", RecorderUI.runScheduledScript);
-  utilities.listenForMessage("background", "mainpanel", "pleasePrepareForRefresh", RecorderUI.prepareForPageRefresh);
-  utilities.listenForMessage("content", "mainpanel", "requestRingerUseXpathFastMode",function(){utilities.sendMessage("mainpanel","content","ringerUseXpathFastMode", {use: ringerUseXpathFastMode});});
-  
-  // the UI needs to show keyboard shortcuts for scraping, so call the below so they show the right thing for the various OSs
-  MiscUtilities.useCorrectScrapingConditionStrings("#scraping_instructions", "___SCRAPINGCONDITIONSTRING___", "___LINKSCRAPINGCONDITIONSTRING___"); // important to do this one first, what with everything going all stringy
-  // handle user interactions with the mainpanel
-  RecorderUI.setUpRecordingUI();
-
-  // control blockly look and feel
-  Blockly.HSV_SATURATION = 0.7;
-  Blockly.HSV_VALUE = 0.97;
-
-  $( document ).tooltip();
-
-  // the blockly thing hovers over a node, so it's important that we call its update function whenever that node may have moved
-  var observer = new MutationObserver(function(mutations, observer) {
-      blocklyReadjustFunc();
-  });
-
-  // Register the element root you want to look for changes
-  observer.observe(document, {
-    subtree: true,
-    attributes: true
-  });
-}
-
-$(setUp);
-
-var workspace = null;
-var blocklyLabels = {"web":[],"other":[]};
-var blocklyReadjustFunc = null;
-var recordingWindowIds = [];
-var scrapingRunsCompleted = 0;
-var datasetsScraped = [];
-var currentRunObjects = [];
-var ringerUseXpathFastMode = false;
-
-var demoMode = true;
-
 /**********************************************************************
  * Guide the user through making a demonstration recording
  **********************************************************************/
 
-var RecorderUI = (function () {
-  var pub = {};
-
+// this inherits from HelenaUIBase
+var RecorderUI = (function (pub) {
   pub.tabs = null;
+  var ringerUseXpathFastMode = false;
+  var demoMode = true;
+
+
+  /**********************************************************************
+   * We'll do a little setup and then we'll dig in on the real content
+   **********************************************************************/
+
+  function setUp(){
+
+    // messages received by this component
+    // utilities.listenForMessage("content", "mainpanel", "selectorAndListData", processSelectorAndListData);
+    // utilities.listenForMessage("content", "mainpanel", "nextButtonData", processNextButtonData);
+    // utilities.listenForMessage("content", "mainpanel", "moreItems", moreItems);
+    utilities.listenForMessage("content", "mainpanel", "scrapedData", RecorderUI.processScrapedData);
+    utilities.listenForMessage("content", "mainpanel", "requestCurrentRecordingWindows", RecorderUI.sendCurrentRecordingWindows);
+    utilities.listenForMessage("background", "mainpanel", "runScheduledScript", RecorderUI.runScheduledScript);
+    utilities.listenForMessage("background", "mainpanel", "pleasePrepareForRefresh", RecorderUI.prepareForPageRefresh);
+    utilities.listenForMessage("content", "mainpanel", "requestRingerUseXpathFastMode",function(){utilities.sendMessage("mainpanel","content","ringerUseXpathFastMode", {use: ringerUseXpathFastMode});});
+    
+    // the UI needs to show keyboard shortcuts for scraping, so call the below so they show the right thing for the various OSs
+    MiscUtilities.useCorrectScrapingConditionStrings("#scraping_instructions", "___SCRAPINGCONDITIONSTRING___", "___LINKSCRAPINGCONDITIONSTRING___"); // important to do this one first, what with everything going all stringy
+    // handle user interactions with the mainpanel
+    pub.setUpRecordingUI();
+
+    $( document ).tooltip();
+
+    // communicate to the HelenaBaseUI what we've called the elements we're using for blockly stuff
+    pub.setBlocklyDivIds("new_script_content", "toolbox", "blockly_area", "blockly_div");
+  }
+
+  $(setUp);
+
+  /**********************************************************************
+   * Now onto the functions we'll use for controlling the UI
+   **********************************************************************/
 
   pub.setUpRecordingUI = function _setUpRecordingUI(){
     // we'll start on the first tab, our default, which gives user change to start a new recording
-    pub.tabs = $( "#tabs" ).tabs();
+    var tabsDivs = $("#tabs");
+    pub.tabs = tabsDivs.tabs();
 
     var div = $("#new_script_content");
     DOMCreationUtilities.replaceContent(div, $("#about_to_record"));
@@ -103,103 +91,22 @@ var RecorderUI = (function () {
   pub.currentRingerTrace = null;
   pub.currentHelenaProgram = null;
 
+  function setCurrentProgram(program, trace){
+    pub.currentHelenaProgram = program;
+    pub.currentRingerTrace = trace;
+    pub.setBlocklyProgram(program);
+  }
+
   pub.stopRecording = function _stopRecording(){
     var trace = SimpleRecord.stopRecording();
-    pub.currentRingerTrace = trace;
     var program = ReplayScript.ringerTraceToHelenaProgram(trace, currentRecordingWindow);
-    pub.currentHelenaProgram = program;
+    setCurrentProgram(program, trace);
 
     // once we're done, remove the window id from the list of windows where we're allowed to record
     recordingWindowIds = _.without(recordingWindowIds, currentRecordingWindow);
 
     program.relevantRelations(); // now that we have a script, let's set some processing in motion that will figure out likely relations
     pub.showProgramPreview(true); // true because we're currently processing the script, stuff is in progress
-  };
-
-  pub.updateBlocklyToolbox = function _updateBlocklyToolbox(){
-    WALconsole.log("updateBlocklyToolbox");
-    // before we can use the toolbox, we have to actually have all the relevant blocks
-    pub.currentHelenaProgram.updateBlocklyBlocks();
-
-    // first make a toolbox with all the block nodes we want
-    var $toolboxDiv = $("#new_script_content").find("#toolbox");
-    if (!$toolboxDiv.length > 0){
-      // we must not be currently showing the blockly preview.  we'll get around to doing this stuff once we do switch to that view
-      return;
-    }
-    $toolboxDiv.html("");
-    for (var key in blocklyLabels){
-      var bls = blocklyLabels[key];
-      var $categoryDiv = $("<category name=" + key + ">");
-      for (var i = 0; i < bls.length; i++){
-        $categoryDiv.append($("<block type=\"" + bls[i] + "\"></block>"));
-      }
-      $toolboxDiv.append($categoryDiv);
-    }
-    workspace.updateToolbox($toolboxDiv[0]);
-  }
-
-  function handleNewWorkspace(){
-    // let's handle a little bit of blockly workspace stuff
-    // specifically, we want to listen for any move events so that we can add new WAL statements to the loopy prog
-    // when they're dragged in from the toolbox
-    // todo: right now this only handles the case where a new block is dragged in from the toolbox
-    // eventually should handle the case where existing blocks are being rearranged
-    // and should keep in mind that the blocks mostly move in groupings, not just singly.  will have to test that
-    function onBlockMove(event) {
-      if (event.type == Blockly.Events.MOVE) {
-        console.log("move event", event);
-        if (event.newParentId && event.newParentId !== event.oldParentId){
-          // ok, it's an insertion
-          console.log("move event is an insertion");
-          var movedBlock = workspace.getBlockById(event.blockId);
-          var priorStatementBlock = workspace.getBlockById(event.newParentId);
-          // if for some reason, the movedBlock doesn't have a wal statement, we're in trouble
-          var newStatement = movedBlock.WALStatement;
-          var precedingStatement = priorStatementBlock.WALStatement;
-
-          // ok, sometimes this is going to be raised because we're programmatically constructing the right
-          // program in the workspace.  which means it's not a real insertion.  The way we're going to figuer that out
-          // is we'll just see if the 'new' statement is actually already in there
-
-          if (!pub.currentHelenaProgram.containsStatement(newStatement)){
-            pub.currentHelenaProgram.insertAfter(newStatement, precedingStatement);
-          }
-        }
-      }
-    }
-    workspace.addChangeListener(onBlockMove);
-  }
-
-  function handleBlocklyEditorResizing(){
-    WALconsole.log("handleBlocklyEditorResizing");
-    var $toolboxDiv = $("#new_script_content").find("#toolbox");
-    // handle the actual editor resizing
-    var blocklyArea = document.getElementById('blockly_area');
-    var blocklyDiv = document.getElementById('blockly_div');
-    workspace = Blockly.inject('blockly_div', {toolbox: $toolboxDiv.get(0)});
-    handleNewWorkspace();
-    pub.updateBlocklyToolbox();
-    var onresize = function(e) {
-      // compute the absolute coordinates and dimensions of blocklyArea.
-      var element = blocklyArea;
-      var x = 0;
-      var y = 0;
-      do {
-        x += element.offsetLeft;
-        y += element.offsetTop;
-        element = element.offsetParent;
-      } while (element);
-      // Position blocklyDiv over blocklyArea.
-      blocklyDiv.style.left = x + 'px';
-      blocklyDiv.style.top = y + 'px';
-      blocklyDiv.style.width = blocklyArea.offsetWidth + 'px';
-      blocklyDiv.style.height = blocklyArea.offsetHeight + 'px';
-    };
-    window.addEventListener('resize', onresize, false);
-    onresize();
-    Blockly.svgResize(workspace);
-    return onresize;
   };
 
   pub.showProgramPreview = function _showProgramPreview(inProgress){
@@ -246,7 +153,7 @@ var RecorderUI = (function () {
     }
     */
 
-    blocklyReadjustFunc = handleBlocklyEditorResizing(); // this function returns the function we want to use for resizing
+    HelenaUIBase.setUpBlocklyEditor();
 
     RecorderUI.updateDisplayedScript();
     RecorderUI.updateDisplayedRelations(inProgress);
@@ -712,21 +619,21 @@ var RecorderUI = (function () {
       DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
   }
     // sometimes prog preview and stuff will have changed size, changing the shape of the div to which blockly should conform, so run the adjustment func
-    blocklyReadjustFunc();
+    pub.blocklyReadjustFunc();
     // unfortunately the data urls used for node 'snapshots' don't show up right away
     // when they don't, blockly thinks it can be higher up in the page than it should be, because the images load and extend the top div
+    
     var imgs = scriptPreviewDiv.find("img");
     for (var i = 0; i < imgs.length; i++){
       var img = imgs[i];
       img.onload = function(){
-        blocklyReadjustFunc(); 
+        pub.blocklyReadjustFunc(); 
       }
     }
     
+    
     if (updateBlockly){
-      // first make sure we have all the up to date blocks.  for instance, if we have relations available, we'll add loops to toolbox
-      pub.updateBlocklyToolbox();
-      program.displayBlockly();
+      pub.displayBlockly(program);
     }
 
     // we also want to update the section that lets the user say what loop iterations are duplicates
@@ -1069,7 +976,7 @@ var RecorderUI = (function () {
       var revivedProgram = ServerTranslationUtilities.unJSONifyProgram(response.program.serialized_program);
       revivedProgram.id = response.program.id; // if id was only assigned when it was saved, serialized_prog might not have that info yet
       revivedProgram.name = response.program.name;
-      pub.currentHelenaProgram = revivedProgram;
+      setCurrentProgram(revivedProgram, null);
       $("#tabs").tabs("option", "active", 0); // make that first tab (the program running tab) active again
       pub.showProgramPreview(false); // false because we're not currently processing the program (as in, finding relations, something like that)
       if (continuation){
@@ -1085,11 +992,10 @@ var RecorderUI = (function () {
   };
 
   return pub;
-}());
+}(HelenaUIBase));
 
 // the RecorderUI is the UI object that will show Helena programs, so certain edits to the programs
 // are allowed to call UI hooks that make the UI respond to program changes
-console.log("RecorderUI", RecorderUI);
 WebAutomationLanguage.setUIObject(RecorderUI);
 
 

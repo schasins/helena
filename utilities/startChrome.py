@@ -34,7 +34,10 @@ def newDriver(profile):
 	
 def main():
         driver = newDriver("/home/schasins/.config/google-chrome/seleniumProfile") # this profile is the one with scheduled tasks
+
+        """
         driver.get("chrome://extensions/") # the page from which we control extensions
+        """
         script = """
 
         function findNode(searchNode, tagName, searchText){
@@ -53,11 +56,16 @@ def main():
 
         reloadButton.click();
         """
-        
+        """        
         # the script above finds the node for reloading the Helena extension, then clicks on it
         
         driver.switch_to_frame(driver.find_element_by_name("extensions"))
         time.sleep(2)
         driver.execute_script(script)
+        """
+        import datetime
+        f = open("chromestarting.log", "w")
+        f.write("Started at " + str(datetime.datetime.now()))
+        f.close()
         time.sleep(60*60*23) # wait 23 hours
 main()

@@ -148,7 +148,7 @@ def oneRun(programId, allDatasetsAllIterations, threadCount, timeoutInSeconds, m
 
 		# ok, before we can do anything else, we need to get the dataset id that we'll use for all of the 'threads'
 		# 'http://kaofang.cs.berkeley.edu:8080/newprogramrun', {name: dataset.name, program_id: dataset.program_id}
-		r = requests.post('http://kaofang.cs.berkeley.edu:8080/newprogramrun', data = {"name": str(programId)+"_"+str(threadCount)+"_noprofile", "program_id": programId})
+		r = requests.post('http://kaofang.cs.berkeley.edu:8080/newprogramrun', data = {"name": str(programId)+"_"+str(threadCount)+"_noprofile_"+mode, "program_id": programId})
 		output = r.json()
 		id = output["run_id"]
 		print "current parallel run's dataset id:", id
@@ -186,8 +186,8 @@ def oneRun(programId, allDatasetsAllIterations, threadCount, timeoutInSeconds, m
 
 def parallelizationTest(programIdsLs, threadCounts, timeoutInSeconds, mode):
 	allDatasetsAllIterations = []
-	for threadCount in threadCounts:
-		for programId in programIdsLs:
+        for programId in programIdsLs:
+                for threadCount in threadCounts:
 			oneRun(programId,allDatasetsAllIterations, threadCount, timeoutInSeconds, mode)
 
 def main():
@@ -202,8 +202,8 @@ def main():
                               152 #zimride
                               ]
 
-        # fullThreadCounts = [1,2,4,6,8]
-        fullThreadCounts = [4]
+        fullThreadCounts = [1,2,4,6,8]
+        fullBenchmarkProgIds = [550] #550 was with inner skip block turned off for reviews
         if (mode == "lockBased"):
                 parallelizationTest(fullBenchmarkProgIds, fullThreadCounts, 86400, mode)
         elif (mode == "hashBased"):

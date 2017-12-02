@@ -2569,7 +2569,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       var alreadyDefinedAnnotationItems = this.relationNodeVariables();
       notYetDefinedAnnotationItems = _.difference(notYetDefinedAnnotationItems, alreadyDefinedAnnotationItems);
       if (notYetDefinedAnnotationItems.length <= 0){
-        insertAnnotation(annotationItems, availableAnnotationItems, 0);
+        insertAnnotation(annotationItems, availableAnnotationItems, 0, currProg);
         return;
       }
       for (var i = 0; i < this.bodyStatements.length; i++){

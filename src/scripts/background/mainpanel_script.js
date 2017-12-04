@@ -413,6 +413,16 @@ var RecorderUI = (function (pub) {
     }); // remember this will overwrite previous editRelation listeners, since we're providing a key
   }
 
+  function replaceRelation(relation){
+    // show the UI for replacing the selector, which will basically be the same as the one we use for uploading a text relation in the first place
+    WALconsole.log("going to upload a replacement relation.");
+    var div = $("#new_script_content");
+    DOMCreationUtilities.replaceContent(div, $("#upload_relation"));
+    $('#upload_data').on("change", pub.handleNewUploadedRelation); // and let's actually process changes
+    activateButton(div, "#upload_done", function(){if (currentUploadRelation !== null){ relation.setRelationContents(currentUploadRelation.getRelationContents());} RecorderUI.showProgramPreview(); currentUploadRelation = null;}); // ok, we're actually using this relation
+    activateButton(div, "#upload_cancel", function(){RecorderUI.showProgramPreview; currentUploadRelation = null;}); // don't really need to do anything here
+  }
+
   pub.updateDisplayedRelations = function _updateDisplayedRelations(currentlyUpdating){
     WALconsole.log("updateDisplayedRelation");
     if (currentlyUpdating === undefined){ currentlyUpdating = false; }
@@ -478,19 +488,29 @@ var RecorderUI = (function (pub) {
         relationTitle.change(function(){relation.name = relationTitle.val(); RecorderUI.updateDisplayedScript();});
         $relDiv.append(relationTitle);
         $relDiv.append(table);
+
         var saveRelationButton = $("<button>Save These Table and Column Names</button>");
         saveRelationButton.button();
         saveRelationButton.click(function(){relation.saveToServer();});
         $relDiv.append(saveRelationButton);
+
         var editRelationButton = $("<button>Edit This Table</button>");
         editRelationButton.button();
         editRelationButton.click(function(){editSelector(relation);});
         $relDiv.append(editRelationButton);
+
         var removeRelationButton = $("<button>This Table Is Not Relevant</button>");
         removeRelationButton.button();
         removeRelationButton.click(function(){pub.currentHelenaProgram.removeRelation(relation);});
         $relDiv.append(removeRelationButton);
         WALconsole.log("Done with updateDisplayedRelations table");
+
+        if (relation instanceof WebAutomationLanguage.TextRelation){
+          var replaceRelationButton = $("<button>Replace This Uploaded Table</button>");
+          replaceRelationButton.button();
+          replaceRelationButton.click(function(){replaceRelation(relation);});
+          $relDiv.append(replaceRelationButton);
+        }
       })();
     }
 
@@ -997,5 +1017,3 @@ var RecorderUI = (function (pub) {
 // the RecorderUI is the UI object that will show Helena programs, so certain edits to the programs
 // are allowed to call UI hooks that make the UI respond to program changes
 WebAutomationLanguage.setUIObject(RecorderUI);
-
-

@@ -2772,6 +2772,13 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
         colObject.scraped = true;
       }
     };
+
+    this.setRelationContents = function _setRelationContents(relationContents){
+      this.relation = relationContents;
+    }
+    this.getRelationContents = function _getRelationContents(){
+      return this.relation;
+    }
   }
 
   var relationCounter = 0;

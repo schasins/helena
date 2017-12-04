@@ -3670,7 +3670,7 @@ var WebAutomationLanguage = (function _WebAutomationLanguage() {
       this.statements = statements;
       this.relations = [];
       this.pageVars = _.uniq(_.map(_.filter(statements, function(s){return s.pageVar;}), function(statement){return statement.pageVar;}));                                                                                                                                                                                 
-      this.loopyStatements = [];  
+      this.loopyStatements = statements;  
     }
 
     var program = this;

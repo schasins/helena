@@ -638,6 +638,9 @@ var RecorderUI = (function (pub) {
       var scriptString = program.toString();
       DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
   }
+
+  // our mutation observer in the Helena base UI should now take care of this?
+  /*
     // sometimes prog preview and stuff will have changed size, changing the shape of the div to which blockly should conform, so run the adjustment func
     pub.blocklyReadjustFunc();
     // unfortunately the data urls used for node 'snapshots' don't show up right away
@@ -650,6 +653,7 @@ var RecorderUI = (function (pub) {
         pub.blocklyReadjustFunc(); 
       }
     }
+    */
     
     
     if (updateBlockly){

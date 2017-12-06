@@ -1,7 +1,7 @@
 # Helena Web Automation and Web Scraping
 
 #### What is Helena?
-Helena is a Chrome extension that can help automate repetitive interactions with well-structured webpages.  A user can demonstrate how to scrape the first row of a dataset, and Helena will write a program for scraping the next hundreds or thousands of rows.  Helena is also the name of the web automation language that the Helena extension uses.
+Helena is a Chrome extension that can help automate repetitive interactions with well-structured webpages.  A user can demonstrate how to scrape the first row of a dataset, and Helena will write a program for scraping the next hundreds or thousands of rows.  Helena is also the name of the web automation language that the Helena extension uses.  See <a href="http://helena-lang.org/" target="_blank">http://helena-lang.org/</a> for an overview of the Helena project.
 
 #### Can I see Helena in action?
 Sure!  Here's a very quick video demo:

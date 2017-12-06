@@ -153,7 +153,7 @@ var RecorderUI = (function (pub) {
     }
     */
 
-    HelenaUIBase.setUpBlocklyEditor();
+    HelenaUIBase.setUpBlocklyEditor(false); // false bc no need to update the toolbox for our setup -- updateDisplayedScript below will do that anyway
 
     RecorderUI.updateDisplayedScript();
     RecorderUI.updateDisplayedRelations(inProgress);
@@ -637,7 +637,7 @@ var RecorderUI = (function (pub) {
     else{
       var scriptString = program.toString();
       DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
-  }
+    }
 
   // our mutation observer in the Helena base UI should now take care of this?
   /*

@@ -222,7 +222,7 @@ var RecorderUI = (function (pub) {
   pub.save = function _save(postIdRetrievalContinuation){
     var prog = pub.currentHelenaProgram;
     var div = $("#new_script_content");
-    var name = div.find("#program_name").get(0).value;
+    prog.name = div.find("#program_name").get(0).value;
 
     // ok, time to call the func that actually interacts with the server
     // saveToServer(progName, postIdRetrievalContinuation, saveStartedHandler, saveCompletedHandler)
@@ -238,7 +238,7 @@ var RecorderUI = (function (pub) {
       status.html("Saved");
     };
 
-    prog.saveToServer(name, postIdRetrievalContinuation, saveStartedHandler, saveCompletedHandler);
+    prog.saveToServer(postIdRetrievalContinuation, saveStartedHandler, saveCompletedHandler);
   };
 
   pub.replayOriginal = function _replayOriginal(){

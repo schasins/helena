@@ -1,0 +1,3 @@
+[submodule "src/scripts/lib/helena-library"]
+	path = src/scripts/lib/helena-library
+	url = https://github.com/schasins/helena-library

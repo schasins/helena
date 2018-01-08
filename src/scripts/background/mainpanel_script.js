@@ -153,7 +153,7 @@ var RecorderUI = (function (pub) {
     }
     */
 
-    HelenaUIBase.setUpBlocklyEditor();
+    HelenaUIBase.setUpBlocklyEditor(false); // false bc no need to update the toolbox for our setup -- updateDisplayedScript below will do that anyway
 
     RecorderUI.updateDisplayedScript();
     RecorderUI.updateDisplayedRelations(inProgress);
@@ -222,7 +222,7 @@ var RecorderUI = (function (pub) {
   pub.save = function _save(postIdRetrievalContinuation){
     var prog = pub.currentHelenaProgram;
     var div = $("#new_script_content");
-    var name = div.find("#program_name").get(0).value;
+    prog.name = div.find("#program_name").get(0).value;
 
     // ok, time to call the func that actually interacts with the server
     // saveToServer(progName, postIdRetrievalContinuation, saveStartedHandler, saveCompletedHandler)
@@ -238,7 +238,7 @@ var RecorderUI = (function (pub) {
       status.html("Saved");
     };
 
-    prog.saveToServer(name, postIdRetrievalContinuation, saveStartedHandler, saveCompletedHandler);
+    prog.saveToServer(postIdRetrievalContinuation, saveStartedHandler, saveCompletedHandler);
   };
 
   pub.replayOriginal = function _replayOriginal(){
@@ -413,6 +413,16 @@ var RecorderUI = (function (pub) {
     }); // remember this will overwrite previous editRelation listeners, since we're providing a key
   }
 
+  function replaceRelation(relation){
+    // show the UI for replacing the selector, which will basically be the same as the one we use for uploading a text relation in the first place
+    WALconsole.log("going to upload a replacement relation.");
+    var div = $("#new_script_content");
+    DOMCreationUtilities.replaceContent(div, $("#upload_relation"));
+    $('#upload_data').on("change", pub.handleNewUploadedRelation); // and let's actually process changes
+    activateButton(div, "#upload_done", function(){if (currentUploadRelation !== null){ relation.setRelationContents(currentUploadRelation.getRelationContents());} RecorderUI.showProgramPreview(); currentUploadRelation = null;}); // ok, we're actually using this relation
+    activateButton(div, "#upload_cancel", function(){RecorderUI.showProgramPreview; currentUploadRelation = null;}); // don't really need to do anything here
+  }
+
   pub.updateDisplayedRelations = function _updateDisplayedRelations(currentlyUpdating){
     WALconsole.log("updateDisplayedRelation");
     if (currentlyUpdating === undefined){ currentlyUpdating = false; }
@@ -478,19 +488,29 @@ var RecorderUI = (function (pub) {
         relationTitle.change(function(){relation.name = relationTitle.val(); RecorderUI.updateDisplayedScript();});
         $relDiv.append(relationTitle);
         $relDiv.append(table);
+
         var saveRelationButton = $("<button>Save These Table and Column Names</button>");
         saveRelationButton.button();
         saveRelationButton.click(function(){relation.saveToServer();});
         $relDiv.append(saveRelationButton);
+
         var editRelationButton = $("<button>Edit This Table</button>");
         editRelationButton.button();
         editRelationButton.click(function(){editSelector(relation);});
         $relDiv.append(editRelationButton);
+
         var removeRelationButton = $("<button>This Table Is Not Relevant</button>");
         removeRelationButton.button();
         removeRelationButton.click(function(){pub.currentHelenaProgram.removeRelation(relation);});
         $relDiv.append(removeRelationButton);
         WALconsole.log("Done with updateDisplayedRelations table");
+
+        if (relation instanceof WebAutomationLanguage.TextRelation){
+          var replaceRelationButton = $("<button>Replace This Uploaded Table</button>");
+          replaceRelationButton.button();
+          replaceRelationButton.click(function(){replaceRelation(relation);});
+          $relDiv.append(replaceRelationButton);
+        }
       })();
     }
 
@@ -617,7 +637,10 @@ var RecorderUI = (function (pub) {
     else{
       var scriptString = program.toString();
       DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
-  }
+    }
+
+  // our mutation observer in the Helena base UI should now take care of this?
+  /*
     // sometimes prog preview and stuff will have changed size, changing the shape of the div to which blockly should conform, so run the adjustment func
     pub.blocklyReadjustFunc();
     // unfortunately the data urls used for node 'snapshots' don't show up right away
@@ -630,6 +653,7 @@ var RecorderUI = (function (pub) {
         pub.blocklyReadjustFunc(); 
       }
     }
+    */
     
     
     if (updateBlockly){
@@ -997,5 +1021,3 @@ var RecorderUI = (function (pub) {
 // the RecorderUI is the UI object that will show Helena programs, so certain edits to the programs
 // are allowed to call UI hooks that make the UI respond to program changes
 WebAutomationLanguage.setUIObject(RecorderUI);
-
-

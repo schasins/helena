@@ -338,6 +338,7 @@ var RecorderUI = (function (pub) {
       pub.currentHelenaProgram.run({}, function(datasetObj, timeToScrape){
         // and for scheduled runs we're doing something that's currently a little wacky, where we trigger an IFTTT action when the scrape has run
         // todo: come up with a cleaner set up for this
+        // this is the part that will send the email
         var ifttturl = "https://maker.ifttt.com/trigger/scheduled_scrape_completed/with/key/cBhUYy-EzpfmsfrJ9Bzs2p";
         var subject = "Scheduled Scrape Completed: " + pub.currentHelenaProgram.name;
         var url = datasetObj.downloadUrl();

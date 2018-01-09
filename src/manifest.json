@@ -4,6 +4,7 @@
   "name": "Helena Scraper and Automator",
   "description": "This extension uses the Helena web automation language to scrape relational data from highly structured webpages.",
   "version": "1.0",
+  "update_url": "https://www.helena-lang.org",
 
   "browser_action": {
     "default_icon": "icons/icon.png"

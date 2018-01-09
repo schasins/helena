@@ -14,7 +14,7 @@ Sure!  Here's a very quick video demo:
 Yes!  In fact Helena is designed especially for non-programmers.  The idea is that you provide a demonstration of the actions you want Helena to do, and Helena figures out the rest.
 
 #### How do I install Helena?
-First, go to this page: https://github.com/schasins/helena/blob/master/src.crx.  Now find and click the "Download" button.  Once the extension has downloaded, go to chrome://extensions/, which lists all your extensions.  Drag the src.crx file that you just downloaded into the extensions page, click the "Add Extension" button when it asks whether you want to add the extension, and you're all set! 
+First, go to this page: https://github.com/schasins/helena/blob/master/src.crx.  Now find and click the "Download" button.  Once the extension has downloaded, paste `chrome://extensions/` into your URL bar to load a page that lists all your extensions.  Drag the src.crx file that you just downloaded into the extensions page, click the "Add Extension" button when it asks whether you want to add the extension, and you're all set! 
 
 #### Can I get Helena from the Chrome Web Store?
 We have not yet released a 'packed' version of Helena, since it's still in the early stages and still undergoing many substantial changes.  We do expect to release a version in the Chrome Web Store eventually.

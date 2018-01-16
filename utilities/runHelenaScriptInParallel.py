@@ -1,14 +1,22 @@
+# usage: python runHelenaScriptInParallel.py <helenaScriptNumericId> <numParallelBrowsers> <timeoutInHours>
+# ex: python runHelenaScriptInParallel.py 651 3 23.75
+
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
 import time
 from sys import platform
+import sys
 from multiprocessing import Process, Queue
 import traceback
 import logging
 import numpy as np
 import random
 import requests
+
+scriptName = int(sys.argv[1])
+numParallelBrowsers = int(sys.argv[2])
+timeoutInHours = float(sys.argv[3])
 
 """
 from pyvirtualdisplay import Display
@@ -53,11 +61,11 @@ def runScrapingProgramHelper(driver, progId, optionsStr):
 	function repeatUntilReadyToRun(){
 		console.log("repeatUntilReadyToRun");
         // ringerUseXpathFastMode = true; // just for the peru one.  remove this later
-		if (!ReplayScript.prog){
+		if (!RecorderUI.currentHelenaProgram){
 			setTimeout(repeatUntilReadyToRun, 100);
 		}
 		else{
-			ReplayScript.prog.run(""" + optionsStr + """);
+			RecorderUI.currentHelenaProgram.run(""" + optionsStr + """);
 		}
 	}
 	repeatUntilReadyToRun();
@@ -90,8 +98,6 @@ class RunProgramProcess(Process):
                 self.optionStr = optionStr
                 self.numTriesSoFar = numTriesSoFar
 		self.driver = newDriver(self.profile)
-                # below is bad, but I'm going to do it anyway for time being
-                #self.driver = runScrapingProgram(self.profile, self.programId, self.optionStr)
 
         def run(self):
                 self.runInternals()
@@ -140,7 +146,7 @@ def joinProcesses(procs, timeoutInSeconds):
                 return False
    
 
-def oneRun(programId, allDatasetsAllIterations, threadCount, timeoutInSeconds, mode):
+def oneRun(programId, threadCount, timeoutInSeconds, mode):
 	noErrorsRunComplete = False
 	id = None
 
@@ -170,49 +176,7 @@ def oneRun(programId, allDatasetsAllIterations, threadCount, timeoutInSeconds, m
 		# below will be true if all complete within the time limit, else false
 		noErrorsRunComplete = joinProcesses(procs, timeoutInSeconds)
 
-	print "------"
-
-	f = open("parallelDatasetUrls.txt", "a")
-	allDatasetsAllIterations.append(id)
-	f.write("http://kaofang.cs.berkeley.edu:8080/datasets/rundetailed/" + str(id) + "\n")
-	# f.write("kaofang.cs.berkeley.edu:8080/downloaddetailedmultipass/" + str(newDatasetId) + "\n")
-	f.close()
-
-	for datasetId in allDatasetsAllIterations:
-		# this is just to give the user some feedback
-		print "http://kaofang.cs.berkeley.edu:8080/datasets/rundetailed/" + str(datasetId)
-
-	print "------"
-
-def parallelizationTest(programIdsLs, threadCounts, timeoutInSeconds, mode):
-	allDatasetsAllIterations = []
-        for programId in programIdsLs:
-                for threadCount in threadCounts:
-			oneRun(programId,allDatasetsAllIterations, threadCount, timeoutInSeconds, mode)
-
 def main():
-        mode = "sensitivity"
-        fullBenchmarkProgIds = [
-                              128, #community foundations
-                              479, #yelp restaurants
-                              467, #twitter tweets
-                              483, #yelp reviews
-                              507, #craigslist listings
-                              509, #yelp menu items
-                              152 #zimride
-                              ]
-
-        fullThreadCounts = [1,2,4,6,8]
-        fullBenchmarkProgIds = [550] #550 was with inner skip block turned off for reviews
-        if (mode == "lockBased"):
-                parallelizationTest(fullBenchmarkProgIds, fullThreadCounts, 86400, mode)
-        elif (mode == "hashBased"):
-                parallelizationTest(fullBenchmarkProgIds, fullThreadCounts, 86400, mode)
-        elif (mode == "caseStudy"):
-                parallelizationTest([519], [8], 864000, "lockBased")
-        elif (mode == "sensitivity"):
-        		# parallelizationTest([542,543,544], [4], 864000, "lockBased") # craigslist
-        		parallelizationTest([549,548,547], [4], 864000, "lockBased")
-                
+        oneRun([scriptName], numParallelBrowsers, int(timeoutInHours * 60 * 60), "lockBased")
 
 main()

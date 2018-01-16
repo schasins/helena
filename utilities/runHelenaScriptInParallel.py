@@ -1,5 +1,7 @@
-# usage: python runHelenaScriptInParallel.py <helenaScriptNumericId> <numParallelBrowsers> <timeoutInHours>
-# ex: python runHelenaScriptInParallel.py 651 3 23.75
+# usage: python runHelenaScriptInParallel.py <helenaScriptNumericId> <numParallelBrowsers> <timeoutInHours> <howManyRunsToAllowPerWorker>
+# ex: python runHelenaScriptInParallel.py 651 3 23.75 1000
+# in the above, we want to let the script keep looping as long as it wants in 23.75 hours, so we put 1000 runs allowed
+# it's probably more normal to only allow one run, unless you have it set up to loop forever
 
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
@@ -17,6 +19,7 @@ import requests
 scriptName = int(sys.argv[1])
 numParallelBrowsers = int(sys.argv[2])
 timeoutInHours = float(sys.argv[3])
+howManyRunsToAllowPerWorker = int(sys.argv[4])
 
 """
 from pyvirtualdisplay import Display
@@ -85,7 +88,7 @@ def getDatasetIdForDriver(driver):
 	return blockingRepeatUntilNonFalseAnswer(getDatasetId)
 
 def getWhetherDone(driver):
-	getHowManyDone = lambda: driver.execute_script("console.log('scrapingRunsCompleted', scrapingRunsCompleted); if (scrapingRunsCompleted === 0) {return false;} else {return scrapingRunsCompleted}")
+	getHowManyDone = lambda: driver.execute_script("console.log('scrapingRunsCompleted', scrapingRunsCompleted); if (scrapingRunsCompleted < "+str(howManyRunsToAllowPerWorker)+") {return false;} else {return scrapingRunsCompleted}")
 	return blockingRepeatUntilNonFalseAnswer(getHowManyDone)
 
 class RunProgramProcess(Process):

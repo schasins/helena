@@ -13,6 +13,7 @@
     "tabs",
     "http://*/*",
     "https://*/*",
+    "file://*/*",
     "webRequest",
     "storage",
     "unlimitedStorage",
@@ -26,7 +27,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
+      "matches": ["http://*/*", "https://*/*", "file://*/*"],
       "match_about_blank": true,
       "all_frames": true,
       "js": [		

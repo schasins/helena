@@ -178,6 +178,7 @@ def oneRun(programId, threadCount, timeoutInSeconds, mode):
 		
 		# below will be true if all complete within the time limit, else false
 		noErrorsRunComplete = joinProcesses(procs, timeoutInSeconds)
+                return # can get rid of this if I remove the while loop above.  that was for recovery by restart stuff, which we don't want here.  don't want to run forever
 
 def main():
         oneRun([scriptName], numParallelBrowsers, int(timeoutInHours * 60 * 60), "lockBased")

@@ -7,6 +7,7 @@ body{
 }
 
 table, tr, td {
+	background-color: white;
 	border: 1px solid #F2F2F2;
 	font-family: 'Montserrat', Trebuchet MS,Tahoma,Verdana,Arial,sans-serif;
 	font-size: 11px;
@@ -223,4 +224,15 @@ h4 {
 
 .node_prop_val{
 	background-color: #F0EBE1;
+}
+
+.small_vertical_padding{
+	padding-top: 4px;
+	padding-bottom: 4px;
+}
+.top_padding{
+	padding-top: 10px;
+}
+.bottom_padding{
+	padding-bottom: 13px;
 }

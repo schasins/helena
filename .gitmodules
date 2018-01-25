@@ -1,3 +1,3 @@
-[submodule "src/scripts/lib/helena-library"]
-	path = src/scripts/lib/helena-library
-	url = https://github.com/schasins/helena-library
+[submodule "src/scripts/lib/helena-lang"]
+	path = src/scripts/lib/helena-lang
+	url = https://github.com/schasins/helena-lang

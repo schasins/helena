@@ -472,14 +472,9 @@ var RecorderUI = (function (pub) {
             var columnTitle = $("<input></input>");
             columnTitle.val(columns[j].name);
             columnTitle.change(function(){relation.setColumnName(columns[closJ], columnTitle.val()); RecorderUI.updateDisplayedScript();});
-            
-            var columnScraped = $("<input type='checkbox'>");
-            columnScraped.prop( "checked", relation.isColumnUsed(columns[j]));
-            columnScraped.change(function(){relation.toggleColumnUsed(columns[closJ], pub.currentHelenaProgram); RecorderUI.updateDisplayedScript();});
 
             var td = $("<td></td>");
             td.append(columnTitle);
-            td.append(columnScraped);
             tr.append(td);
           })();
         }

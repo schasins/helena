@@ -49,9 +49,6 @@ var RecorderUI = (function (pub) {
     var tabsDivs = $("#tabs");
     pub.tabs = tabsDivs.tabs();
 
-    var div = $("#new_script_content");
-    DOMCreationUtilities.replaceContent(div, $("#about_to_record"));
-    div.find("#start_recording").click(RecorderUI.startRecording);
     // if we switch to the second tab, we'll need to load in all the saved scripts
     $( "#tabs" ).on( "tabsbeforeactivate", function( event, ui ) {
       if (ui.newPanel.attr('id') === "tabs-2"){
@@ -61,6 +58,14 @@ var RecorderUI = (function (pub) {
         pub.loadScheduledScripts();
       }
     });
+
+    pub.showStartRecording();
+  };
+
+  pub.showStartRecording = function _showStartRecording(){
+    var div = $("#new_script_content");
+    DOMCreationUtilities.replaceContent(div, $("#about_to_record"));
+    div.find("#start_recording").click(RecorderUI.startRecording);
   };
 
   var currentRecordingWindow = null;
@@ -69,6 +74,10 @@ var RecorderUI = (function (pub) {
     var div = $("#new_script_content");
     DOMCreationUtilities.replaceContent(div, $("#recording"));
     div.find("#stop_recording").click(RecorderUI.stopRecording);
+
+    // if we already recorded one, there could be old stuff in here, so clear it out
+    var $div = $("#scraped_items_preview");
+    $div.html("");
 
     MiscUtilities.makeNewRecordReplayWindow(function(windowId){
       recordingWindowIds.push(windowId);
@@ -126,6 +135,7 @@ var RecorderUI = (function (pub) {
     activateButton(div, "#save", RecorderUI.save);
     activateButton(div, "#replay", RecorderUI.replayOriginal);
     activateButton(div, "#schedule_later", RecorderUI.scheduleLater);
+    activateButton(div, "#start_new", RecorderUI.startNewScript);
     activateButton(div, '#relation_upload', RecorderUI.uploadRelation);
     activateButton(div, '#relation_demonstration', RecorderUI.demonstrateRelation);
 
@@ -245,6 +255,12 @@ var RecorderUI = (function (pub) {
     pub.currentHelenaProgram.replayOriginal();
   };
 
+  pub.startNewScript = function _startNewScript(){
+    setCurrentProgram(null, []);
+    pub.resetForNewScript(); // clearing out a couple vars that have state from old prog or recording process
+    pub.showStartRecording();
+  }
+
   pub.pauseRun = function _pauseRun(runObject){
     WALconsole.log("Setting pause flag.");
     runObject.userPaused = true; // next runbasicblock call will handle saving a continuation
@@ -300,6 +316,11 @@ var RecorderUI = (function (pub) {
       }
     });
   };
+
+  pub.resetForNewScript = function resetForNewScript(){
+    scraped = {};
+    keys = [];
+  }
 
   // during recording, when user scrapes, show the text so user gets feedback on what's happening
   var scraped = {}; // dictionary based on xpath since we can get multiple DOM events that scrape same data from same node

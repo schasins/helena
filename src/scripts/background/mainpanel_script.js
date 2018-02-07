@@ -405,10 +405,12 @@ var RecorderUI = (function (pub) {
     // show the UI for editing the selector
     // we need to open up the new tab that we'll use for showing and editing the relation, and we need to set up a listener to update the selector associated with this relation, based on changes the user makes over at the content script
     var bestLengthSoFar = 0;
+    var heardAnswer = false;
     chrome.tabs.create({url: relation.url, active: true}, function(tab){
       RecorderUI.showRelationEditor(relation, tab.id);
       var sendSelectorInfo = function(){utilities.sendMessage("mainpanel", "content", "editRelation", relation.messageRelationRepresentation(), null, null, [tab.id]);};
       var sendSelectorInfoUntilAnswer = function(){
+        if (heardAnswer){return;}
         sendSelectorInfo(); 
         setTimeout(sendSelectorInfoUntilAnswer, 1000);
       }
@@ -420,6 +422,7 @@ var RecorderUI = (function (pub) {
     // now we've sent over the current selector info.  let's set up the listener that will update the preview (and the object)
     utilities.listenForMessageWithKey("content", "mainpanel", "editRelation", "editRelation", 
     function(msg){
+      heardAnswer = true;
       if (msg.demonstration_time_relation.length >= bestLengthSoFar){
         bestLengthSoFar = msg.demonstration_time_relation.length;
         if (bestLengthSoFar > 0){

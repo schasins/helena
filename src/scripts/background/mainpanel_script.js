@@ -320,6 +320,7 @@ var RecorderUI = (function (pub) {
   pub.resetForNewScript = function resetForNewScript(){
     scraped = {};
     keys = [];
+    HelenaUIBase.resetForNewScriptInternal();
   }
 
   // during recording, when user scrapes, show the text so user gets feedback on what's happening

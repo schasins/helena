@@ -1,5 +1,6 @@
-# usage: python runHelenaScriptInParallel.py <helenaScriptNumericId> <numParallelBrowsers> <timeoutInHours> <howManyRunsToAllowPerWorker>
-# ex: python runHelenaScriptInParallel.py 651 3 23.75 1000
+# usage: python runHelenaScriptInParallel.py <helenaScriptNumericId> <numParallelBrowsers> <timeoutInHours> <howManyRunsToAllowPerWorker> <pathToChromeDriver>
+# ex: python runHelenaScriptInParallel.py 651 3 23.75 1000 /home/username/Downloads/chromedriver
+# ex: python runHelenaScriptInParallel.py 651 1 1 1 /Users/schasins/Downloads/chromedriver
 # in the above, we want to let the script keep looping as long as it wants in 23.75 hours, so we put 1000 runs allowed
 # it's probably more normal to only allow one run, unless you have it set up to loop forever
 
@@ -12,14 +13,15 @@ import sys
 from multiprocessing import Process, Queue
 import traceback
 import logging
-import numpy as np
 import random
 import requests
+import numpy as np
 
 scriptName = int(sys.argv[1])
 numParallelBrowsers = int(sys.argv[2])
 timeoutInHours = float(sys.argv[3])
 howManyRunsToAllowPerWorker = int(sys.argv[4])
+chromeDriverPath = sys.argv[5]
 
 """
 from pyvirtualdisplay import Display
@@ -28,16 +30,7 @@ display.start()
 """
 
 unpackedExtensionPath = "../src"
-
-
-if platform == "linux" or platform == "linux2":
-	# linux
-	chromeDriverPath = '/home/schasins/Downloads/chromedriver'
-	extensionkey = "clelgfmpjhkenbpdddjihmokjgooedpl"
-elif platform == "darwin":
-	# OS X
-	chromeDriverPath = '/Users/schasins/Downloads/chromedriver'
-	extensionkey = "bcnlebcnondcgcmmkcnmepgnamoekjnn"
+extensionkey = None
 
 def newDriver(profile):
 	chrome_options = Options()
@@ -47,14 +40,24 @@ def newDriver(profile):
 
 	driver = webdriver.Chrome(chromeDriverPath, chrome_options=chrome_options)
 
+	driver.get("chrome://extensions/")
+	checkbox = driver.find_element_by_id("toggle-dev-on")
+	if (not checkbox.is_selected()):
+		checkbox.click()
+		time.sleep(1)
+
+	elems = driver.find_elements_by_class_name("extension-details")
+	for i in range(len(elems)):
+		t = elems[i].text
+		if ("Helena Scraper and Automator" in t):
+			lines = t.split("\n")
+			for line in lines:
+				if "ID: " in line:
+					key = line.strip().split("ID: ")[1]
+					print "extension key:", key
+					extensionkey = key
+
 	driver.get("chrome-extension://" + extensionkey + "/pages/mainpanel.html")
-	return driver
-
-def runScrapingProgram(profile, progId, optionsStr):
-
-	driver = newDriver(profile)
-	runScrapingProgramHelper(driver, progId, optionsStr)
-
 	return driver
 	
 def runScrapingProgramHelper(driver, progId, optionsStr):

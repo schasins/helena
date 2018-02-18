@@ -13,6 +13,9 @@ a {
 a:hover {
   text-decoration: underline;
 }
+.nounderline {
+  text-decoration: none !important;
+}
 
 img {
   border: none;
@@ -542,4 +545,19 @@ pre.bibtex {
 .about .quote,
 .about .para {
   line-height: 24px;
+}
+
+.button {
+    background-color: #652c90; /* Purple */
+    border: none;
+    color: white;
+    padding: 15px 32px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    border-radius: 8px;
+}
+.button:hover {
+  background-color: #4E2270;
 }

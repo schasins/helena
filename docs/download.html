@@ -56,7 +56,14 @@ permalink: /download
           </p>
 
           <p>
-          <a href="https://github.com/schasins/helena/blob/master/src.crx?raw=true"><dic class="button">Download the Extension</div></a>
+          <a href="https://github.com/schasins/helena/blob/master/src.crx?raw=true" onclick="var that=this;
+            gtag('event', 'download', {
+              'event_category': 'downloadHelenaExtension',
+              'event_label': 'helenaExtension',
+              'value': this.href
+            });
+            setTimeout(function(){location.href=that.href;},200);
+            return false;"><dic class="button">Download the Extension</div></a>
           </p>
 
           <p>

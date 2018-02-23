@@ -1,6 +1,8 @@
 # usage: python runHelenaScriptInParallel.py <helenaScriptNumericId> <numParallelBrowsers> <timeoutInHours> <howManyRunsToAllowPerWorker> <pathToChromeDriver>
 # ex: python runHelenaScriptInParallel.py 651 3 23.75 1000 /home/username/Downloads/chromedriver
 # ex: python runHelenaScriptInParallel.py 927 1 1 1 /Users/schasins/Downloads/chromedriver
+# ex: python runHelenaScriptInParallel.py 927 1 1 1 ./chromedriver
+# ex: python runHelenaScriptInParallel.py 945 3 23.75 1000 ./chromedriver
 # in the above, we want to let the script keep looping as long as it wants in 23.75 hours, so we put 1000 runs allowed
 # it's probably more normal to only allow one run, unless you have it set up to loop forever
 

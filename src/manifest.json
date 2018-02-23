@@ -34,6 +34,7 @@
       "scripts/lib/helena-library/common/misc_utilities.js", 
 			"scripts/lib/jquery.js", 
       "scripts/lib/helena-library/content/setup.js",
+      "scripts/lib/helena-library/content/node_rep.js",
 			"scripts/lib/helena-library/ringer-record-replay/common/common_common.js",
 			"scripts/lib/helena-library/ringer-record-replay/common/common_params.js",
 			"scripts/lib/helena-library/ringer-record-replay/common/common_logging.js",

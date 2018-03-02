@@ -456,17 +456,22 @@ var RecorderUI = (function (pub) {
     var relationObjects = pub.currentHelenaProgram.relations;
     var $div = $("#new_script_content").find("#status_message");
     $div.html("");
+    var $overlay = $("#overlay");
+    var $overlaytext = $overlay.find("#overlay_text");
     if (currentlyUpdating){
-      $div.html("Looking at webpages to find relevant tables.  Give us a moment.<br><center><img src='../icons/ajax-loader.gif'></center>");
+      $overlaytext.html("<center><img src='../icons/ajax-loader.gif'><br>Looking at webpages to find relevant tables.  Give us a moment.<br></center>");
       var giveUpButton = $("<button>Give up looking for relevant tables.</button>");
       giveUpButton.button();
       giveUpButton.click(function(){
         pub.currentHelenaProgram.insertLoops(true); // if user thinks we won't have relations, go ahead and do prog processing (making loopyStatements) without them
+        // and let's prevent future guessed relations from messing us up
+        pub.currentHelenaProgram.forbidAutomaticLoopInsertion();
       });
-      $div.append(giveUpButton);
+      $overlaytext.append(giveUpButton);
+      $overlay.css("display", "inline");
     }
     else{
-      $div.html("");
+      $overlay.css("display", "none");
     }
 
     $div = $("#new_script_content").find("#relations");

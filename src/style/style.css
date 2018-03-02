@@ -255,6 +255,6 @@ h4 {
 }
 #overlay_text{
 	padding: 30px;
-	background-color: rgba(255,255,255,0.7);
+	background-color: rgba(255,255,255,1);
 	text-align: center;
 }

@@ -3,6 +3,7 @@
 # ex: python runHelenaScriptInParallel.py 927 1 1 1 /Users/schasins/Downloads/chromedriver
 # ex: python runHelenaScriptInParallel.py 927 1 1 1 ./chromedriver
 # ex: python runHelenaScriptInParallel.py 945 3 23.75 1000 ./chromedriver
+# ex: python runHelenaScriptInParallel.py 1012 1 1 1 ./chromedriver
 # in the above, we want to let the script keep looping as long as it wants in 23.75 hours, so we put 1000 runs allowed
 # it's probably more normal to only allow one run, unless you have it set up to loop forever
 
@@ -18,6 +19,7 @@ import logging
 import random
 import requests
 import numpy as np
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities  
 
 scriptName = int(sys.argv[1])
 numParallelBrowsers = int(sys.argv[2])
@@ -38,7 +40,10 @@ def newDriver(profile):
 	# chrome_options.add_argument("user-data-dir=profiles/" + profile)
 	# chrome_options.add_argument("--display=:0") 
 
-	driver = webdriver.Chrome(chromeDriverPath, chrome_options=chrome_options)
+        desired = DesiredCapabilities.CHROME
+        desired ['loggingPrefs'] = { 'browser':'ALL' }
+
+	driver = webdriver.Chrome(chromeDriverPath, chrome_options=chrome_options, desired_capabilities=desired)
 
 	driver.get("chrome://extensions/")
 	checkbox = driver.find_element_by_id("toggle-dev-on")
@@ -63,6 +68,11 @@ def newDriver(profile):
 def runScrapingProgramHelper(driver, progId, optionsStr):
 	driver.execute_script("RecorderUI.loadSavedProgram(" + str(progId) + ");")
 
+        time.sleep(10)
+        data = driver.get_log('browser')
+        for line in data:
+                print line
+
 	runCurrentProgramJS = """
 	function repeatUntilReadyToRun(){
 		console.log("repeatUntilReadyToRun");
@@ -77,22 +87,26 @@ def runScrapingProgramHelper(driver, progId, optionsStr):
 	repeatUntilReadyToRun();
 	"""
 	driver.execute_script(runCurrentProgramJS)
-	
+	print "started run"
 
-def blockingRepeatUntilNonFalseAnswer(lam):
+def blockingRepeatUntilNonFalseAnswer(lam, driver):
 	ans = lam()
 	while (not ans):
-		time.sleep(5)
+                time.sleep(5)
 		ans = lam()
+                data = driver.get_log('browser')
+                print "log so far"
+                for line in data:
+                        print line
 	return ans
 
 def getDatasetIdForDriver(driver):
 	getDatasetId = lambda : driver.execute_script("console.log('datasetsScraped', datasetsScraped); if (datasetsScraped.length > 0) {console.log('realAnswer', datasetsScraped[0]); return datasetsScraped[0];} else { return false;}")
-	return blockingRepeatUntilNonFalseAnswer(getDatasetId)
+	return blockingRepeatUntilNonFalseAnswer(getDatasetId, driver)
 
 def getWhetherDone(driver):
 	getHowManyDone = lambda: driver.execute_script("console.log('scrapingRunsCompleted', scrapingRunsCompleted); if (scrapingRunsCompleted < "+str(howManyRunsToAllowPerWorker)+") {return false;} else {return scrapingRunsCompleted}")
-	return blockingRepeatUntilNonFalseAnswer(getHowManyDone)
+	return blockingRepeatUntilNonFalseAnswer(getHowManyDone, driver)
 
 class RunProgramProcess(Process):
 

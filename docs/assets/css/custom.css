@@ -561,3 +561,19 @@ pre.bibtex {
 .button:hover {
   background-color: #4E2270;
 }
+
+.smaller {
+  font-size: 13px;
+}
+
+.centered {
+  text-align: center;
+}
+
+.padded {
+  padding: 5px;
+}
+
+.go_higher {
+  margin-top: -10px;
+}

@@ -2,121 +2,78 @@
 title: Helena
 description: Web Automation for End Users
 permalink: /
+layout: default
 ---
 
-<!DOCTYPE html>
-<html>
-  <head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">  
+  <div class="header">
+    <div class="lead">Tools</div>
+  </div>
 
-    <!-- Global site tag (gtag.js) - Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-112530566-1"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
+  <div class="paper project">
 
-      gtag('config', 'UA-112530566-1');
-    </script>
-  
-    <title>Helena: Web Automation for End Users</title>
-    <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
-    <link href="assets/css/custom.css" rel="stylesheet">
-    <meta name="description" content="Helena is a high-level programming language for web automation and web data collection.  It comes with Rousillon, a programming-by-demonstration (PBD) tool for writing Helena programs.">
-  </head>
-    <body>
-      <div id="main">
+    <div class="thumbnail">
+      <a class="thumbnail-wrapper" href="https://github.com/schasins/helena" target="_blank"><div class="thumbnail-img" style="background-image: url(./index_files/helena.png)"></div></a>
+      <div class="desc">
+        <span class="lead">Helena</span>
+        is a high-level programming language for automating web tasks -- clicks, form interactions, data collection.
+        Draft a Helena program by recording a browser interaction, then use the Helena editor to adapt, extend, and understand it.
+        <div class="links">
+          <p>
+            <a href="https://www.github.com/schasins/helena" target="_blank">GitHub</a>
+            |
+            <a href="/publications">Publications</a>
+        </p></div>
+      </div>
+    </div> <!-- /Helena Language -->
 
-        <div class="header">
-          <div class="pull-right">
-            <a href="https://eecs.berkeley.edu/" title="UC Berkeley EECS"><img src="./index_files/uc-berkeley-logo.png" height="21px" target="_blank"></a> &nbsp;
-            <a href="https://uwplse.org/" title="UW PLSE"><img src="./index_files/uw-plse-logo.png" height="20px" target="_blank"></a>
-          </div>
-          <a href="/" class="nounderline">
-          <div class="mark">
-            <span class="uw">Helena</span>
-          </div>
-          <div id="title">Web Automation for End Users</div>
-          </a>
-          <br>
+
+    <div class="thumbnail">
+      <a class="thumbnail-wrapper" href="https://github.com/schasins/helena" target="_blank"><div class="thumbnail-img" style="background-image: url(./index_files/helena-extension.png)"></div></a>
+      <div class="desc">
+        <span class="lead">
+        Rousillon
+        </span>
+        is a Chrome extension for writing programs in the Helena language using PBD techniques.
+        Using the extension, users can demonstrate how to collect the first row of a multi-relational dataset and receive a generalized Helena program for collecting remaining data.
+
+        <div class="links">
+          <p>
+            <a href="https://www.github.com/schasins/helena" target="_blank">GitHub</a>
+            |
+            <a href="https://www.youtube.com/watch?v=abVdsi89_j8&list=PLYeneIW6KQxIDUEp2QaNNKrgXg9hVvxZo" target="_blank">Video Tutorials</a>
+            |
+            <a href="https://github.com/schasins/helena/wiki/Helena-Tips-and-Tricks" target="_blank">Tips &amp; Tricks</a>
+            |
+            <a href="/download">Download</a>
+          </p>
         </div>
-        <div class="content">
+      </div>
+    </div><!-- /Helena Extension -->
 
-          <div class="mission">
-            Helena is a high-level programming language for web automation.
-            It comes with Rousillon, a programming-by-demonstration (PBD) tool for writing Helena programs.
-            Just open the Rousillon browser extension, demonstrate how to collect the first row of a dataset, then let Rousillon write a program for collecting the remaining rows.
-          </div>
+    <div class="thumbnail">
+      <a class="thumbnail-wrapper" href="https://github.com/sbarman/ringer" target="_blank"><div class="thumbnail-img" style="background-image: url(./index_files/ringer.png)"></div></a>
+      <div class="desc">
+        <span class="lead">
+        Ringer
+        </span>
+        is a browser record and replay tool.
+        Ringer records a user demonstration of a web interaction and writes a straight-line replay script in a low-level language.
+        The replay script is designed to repeat the same interaction on the same webpages, even as the pages' structures and contents change.
+        Rousillon uses Ringer as a building block to record user interactions, then generalizes the straight-line Ringer interactions into loopy, high-level Helena programs.
 
+        <div class="links">
+          <p>
+            <a href="https://github.com/sbarman/webscript" target="_blank">GitHub</a>
+            |
+            <a href="/publications">Publications</a>
+          </p>
+        </div>
+      </div>
+    </div><!-- /Ringer -->
 
-          <div class="header">
-            <div class="lead">Tools</div>
-          </div>
+  </div><!-- /Tools -->
 
-          <div class="paper project">
-
-            <div class="thumbnail">
-              <a class="thumbnail-wrapper" href="https://github.com/schasins/helena" target="_blank"><div class="thumbnail-img" style="background-image: url(./index_files/helena.png)"></div></a>
-              <div class="desc">
-                <span class="lead">Helena</span>
-                is a high-level programming language for automating web tasks -- clicks, form interactions, data collection.
-                Draft a Helena program by recording a browser interaction, then use the Helena editor to adapt, extend, and understand it.
-                <div class="links">
-                  <p>
-                    <a href="https://www.github.com/schasins/helena" target="_blank">GitHub</a>
-                    |
-                    <a href="/publications">Publications</a>
-                </p></div>
-              </div>
-            </div> <!-- /Helena Language -->
-
-
-            <div class="thumbnail">
-              <a class="thumbnail-wrapper" href="https://github.com/schasins/helena" target="_blank"><div class="thumbnail-img" style="background-image: url(./index_files/helena-extension.png)"></div></a>
-              <div class="desc">
-                <span class="lead">
-                Rousillon
-                </span>
-                is a Chrome extension for writing programs in the Helena language using PBD techniques.
-                Using the extension, users can demonstrate how to collect the first row of a multi-relational dataset and receive a generalized Helena program for collecting remaining data.
-
-                <div class="links">
-                  <p>
-                    <a href="https://www.github.com/schasins/helena" target="_blank">GitHub</a>
-                    |
-                    <a href="https://www.youtube.com/watch?v=abVdsi89_j8&list=PLYeneIW6KQxIDUEp2QaNNKrgXg9hVvxZo" target="_blank">Video Tutorials</a>
-                    |
-                    <a href="https://github.com/schasins/helena/wiki/Helena-Tips-and-Tricks" target="_blank">Tips &amp; Tricks</a>
-                    |
-                    <a href="/download" target="_blank">Download</a>
-                  </p>
-                </div>
-              </div>
-            </div><!-- /Helena Extension -->
-
-            <div class="thumbnail">
-              <a class="thumbnail-wrapper" href="https://github.com/sbarman/ringer" target="_blank"><div class="thumbnail-img" style="background-image: url(./index_files/ringer.png)"></div></a>
-              <div class="desc">
-                <span class="lead">
-                Ringer
-                </span>
-                is a browser record and replay tool.
-                Ringer records a user demonstration of a web interaction and writes a straight-line replay script in a low-level language.
-                The replay script is designed to repeat the same interaction on the same webpages, even as the pages' structures and contents change.
-                Rousillon uses Ringer as a building block to record user interactions, then generalizes the straight-line Ringer interactions into loopy, high-level Helena programs.
-
-                <div class="links">
-                  <p>
-                    <a href="https://github.com/sbarman/webscript" target="_blank">GitHub</a>
-                    |
-                    <a href="/publications">Publications</a>
-                  </p>
-                </div>
-              </div>
-            </div><!-- /Ringer -->
-
-          </div><!-- /Tools -->
-
-          <div style="clear:both"></div>
+  <div style="clear:both"></div>
 
 
 
@@ -124,79 +81,71 @@ permalink: /
 
 <div class="paper project">
 
-          <div class="header">
-            <div class="lead">Projects</div>
-          </div>
+  <div class="header">
+    <div class="lead">Projects</div>
+  </div>
 
-            <div class="thumbnail">
-              <a class="thumbnail-wrapper" ><div class="thumbnail-img" style="background-image: url(./index_files/housing.png)"></div></a>
+    <div class="thumbnail">
+      <a class="thumbnail-wrapper" ><div class="thumbnail-img" style="background-image: url(./index_files/housing.png)"></div></a>
 
-              <div class="desc">
-                <span class="lead">
-                  Housing Markets
-                </span>
-                We are partnering with a team of sociologists to study the practices and attitudes of rental Property Owners/Managers (POMs) in a tight housing market, scraping rental listings to learn how POM practices vary across neighborhoods.
-                <div class="links"></div>
-              </div>
-            </div><!-- /housing -->
-
-            <div class="thumbnail">
-              <a class="thumbnail-wrapper"><div class="thumbnail-img" style="background-image: url(./index_files/harvey.png); background-position: top-left;"></div></a>
-              <div class="desc">
-                <span class="lead">
-                  Hurricane Harvey
-                </span>
-                We are collaborating with a small team of civil and environmental engineers to study the effects of Hurricane Harvey by collecting a wide variety of datasets, from rescue request listings to power outage details.
-
-                <div class="links"></div>
-              </div>
-            </div> <!-- /hurricane harvey -->
-
-            <div class="thumbnail">
-              <a class="thumbnail-wrapper"><div class="thumbnail-img" style="background-image: url(./index_files/foundations.png); background-position: top-left;"></div></a>
-              <div class="desc">
-                <span class="lead">
-                  Charitable Foundation Communications
-                </span>
-                We are providing data to a group of public policy researchers studying how charitable foundations communicate with their supporters, collecting data from a variety of social media and and community foundation sites.
-                <div class="links"></div>
-              </div>
-            </div><!-- /charitable foundations -->
-
-            <div class="thumbnail">
-              <a  class="thumbnail-wrapper"><div class="thumbnail-img" style="background-image: url(./index_files/composite3.png); background-size: contain; background-position: center center; background-repeat: no-repeat;"></div></a>
-              <div class="desc">
-                <span class="lead">
-                  And More!
-                </span>
-                We have also been collecting data with collaborators from backgrounds ranging from economics to art to environment and forest sciences.  Check back as we keep adding details on our collaborations!
-
-                <div class="links"></div>
-              </div>
-            </div><!-- /more -->
-
-          </div><!-- /Systems -->
-
-          <div style="clear:both"></div>
-
-
-          <div class="paper project">
-            <div class="header">
-              <div class="lead">The Helena Ecosystem</div>
-            </div>
-            <p>
-              The tools described on this page build on each other.  The Rousillon browser extension uses Ringer to record user interactions.  Ringer's output is a straight-line replay script in a low-level language, which we feed as input to a generalizer.  The generalizer produces a loopy Helena program.  Finally, Rousillon runs the Helena program to execute the web task or collect the target web data.  The diagram below illustrates how the components interact.
-            </p>
-            <img src="./index_files/diagram.svg" alt="A diagram illustrating how our tools fit together.">
-          </div><!-- /diagram -->
-
-          <div style="clear:both"></div>
-
-        </div>
-        <div class="footer">
-          Edit this page at <a href="https://github.com/schasins/helena/tree/master/docs" target="_blank">https://github.com/schasins/helena/tree/master/docs</a>.
-        </div>
+      <div class="desc">
+        <span class="lead">
+          Housing Markets
+        </span>
+        We are partnering with a team of sociologists to study the practices and attitudes of rental Property Owners/Managers (POMs) in a tight housing market, scraping rental listings to learn how POM practices vary across neighborhoods.
+        <div class="links"></div>
       </div>
-    
+    </div><!-- /housing -->
 
-</body></html>
+    <div class="thumbnail">
+      <a class="thumbnail-wrapper"><div class="thumbnail-img" style="background-image: url(./index_files/harvey.png); background-position: top-left;"></div></a>
+      <div class="desc">
+        <span class="lead">
+          Hurricane Harvey
+        </span>
+        We are collaborating with a small team of civil and environmental engineers to study the effects of Hurricane Harvey by collecting a wide variety of datasets, from rescue request listings to power outage details.
+
+        <div class="links"></div>
+      </div>
+    </div> <!-- /hurricane harvey -->
+
+    <div class="thumbnail">
+      <a class="thumbnail-wrapper"><div class="thumbnail-img" style="background-image: url(./index_files/foundations.png); background-position: top-left;"></div></a>
+      <div class="desc">
+        <span class="lead">
+          Charitable Foundation Communications
+        </span>
+        We are providing data to a group of public policy researchers studying how charitable foundations communicate with their supporters, collecting data from a variety of social media and and community foundation sites.
+        <div class="links"></div>
+      </div>
+    </div><!-- /charitable foundations -->
+
+    <div class="thumbnail">
+      <a  class="thumbnail-wrapper"><div class="thumbnail-img" style="background-image: url(./index_files/composite3.png); background-size: contain; background-position: center center; background-repeat: no-repeat;"></div></a>
+      <div class="desc">
+        <span class="lead">
+          And More!
+        </span>
+        We have also been collecting data with collaborators from backgrounds ranging from economics to art to environment and forest sciences.  Check back as we keep adding details on our collaborations!
+
+        <div class="links"></div>
+      </div>
+    </div><!-- /more -->
+
+  </div><!-- /Systems -->
+
+  <div style="clear:both"></div>
+
+
+  <div class="paper project">
+    <div class="header">
+      <div class="lead">The Helena Ecosystem</div>
+    </div>
+    <p>
+      The tools described on this page build on each other.  The Rousillon browser extension uses Ringer to record user interactions.  Ringer's output is a straight-line replay script in a low-level language, which we feed as input to a generalizer.  The generalizer produces a loopy Helena program.  Finally, Rousillon runs the Helena program to execute the web task or collect the target web data.  The diagram below illustrates how the components interact.
+    </p>
+    <img src="./index_files/diagram.svg" alt="A diagram illustrating how our tools fit together.">
+  </div><!-- /diagram -->
+
+  <div style="clear:both"></div>
+

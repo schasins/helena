@@ -684,6 +684,13 @@ var RecorderUI = (function (pub) {
     
     if (updateBlockly){
       pub.displayBlockly(program);
+      // the below is really not the place for this...but oh well
+      var editingOff = false;
+      var editingOffMessage = "Program editing is turned off for this study!  (We're evaluating programming by demonstration, not editing.)  If your current program doesn't give the results you want, try the 'Start New Script' button above.";
+      if (editingOff){
+       $("#blockly_overlay").css("display", "block");
+       $("#blockly_overlay").html(editingOffMessage);
+      }
     }
 
     // we also want to update the section that lets the user say what loop iterations are duplicates

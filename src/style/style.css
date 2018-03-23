@@ -129,6 +129,18 @@ h4 {
 	margin-top: 8px;
 	height: 500px;
 }
+#blockly_overlay{
+	position: absolute;
+	height: 250px;
+    left: 0;
+    top: 0;
+    z-index: 1000000;
+    color: #000000;
+    display: none;
+    padding: 50px;
+    padding-top: 200px;
+    background-color: rgba(255, 255, 255, 0.6);
+}
 
 .relation_preview{
 	margin-top: 20px;

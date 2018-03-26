@@ -880,6 +880,7 @@ var RecorderUI = (function (pub) {
       WALconsole.log("adding output row: ", l);
       div.append(DOMCreationUtilities.arrayOfTextsToTableRow(listOfCellTexts));
     }
+    $("#" + runTabId).find("#running_script_content").find("#output_explanation").hide();
   };
 
   var currentUploadRelation = null;

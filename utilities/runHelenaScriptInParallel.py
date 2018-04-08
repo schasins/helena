@@ -27,11 +27,20 @@ timeoutInHours = float(sys.argv[3])
 howManyRunsToAllowPerWorker = int(sys.argv[4])
 chromeDriverPath = sys.argv[5]
 
-debug = False
+try:
+    sys.argv[6]
+except NameError:
+    helenaRunId = None
+else:
+    helenaRunId = sys.argv[6]
 
-from pyvirtualdisplay import Display
-display = Display(visible=0, size=(800, 800))  
-display.start()
+debug = False
+headless = True
+
+if headless:
+	from pyvirtualdisplay import Display
+	display = Display(visible=0, size=(800, 800))  
+	display.start()
 
 unpackedExtensionPath = "../src"
 extensionkey = None
@@ -176,11 +185,16 @@ def oneRun(programId, threadCount, timeoutInSeconds, mode):
 
 	while (not noErrorsRunComplete):
 
-		# ok, before we can do anything else, we need to get the dataset id that we'll use for all of the 'threads'
-		# 'http://kaofang.cs.berkeley.edu:8080/newprogramrun', {name: dataset.name, program_id: dataset.program_id}
-		r = requests.post('http://kaofang.cs.berkeley.edu:8080/newprogramrun', data = {"name": str(programId)+"_"+str(threadCount)+"_noprofile_"+mode, "program_id": programId})
-		output = r.json()
-		id = output["run_id"]
+		if (helenaRunId):
+			# oh aweomse, someone gave us a run id as a command line argument (probably because we're being run disributed
+			# and this machine is only running a subset of the threads)
+			id = helenaRunId
+		else:
+			# ok, before we can do anything else, we need to get the dataset id that we'll use for all of the 'threads'
+			# 'http://kaofang.cs.berkeley.edu:8080/newprogramrun', {name: dataset.name, program_id: dataset.program_id}
+			r = requests.post('http://kaofang.cs.berkeley.edu:8080/newprogramrun', data = {"name": str(programId)+"_"+str(threadCount)+"_noprofile_"+mode, "program_id": programId})
+			output = r.json()
+			id = output["run_id"]
 		print "current parallel run's dataset id:", id
 
 		procs = []

@@ -17,8 +17,8 @@ tags = [{
     'Values': ['true']
     }]
 reservations = ec2.describe_instances(Filters=tags)
-pp = pprint.PrettyPrinter(indent=1)
-pp.pprint(reservations)
+#pp = pprint.PrettyPrinter(indent=1)
+#pp.pprint(reservations)
 
 # what machines do we have available to us?  let's get their ips
 availableIps = []

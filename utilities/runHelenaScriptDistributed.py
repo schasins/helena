@@ -83,8 +83,14 @@ class TalkToOneDistributedMachine(Process):
 				    print "Executing {}".format( command )
 				    stdin , stdout, stderr = c.exec_command(command)
 				    print stdout.read()
-				    print( "Errors")
-				    print stderr.read()
+
+				    # ok, here's where it gets weird.  because if we got errors, we actually want to start this machine up fresh
+				    # and have it go back to tackling what data it can tackle
+				    errors = stderr.read()
+				    if (len(errors) > 0):
+					    print( "Errors")
+					    print errors
+					    return self.run()
 				c.close()
 				print "finished one thread for: ", runIdsForThisStage[i]
 			except (paramiko.SSHException, socket.error) as e:

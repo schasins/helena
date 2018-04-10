@@ -38,8 +38,8 @@ if debug: print availableIps
 
 for ip in availableIps:
 	if debug: print "ip", ip
-	#k = paramiko.RSAKey.from_private_key_file("/Users/schasins/.ssh/MyKeyPair.pem")
-	k = paramiko.RSAKey.from_private_key_file("/Users/sarahchasins/.ssh/MyKeyPair.pem")
+	k = paramiko.RSAKey.from_private_key_file("/Users/schasins/.ssh/MyKeyPair.pem")
+	#k = paramiko.RSAKey.from_private_key_file("/Users/sarahchasins/.ssh/MyKeyPair.pem")
 	c = paramiko.SSHClient()
 	c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 	if debug: print "connecting"

@@ -9,6 +9,7 @@ import sys
 import pprint
 import requests
 import multiprocessing
+import StringIO
 
 scriptName = int(sys.argv[1])
 timeoutInHours = float(sys.argv[2])
@@ -16,7 +17,10 @@ tag = sys.argv[3]
 
 debug = False
 
-#tag = "helena-1"
+fname = "/Users/schasins/.ssh/homemac.pem"
+f = open(fname,'r')
+s = f.read()
+keystring = StringIO.StringIO(s)
 
 ec2 = boto3.client('ec2', region_name='us-west-2')  
 tags = [{  
@@ -42,13 +46,12 @@ for i in range(l):
 		availableIps.append(ip)
 
 print availableIps
-exit()
 
 # the function that will actually talk to a given machine at a given index in the list of ips
 def talkToOneDistributedMachine(i):
 	ip = availableIps[i]
 	if debug: print "ip", ip
-	k = paramiko.RSAKey.from_private_key_file("/Users/schasins/.ssh/homemac.pem")
+	k = paramiko.RSAKey.from_private_key(keystring)
 	#k = paramiko.RSAKey.from_private_key_file("/Users/sarahchasins/.ssh/MyKeyPair.pem")
 	c = paramiko.SSHClient()
 	c.set_missing_host_key_policy(paramiko.AutoAddPolicy())

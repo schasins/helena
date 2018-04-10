@@ -1,5 +1,7 @@
 # usage: python runHelenaScriptDistributed.py <helenaScriptNumericId> <numDistributedMachines> <timeoutInHours> <howManyRunsToAllowPerWorker>
-# ex: python runHelenaScriptDistributed.py 1022 8 24 1
+# ex: python runHelenaScriptDistributed.py 1022 24 helena-1
+# ex: python runHelenaScriptDistributed.py 1153 15 helena-2
+# ex: python runHelenaScriptDistributed.py 1162 24 helena-2
 
 import paramiko
 import boto3
@@ -9,13 +11,12 @@ import requests
 import multiprocessing
 
 scriptName = int(sys.argv[1])
-numDistributedMachines = int(sys.argv[2])
-timeoutInHours = float(sys.argv[3])
-howManyRunsToAllowPerWorker = int(sys.argv[4])
+timeoutInHours = float(sys.argv[2])
+tag = sys.argv[3]
 
 debug = False
 
-tag = "helena-1"
+#tag = "helena-1"
 
 ec2 = boto3.client('ec2', region_name='us-west-2')  
 tags = [{  
@@ -23,8 +24,8 @@ tags = [{
     'Values': ['true']
     }]
 reservations = ec2.describe_instances(Filters=tags)
-pp = pprint.PrettyPrinter(indent=1)
-pp.pprint(reservations)
+#pp = pprint.PrettyPrinter(indent=1)
+#pp.pprint(reservations)
 
 # what machines do we have available to us?  let's get their ips
 availableIps = []
@@ -40,7 +41,8 @@ for i in range(l):
 		ip = instances[j]["PublicIpAddress"]
 		availableIps.append(ip)
 
-if debug: print availableIps
+print availableIps
+exit()
 
 # the function that will actually talk to a given machine at a given index in the list of ips
 def talkToOneDistributedMachine(i):
@@ -55,7 +57,7 @@ def talkToOneDistributedMachine(i):
 	if debug: print "connected"
 	# below, 1 is fixed because for now we only set one browser instance going on any given distributed machine
 	# also all our amazon images have chromedriver in the same folder where we run, thus the hardcoded chromedriver loc
-	com = "python runHelenaScriptInParallel.py " + str(scriptName) + " 1 " + str(timeoutInHours) + " " + str(howManyRunsToAllowPerWorker) + " ./chromedriver " + str(runIdsForThisStage[i]) + ")"
+	com = "python runHelenaScriptInParallel.py " + str(scriptName) + " 1 " + str(timeoutInHours) + " 1 ./chromedriver " + str(runIdsForThisStage[i]) + ")"
 	commands = ['(cd helena/utilities;' + com]
 	for command in commands:
 	    print "Executing {}".format( command )

@@ -43,7 +43,7 @@ for ip in availableIps:
 	if debug: print "connecting"
 	c.connect( hostname = ip, username = "ec2-user", pkey = k )
 	if debug: print "connected"
-	commands = ['(cd helena; git pull)', '(cd helena/src/scripts/lib/helena-library; git pull)']
+	commands = ['(cd helena; git pull)', '(cd helena/src/scripts/lib/helena-library; git pull origin master)']
 	for command in commands:
 	    print "Executing {}".format( command )
 	    stdin , stdout, stderr = c.exec_command(command)

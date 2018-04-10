@@ -22,6 +22,7 @@ tag = sys.argv[3]
 debug = False
 
 fname = "/Users/schasins/.ssh/homemac.pem"
+fname = "/homes/gws/schasins/homemac.pem"
 f = open(fname,'r')
 s = f.read()
 keystring = StringIO.StringIO(s)

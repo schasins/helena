@@ -29,7 +29,7 @@ chromeDriverPath = sys.argv[5]
 
 try:
     sys.argv[6]
-except NameError:
+except IndexError:
     helenaRunId = None
 else:
     helenaRunId = sys.argv[6]
@@ -183,39 +183,39 @@ def oneRun(programId, threadCount, timeoutInSeconds, mode):
 	noErrorsRunComplete = False
 	id = None
 
-	while (not noErrorsRunComplete):
+	if (helenaRunId):
+		# oh aweomse, someone gave us a run id as a command line argument (probably because we're being run disributed
+		# and this machine is only running a subset of the threads)
+		id = helenaRunId
+	else:
+		# ok, before we can do anything else, we need to get the dataset id that we'll use for all of the 'threads'
+		# 'http://kaofang.cs.berkeley.edu:8080/newprogramrun', {name: dataset.name, program_id: dataset.program_id}
+		r = requests.post('http://kaofang.cs.berkeley.edu:8080/newprogramrun', data = {"name": str(programId)+"_"+str(threadCount)+"_noprofile_"+mode, "program_id": programId})
+		output = r.json()
+		id = output["run_id"]
+	print "current parallel run's dataset id:", id
 
-		if (helenaRunId):
-			# oh aweomse, someone gave us a run id as a command line argument (probably because we're being run disributed
-			# and this machine is only running a subset of the threads)
-			id = helenaRunId
-		else:
-			# ok, before we can do anything else, we need to get the dataset id that we'll use for all of the 'threads'
-			# 'http://kaofang.cs.berkeley.edu:8080/newprogramrun', {name: dataset.name, program_id: dataset.program_id}
-			r = requests.post('http://kaofang.cs.berkeley.edu:8080/newprogramrun', data = {"name": str(programId)+"_"+str(threadCount)+"_noprofile_"+mode, "program_id": programId})
-			output = r.json()
-			id = output["run_id"]
-		print "current parallel run's dataset id:", id
+	procs = []
+	for i in range(threadCount):
+		optionStr = "parallel:true"
+		if (mode == "hashBased"):
+			# a more complicated param in this case
+			optionStr = "hashBasedParallel: {on: true, numThreads: " + str(threadCount) + ", thisThreadIndex: " + str(i) + "}"
+			# print optionStr
+		p = RunProgramProcess(str(i), programId, '{' + optionStr + ', dataset_id: '+ str(id) +'}')
+		procs.append(p)
 
-		procs = []
-		for i in range(threadCount):
-			optionStr = "parallel:true"
-			if (mode == "hashBased"):
-				# a more complicated param in this case
-				optionStr = "hashBasedParallel: {on: true, numThreads: " + str(threadCount) + ", thisThreadIndex: " + str(i) + "}"
-				# print optionStr
-			p = RunProgramProcess(str(i), programId, '{' + optionStr + ', dataset_id: '+ str(id) +'}')
-			procs.append(p)
-
-		for p in procs:
-			time.sleep(2) # don't overload; also, wait for thing to load
-			p.start()
-		
-		# below will be true if all complete within the time limit, else false
-		noErrorsRunComplete = joinProcesses(procs, timeoutInSeconds)
-		return # can get rid of this if I remove the while loop above.  that was for recovery by restart stuff, which we don't want here.  don't want to run forever
+	for p in procs:
+		time.sleep(2) # don't overload; also, wait for thing to load
+		p.daemon = True
+		p.start()
+	
+	# below will be true if all complete within the time limit, else false
+	noErrorsRunComplete = joinProcesses(procs, timeoutInSeconds)
+	return
 
 def main():
 		oneRun([scriptName], numParallelBrowsers, int(timeoutInHours * 60 * 60), "lockBased")
 
 main()
+exit()

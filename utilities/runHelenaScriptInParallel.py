@@ -21,9 +21,6 @@ import requests
 import numpy as np
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities  
 import json
-import os.path
-from pprint import pprint
-home = os.path.expanduser("~")
 
 scriptName = int(sys.argv[1])
 numParallelBrowsers = int(sys.argv[2])
@@ -48,11 +45,12 @@ if headless:
 
 unpackedExtensionPath = "../src"
 extensionkey = None
+profilePath = "helenaProfile"
 
 def newDriver(profile):
 	chrome_options = Options()
 	chrome_options.add_argument("--load-extension=" + unpackedExtensionPath)
-	chrome_options.add_argument("user-data-dir=profiles/helenaProfile")
+	chrome_options.add_argument("user-data-dir=" + profilePath)
 	# chrome_options.add_argument("--display=:0") 
 
 	desired = DesiredCapabilities.CHROME
@@ -78,22 +76,18 @@ def newDriver(profile):
 						print "extension key:", key
 						extensionkey = key
 	except:
-		linuxpath = home + "/.config/google-chrome/helenaProfile/Preferences"
-		macpath = home + "/Library/Application Support/Google/Chrome/helenaProfile/Preferences"
-		if os.path.isfile(macpath):
-			f = open(macpath, "r")
-		else:
-			f = open(linuxpath, "r")
+		f = open(profilePath + "/Default/Secure Preferences", "r")
 
 		data = json.load(f)
 
-		pprint(data)
 		extensions = data["extensions"]["settings"]
 		for extension in extensions:
 			if "path" in extensions[extension]:
 				path = extensions[extension]["path"]
+				print path
 				if "helena" in path:
 					extensionkey = extension
+					print extensionkey
 
 	driver.get("chrome-extension://" + extensionkey + "/pages/mainpanel.html")
 	return driver

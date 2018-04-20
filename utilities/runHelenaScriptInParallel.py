@@ -20,6 +20,10 @@ import random
 import requests
 import numpy as np
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities  
+import json
+import os.path
+from pprint import pprint
+home = os.path.expanduser("~")
 
 scriptName = int(sys.argv[1])
 numParallelBrowsers = int(sys.argv[2])
@@ -28,11 +32,11 @@ howManyRunsToAllowPerWorker = int(sys.argv[4])
 chromeDriverPath = sys.argv[5]
 
 try:
-    sys.argv[6]
+	sys.argv[6]
 except IndexError:
-    helenaRunId = None
+	helenaRunId = None
 else:
-    helenaRunId = sys.argv[6]
+	helenaRunId = sys.argv[6]
 
 debug = False
 headless = True
@@ -56,22 +60,40 @@ def newDriver(profile):
 
 	driver = webdriver.Chrome(chromeDriverPath, chrome_options=chrome_options, desired_capabilities=desired)
 
-	driver.get("chrome://extensions/")
-	checkbox = driver.find_element_by_id("toggle-dev-on")
-	if (not checkbox.is_selected()):
-		checkbox.click()
-		time.sleep(1)
+	try:
+		driver.get("chrome://extensions/")
+		checkbox = driver.find_element_by_id("toggle-dev-on")
+		if (not checkbox.is_selected()):
+			checkbox.click()
+			time.sleep(1)
 
-	elems = driver.find_elements_by_class_name("extension-details")
-	for i in range(len(elems)):
-		t = elems[i].text
-		if ("Helena Scraper and Automator" in t):
-			lines = t.split("\n")
-			for line in lines:
-				if "ID: " in line:
-					key = line.strip().split("ID: ")[1]
-					print "extension key:", key
-					extensionkey = key
+		elems = driver.find_elements_by_class_name("extension-details")
+		for i in range(len(elems)):
+			t = elems[i].text
+			if ("Helena Scraper and Automator" in t):
+				lines = t.split("\n")
+				for line in lines:
+					if "ID: " in line:
+						key = line.strip().split("ID: ")[1]
+						print "extension key:", key
+						extensionkey = key
+	except:
+		linuxpath = home + "/.config/google-chrome/Default/Preferences"
+		macpath = home + "/Library/Application Support/Google/Chrome/Default/Preferences"
+		if os.path.isfile(linuxpath):
+			f = open(linuxpath, "r")
+		else:
+			f = open(macpath, "r")
+
+		data = json.load(f)
+
+		pprint(data)
+		extensions = data["extensions"]["settings"]
+		for extension in extensions:
+			if "path" in extensions[extension]:
+				path = extensions[extension]["path"]
+				if "helena" in path:
+					extensionkey = extension
 
 	driver.get("chrome-extension://" + extensionkey + "/pages/mainpanel.html")
 	return driver
@@ -206,7 +228,7 @@ def oneRun(programId, threadCount, timeoutInSeconds, mode):
 		procs.append(p)
 
 	for p in procs:
-		time.sleep(2) # don't overload; also, wait for thing to load
+		time.sleep(.02) # don't overload; also, wait for thing to load
 		p.daemon = True
 		p.start()
 	

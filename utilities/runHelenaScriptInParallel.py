@@ -50,7 +50,10 @@ profilePath = "helenaProfile"
 def getKeyFromFile(fname):
 	f = open(fname, "r")
 	data = json.load(f)
+        # print data
 
+        if not "extensions" in data:
+                return None
 	extensions = data["extensions"]["settings"]
 	for extension in extensions:
 		if "path" in extensions[extension]:
@@ -62,7 +65,7 @@ def getKeyFromFile(fname):
 def newDriver(profile):
 	chrome_options = Options()
 	chrome_options.add_argument("--load-extension=" + unpackedExtensionPath)
-	chrome_options.add_argument("user-data-dir=" + profilePath)
+	# chrome_options.add_argument("user-data-dir=" + profilePath)
 	# chrome_options.add_argument("--display=:0") 
 
 	desired = DesiredCapabilities.CHROME

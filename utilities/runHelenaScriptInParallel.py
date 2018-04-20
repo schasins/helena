@@ -47,6 +47,18 @@ unpackedExtensionPath = "../src"
 extensionkey = None
 profilePath = "helenaProfile"
 
+def getKeyFromFile(fname):
+	f = open(fname, "r")
+	data = json.load(f)
+
+	extensions = data["extensions"]["settings"]
+	for extension in extensions:
+		if "path" in extensions[extension]:
+			path = extensions[extension]["path"]
+			if "helena" in path:
+				return extension
+	return None
+
 def newDriver(profile):
 	chrome_options = Options()
 	chrome_options.add_argument("--load-extension=" + unpackedExtensionPath)
@@ -76,18 +88,11 @@ def newDriver(profile):
 						print "extension key:", key
 						extensionkey = key
 	except:
-		f = open(profilePath + "/Default/Secure Preferences", "r")
-
-		data = json.load(f)
-
-		extensions = data["extensions"]["settings"]
-		for extension in extensions:
-			if "path" in extensions[extension]:
-				path = extensions[extension]["path"]
-				print path
-				if "helena" in path:
-					extensionkey = extension
-					print extensionkey
+		fname = profilePath + "/Default/Secure Preferences"
+		extensionkey = getKeyFromFile(fname)
+		if not extensionkey:
+			extensionkey = getKeyFromFile(profilePath + "/Default/Preferences")
+		print extensionkey
 
 	driver.get("chrome-extension://" + extensionkey + "/pages/mainpanel.html")
 	return driver

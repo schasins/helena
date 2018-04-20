@@ -52,7 +52,7 @@ extensionkey = None
 def newDriver(profile):
 	chrome_options = Options()
 	chrome_options.add_argument("--load-extension=" + unpackedExtensionPath)
-	# chrome_options.add_argument("user-data-dir=profiles/" + profile)
+	chrome_options.add_argument("user-data-dir=profiles/helenaProfile")
 	# chrome_options.add_argument("--display=:0") 
 
 	desired = DesiredCapabilities.CHROME
@@ -78,12 +78,12 @@ def newDriver(profile):
 						print "extension key:", key
 						extensionkey = key
 	except:
-		linuxpath = home + "/.config/google-chrome/Default/Preferences"
-		macpath = home + "/Library/Application Support/Google/Chrome/Default/Preferences"
-		if os.path.isfile(linuxpath):
-			f = open(linuxpath, "r")
-		else:
+		linuxpath = home + "/.config/google-chrome/helenaProfile/Preferences"
+		macpath = home + "/Library/Application Support/Google/Chrome/helenaProfile/Preferences"
+		if os.path.isfile(macpath):
 			f = open(macpath, "r")
+		else:
+			f = open(linuxpath, "r")
 
 		data = json.load(f)
 

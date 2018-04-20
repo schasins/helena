@@ -21,9 +21,6 @@ import requests
 import numpy as np
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities  
 import json
-import os.path
-from pprint import pprint
-home = os.path.expanduser("~")
 
 scriptName = int(sys.argv[1])
 numParallelBrowsers = int(sys.argv[2])
@@ -48,11 +45,27 @@ if headless:
 
 unpackedExtensionPath = "../src"
 extensionkey = None
+profilePath = "helenaProfile"
+
+def getKeyFromFile(fname):
+	f = open(fname, "r")
+	data = json.load(f)
+        # print data
+
+        if not "extensions" in data:
+                return None
+	extensions = data["extensions"]["settings"]
+	for extension in extensions:
+		if "path" in extensions[extension]:
+			path = extensions[extension]["path"]
+			if "helena" in path:
+				return extension
+	return None
 
 def newDriver(profile):
 	chrome_options = Options()
 	chrome_options.add_argument("--load-extension=" + unpackedExtensionPath)
-	# chrome_options.add_argument("user-data-dir=profiles/" + profile)
+	# chrome_options.add_argument("user-data-dir=" + profilePath)
 	# chrome_options.add_argument("--display=:0") 
 
 	desired = DesiredCapabilities.CHROME
@@ -78,22 +91,11 @@ def newDriver(profile):
 						print "extension key:", key
 						extensionkey = key
 	except:
-		linuxpath = home + "/.config/google-chrome/Default/Preferences"
-		macpath = home + "/Library/Application Support/Google/Chrome/Default/Preferences"
-		if os.path.isfile(linuxpath):
-			f = open(linuxpath, "r")
-		else:
-			f = open(macpath, "r")
-
-		data = json.load(f)
-
-		pprint(data)
-		extensions = data["extensions"]["settings"]
-		for extension in extensions:
-			if "path" in extensions[extension]:
-				path = extensions[extension]["path"]
-				if "helena" in path:
-					extensionkey = extension
+		fname = profilePath + "/Default/Secure Preferences"
+		extensionkey = getKeyFromFile(fname)
+		if not extensionkey:
+			extensionkey = getKeyFromFile(profilePath + "/Default/Preferences")
+		print extensionkey
 
 	driver.get("chrome-extension://" + extensionkey + "/pages/mainpanel.html")
 	return driver

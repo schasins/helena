@@ -21,6 +21,7 @@ import requests
 import numpy as np
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities  
 import json
+import os.path
 
 scriptName = int(sys.argv[1])
 numParallelBrowsers = int(sys.argv[2])
@@ -48,6 +49,14 @@ extensionkey = None
 profilePath = "helenaProfile"
 
 def getKeyFromFile(fname):
+	if (not os.path.isfile(fname)):
+		# ok, first we need to do something that will cause us to make this file
+		chrome_options = Options()
+		chrome_options.add_argument("--load-extension=" + unpackedExtensionPath)
+		chrome_options.add_argument("user-data-dir=" + profilePath) # by insisting on using this profile, we get the fname to exist
+		driver = webdriver.Chrome(chromeDriverPath, chrome_options=chrome_options)
+		driver.close()
+
 	f = open(fname, "r")
 	data = json.load(f)
         # print data

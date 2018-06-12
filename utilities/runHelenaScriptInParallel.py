@@ -231,6 +231,8 @@ def oneRun(programId, threadCount, timeoutInSeconds, mode):
 	procs = []
 	for i in range(threadCount):
 		optionStr = "parallel:true"
+		if (howManyRunsToAllowPerWorker > 1):
+			optionStr += ", restartOnFinish:true"
 		if (mode == "hashBased"):
 			# a more complicated param in this case
 			optionStr = "hashBasedParallel: {on: true, numThreads: " + str(threadCount) + ", thisThreadIndex: " + str(i) + "}"

@@ -317,6 +317,6 @@ kbd{
 	width:30px;
 }
 
-#edit-relation-new-col-button:hover {
+#edit-relation-new-col-button:hover, .edit-relation-color-block:hover {
 	cursor:pointer;
 }

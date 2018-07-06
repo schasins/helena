@@ -294,3 +294,29 @@ kbd{
     padding: 15px;
     text-align: center;
 }
+
+.edit-relation-table-header-cell {
+	width:100%;
+	border:none;
+}
+
+.edit-relation-color-block {
+	width: 20px;
+	height: 20px;
+	display: inline-block;
+	text-align: center;
+}
+
+#edit-relation-new-col-button {
+	display:inline-block; 
+	background-color:white;
+	border-radius: 2px;
+	padding: 2px;
+	display:inline-block;
+	height:30px;
+	width:30px;
+}
+
+#edit-relation-new-col-button:hover, .edit-relation-color-block:hover {
+	cursor:pointer;
+}

@@ -411,6 +411,8 @@ var RecorderUI = (function (pub) {
       RecorderUI.showRelationEditor(relation, tab.id);
       var sendSelectorInfo = function(){utilities.sendMessage("mainpanel", "content", "editRelation", relation.messageRelationRepresentation(), null, null, [tab.id]);};
       var sendSelectorInfoUntilAnswer = function(){
+        $("#instructions-part-1").css("display", "none");
+        $("#page_looks_right").css("display", "none");
         if (heardAnswer){return;}
         sendSelectorInfo(); 
         setTimeout(sendSelectorInfoUntilAnswer, 1000);
@@ -428,7 +430,7 @@ var RecorderUI = (function (pub) {
         bestLengthSoFar = msg.demonstration_time_relation.length;
         if (bestLengthSoFar > 0){
           relation.setNewAttributes(msg.selector, msg.selector_version, msg.exclude_first, msg.columns, msg.demonstration_time_relation, msg.num_rows_in_demo, msg.next_type, msg.next_button_selector);
-          RecorderUI.updateDisplayedRelation(relation);
+          RecorderUI.updateDisplayedRelation(relation, msg.colors);
           RecorderUI.setColumnColors(msg.colors, msg.columns, msg.tab_id);
         }
         else{
@@ -602,7 +604,7 @@ var RecorderUI = (function (pub) {
     });
   };
 
-  pub.updateDisplayedRelation = function _updateDisplayedRelation(relationObj){
+  pub.updateDisplayedRelation = function _updateDisplayedRelation(relationObj, colors){
     WALconsole.log("updateDisplayedRelation");
     var $relDiv = $("#new_script_content").find("#output_preview");
     $relDiv.html("");
@@ -615,7 +617,8 @@ var RecorderUI = (function (pub) {
     for (var j = 0; j < columns.length; j++){
       (function(){
         var xpath = columns[j].xpath;
-        var columnTitle = $("<input></input>");
+        var colorStyle = "style='background-color:" + colors[j] + ";'"
+        var columnTitle = $("<input class='edit-relation-table-header-cell' " + colorStyle + " ></input>");
         columnTitle.val(columns[j].name);
         var closJ = j;
         columnTitle.change(function(){WALconsole.log(columnTitle.val(), xpath); relationObj.setColumnName(columns[closJ], columnTitle.val()); RecorderUI.updateDisplayedScript();});
@@ -637,7 +640,7 @@ var RecorderUI = (function (pub) {
     var $div = $("#new_script_content").find("#color_selector");
     $div.html("Select the right color for the cell you want to add:   ");
     for (var i = 0; i < columnLs.length; i++){
-      var colorDiv = $("<div style='width: 20px; height:20px; display:inline-block; background-color:"+colorLs[i]+"'></div>");
+      var colorDiv = $("<div class='edit-relation-color-block' style='background-color:"+colorLs[i]+"'></div>");
       (function(){
         var col = columnLs[i].index;
         colorDiv.click(function(){utilities.sendMessage("mainpanel", "content", "currentColumnIndex", {index: col}, null, null, [tabid]);});
@@ -645,10 +648,12 @@ var RecorderUI = (function (pub) {
       $div.append(colorDiv);
     }
     // todo: now going to allow folks to make a new column, but also need to communicate with content script about color to show
-    var colorDiv = $("<div style='width: 20px; height:20px; display:inline-block; background-color:white'>New Col</div>");
+    var separatorDiv = $("<div class='edit-relation-color-block'>or</div>");
+    var colorDiv = $("<div class='edit-relation-color-block' id='edit-relation-new-col-button'>New Col</div>");
     (function(){
       colorDiv.click(function(){utilities.sendMessage("mainpanel", "content", "currentColumnIndex", {index: "newCol"}, null, null, [tabid]);});
     })();
+    $div.append(separatorDiv);
     $div.append(colorDiv);
   };
 

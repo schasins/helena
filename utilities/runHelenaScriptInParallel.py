@@ -22,6 +22,7 @@ import numpy as np
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities  
 import json
 import os.path
+import subprocess
 
 scriptName = int(sys.argv[1])
 numParallelBrowsers = int(sys.argv[2])
@@ -250,6 +251,8 @@ def oneRun(programId, threadCount, timeoutInSeconds, mode):
 	return
 
 def main():
+		# pkill --oldest chrome
+		print subprocess.check_output(['pkill','--oldest','chrome'])
 		oneRun([scriptName], numParallelBrowsers, int(timeoutInHours * 60 * 60), "lockBased")
 
 main()

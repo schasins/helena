@@ -320,3 +320,10 @@ kbd{
 #edit-relation-new-col-button:hover, .edit-relation-color-block:hover {
 	cursor:pointer;
 }
+
+.done_note {
+	display:none;
+	background-color: #D1FFDA;
+	width: 100%;
+	padding: 5px;
+}

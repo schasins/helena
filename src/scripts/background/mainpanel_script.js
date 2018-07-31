@@ -169,6 +169,17 @@ var RecorderUI = (function (pub) {
     RecorderUI.updateDisplayedRelations(inProgress);
   };
 
+  function updateUIForRunFinished(dataset, timeScraped, runTabId){
+        var div = $("#" + runTabId).find("#running_script_content");
+        var done_note = div.find(".done_note");
+        done_note.css("display", "inline-block");
+        var still_saving_note = div.find(".still_saving_note");
+        still_saving_note.css("display", "none");
+        div.find("#pause").button("option", "disabled", true);
+        div.find("#resume").button("option", "disabled", true);
+        div.find("#cancelRun").button("option", "disabled", true);
+  }
+
   pub.run = function _run(fastMode){
     if (fastMode === undefined){ fastMode = false;}
     // first set the correct fast mode, which means setting it to false if we haven't gotten true passed in
@@ -179,7 +190,7 @@ var RecorderUI = (function (pub) {
       // ok good, now we have a program id (already set in pub.currentHelenaProgram.id)
       ringerUseXpathFastMode = fastMode;
       // run whichever program is currently being displayed (so pub.currentHelenaProgram)
-      pub.currentHelenaProgram.run({});
+      pub.currentHelenaProgram.run({}, updateUIForRunFinished);
     });
   };
 
@@ -279,10 +290,10 @@ var RecorderUI = (function (pub) {
 
   pub.restartRun = function _restartRun(runObject){
     WALconsole.log("Restarting.");
-    var div = $("#" + runObject.tab).find("#running_script_content");
-    div.find("#pause").button("option", "disabled", false);
-    div.find("#resume").button("option", "disabled", true);
-    runObject.program.restartFromBeginning(runObject);
+    //var div = $("#" + runObject.tab).find("#running_script_content");
+    //div.find("#pause").button("option", "disabled", false);
+    //div.find("#resume").button("option", "disabled", true);
+    runObject.program.restartFromBeginning(runObject, updateUIForRunFinished);
   };
 
   pub.scheduleLater = function _scheduleLater(){
@@ -357,7 +368,7 @@ var RecorderUI = (function (pub) {
     var progId = data.progId;
     pub.loadSavedProgram(progId, function(){
       // once it's loaded, go ahead and actually run it.
-      pub.currentHelenaProgram.run({}, function(datasetObj, timeToScrape){
+      pub.currentHelenaProgram.run({}, function(datasetObj, timeToScrape, tabId){
         // and for scheduled runs we're doing something that's currently a little wacky, where we trigger an IFTTT action when the scrape has run
         // todo: come up with a cleaner set up for this
         // this is the part that will send the email
@@ -367,6 +378,7 @@ var RecorderUI = (function (pub) {
         var fullurl = datasetObj.downloadFullDatasetUrl();
         var body = "dataset: " + datasetObj.getId() + "<br>dataset download url (most recent scrape output): <a href=" + url + ">" + url + "</a>" + "<br>full dataset download url (all scrape outputs): <a href=" + fullurl + ">" + fullurl + "</a><br>num rows:" + datasetObj.fullDatasetLength + "<br>time to scrape (milliseconds): " + timeToScrape;
         $.post(ifttturl, {value1: subject, value2: body});
+        updateUIForRunFinished(datasetObj, timeToScrape, tabId);
       });
     });
   };

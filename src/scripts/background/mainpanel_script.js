@@ -290,9 +290,9 @@ var RecorderUI = (function (pub) {
 
   pub.restartRun = function _restartRun(runObject){
     WALconsole.log("Restarting.");
-    //var div = $("#" + runObject.tab).find("#running_script_content");
+    var div = $("#" + runObject.tab).find("#running_script_content");
     //div.find("#pause").button("option", "disabled", false);
-    //div.find("#resume").button("option", "disabled", true);
+    div.find("#resume").button("option", "disabled", true);
     runObject.program.restartFromBeginning(runObject, updateUIForRunFinished);
   };
 
@@ -715,6 +715,8 @@ var RecorderUI = (function (pub) {
     pub.updateDuplicateDetection();
     // we also want to make sure the user can tell us which features are required for each node that we find using similarity approach
     pub.updateNodeRequiredFeaturesUI();
+    // same deal with custom thresholds
+    pub.updateCustomThresholds();
 
     if (program.name){
       $("#new_script_content").find("#program_name").get(0).value = program.name;
@@ -804,6 +806,68 @@ var RecorderUI = (function (pub) {
     var propsSorted = Object.keys(rankedProps).sort(function(a,b){return rankedProps[b] - rankedProps[a]});
     return propsSorted;
   }
+
+  pub.updateCustomThresholds = function _updateCustomThresholds(){
+    console.log("updateCustomThresholds");
+    var prog = pub.currentHelenaProgram; // program.relationFindingTimeoutThreshold and program.nextButtonAttemptsThreshold
+
+    var defaultSeconds = DefaultHelenaValues.relationFindingTimeoutThreshold / 1000;
+    var defaultTries = DefaultHelenaValues.nextButtonAttemptsThreshold;
+    console.log(defaultSeconds, defaultTries);
+
+    // first let's update the description text to include the correct defaults
+    var $div = $("#new_script_content").find("#thresholds_container");
+    $div.find(".defaultRelationTimeout").html(defaultSeconds);
+    $div.find(".defaultRetriesTotal").html(defaultTries);
+    $div.find(".defaultRetries").html(defaultTries - 1);
+
+    // now let's update the text boxes to refelct the current program's custom thresholds, if they have any
+    // and put the correct defaults in the input boxes otherwise
+    var secondsInput = $div.find("#relationGiveUpThreshold")[0];
+    var triesInput = $div.find("#nextButtonRetries")[0];
+
+    function setWithSavedValueIfAvailable(inputNode, savedValue, defaultValue){
+      if (savedValue){ 
+        inputNode.value = savedValue;
+      }
+      else {
+        inputNode.value = defaultValue;
+      }
+    }
+    setWithSavedValueIfAvailable(secondsInput, prog.relationFindingTimeoutThreshold / 1000, defaultSeconds);
+    setWithSavedValueIfAvailable(triesInput, prog.nextButtonAttemptsThreshold - 1, defaultTries - 1)
+
+    // ok, now what if the user changes the text in the text box?
+    function attachHandlerToUpdateProgValBasedOnNewInput(isint, node, prog, progAttribute, defaultVal, transformInputToSaved, transformSavedToInput){
+      if (!node.hasHandler){
+        $(node).change(function(){
+          var newVal = node.value;
+          if (isint){
+            newVal = parseInt(newVal);
+          }
+          else{
+            newVal = parseFloat(newVal);
+          }
+          if (newVal === 0 || (newVal && newVal > 0)){ // special case 0 because if (0) is false
+            prog[progAttribute] = transformInputToSaved(newVal);
+            // in case we rounded, update what the input shows
+            node.value = newVal;
+          }
+          else{
+            // ugh, why'd you put in something we can't parse.  set it back to something reasonable
+            setWithSavedValueIfAvailable(node, transformSavedToInput(prog[progAttribute]), defaultVal);
+          }
+        });
+        node.hasHandler = true;
+      }
+    }
+
+    attachHandlerToUpdateProgValBasedOnNewInput(false, secondsInput, prog, "relationFindingTimeoutThreshold", defaultSeconds, 
+      function(a){return a * 1000;}, function(a){return a / 1000;});
+
+    attachHandlerToUpdateProgValBasedOnNewInput(true, triesInput, prog, "nextButtonAttemptsThreshold", defaultTries - 1, 
+      function(a){return a + 1;}, function(a){return a - 1;});
+  };
 
   pub.updateNodeRequiredFeaturesUI = function _updateNodeRequiredFeaturesUI(){
     WALconsole.log("updateNodeRequiredFeaturesUI");

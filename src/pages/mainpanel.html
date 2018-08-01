@@ -164,6 +164,29 @@
 								</div>
 							</div>
 						</div>
+						<h3>My script waits too long at the ends of lists, or it gives up on finding new list items too quickly.</h3>
+						<div>
+							<div id ="thresholds">
+								<div class="container_child" id="thresholds_container">
+									<div class="title">Custom Thresholds</div>
+									<div class="bottom_padding">
+									When Helena is running a program and can't find additional rows of a table, it first assumes this might be happening because new rows just haven't loaded yet.  So before it gives up on finding new rows, it waits a few seconds to see if the page is waiting for new data to appear.  If new data doesn't appear, the next thing it tries is running the 'next' interaction again -- clicking the next button, clicking the more button, or scrolling for more -- in case it tried to do the 'next' interaction too soon, or the page didn't respond correctly.  By default, the wait period is <span class="defaultRelationTimeout"></span> seconds, and the number of times we try running the next button is <span class="defaultRetriesTotal"></span> (1 initial try and <span class="defaultRetries"></span> re-tries).  You can edit these here.  Setting the time to a lower number will make your scripts give up more quickly at the end of a table, but keep in mind that setting them too low could make Helena give up too quickly, before the true end of a table -- if the Internet is slow at one point, or the web server is slow -- so make sure your changes don't cause you to miss data.  Likewise, you can set the number of 'next' interaction re-tries to a lower number to save time ( <span class="defaultRetries"></span> times <span class="defaultRelationTimeout"></span> seconds could save a lot of time compared to <span class="defaultRetriesTotal"></span> times <span class="defaultRelationTimeout"></span> seconds), but for webpages that have unreliable 'next' interactions, this might mean we don't re-try even when we could reach a new page if we tried again, so again be careful that you don't miss data.
+									</div>
+									<div>
+										How long should we wait before deciding the last 'next' interaction didn't load more rows?
+									</div>
+									<div>
+										<input type="text" id="relationGiveUpThreshold"> seconds
+									</div>
+									<div>
+										How many times should we re-attempt the 'next' interaction?
+									</div>
+									<div>
+										<input type="text" id="nextButtonRetries"> times
+									</div>
+								</div>
+							</div>
+						</div>
 					</div>
 				</div>
 

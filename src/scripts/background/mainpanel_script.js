@@ -463,6 +463,12 @@ var RecorderUI = (function (pub) {
     activateButton(div, "#upload_cancel", function(){RecorderUI.showProgramPreview; currentUploadRelation = null;}); // don't really need to do anything here
   }
 
+
+  var currentSkipper = null;
+  pub.handleFunctionForSkippingToNextPageOfRelationFinding = function(skipToNextPageFunc){
+    currentSkipper = skipToNextPageFunc;
+  };
+
   pub.updateDisplayedRelations = function _updateDisplayedRelations(currentlyUpdating){
     WALconsole.log("updateDisplayedRelation");
     if (currentlyUpdating === undefined){ currentlyUpdating = false; }
@@ -474,6 +480,7 @@ var RecorderUI = (function (pub) {
     var $overlaytext = $overlay.find("#overlay_text");
     if (currentlyUpdating){
       $overlaytext.html("<center><img src='../icons/ajax-loader.gif'><br>Looking at webpages to find relevant tables.  Give us a moment.<br></center>");
+      
       var giveUpButton = $("<button>Give up looking for relevant tables.</button>");
       giveUpButton.button();
       giveUpButton.click(function(){
@@ -482,6 +489,14 @@ var RecorderUI = (function (pub) {
         pub.currentHelenaProgram.forbidAutomaticLoopInsertion();
       });
       $overlaytext.append(giveUpButton);
+
+      var giveUpButton2 = $("<button>Give up ON THIS CURRENT PAGE (and continue to next page).</button>");
+      giveUpButton2.button();
+      giveUpButton2.click(function(){
+        currentSkipper(); // this gets updated by handleFunctionForSkippingToNextPageOfRelationFinding above
+      });
+      $overlaytext.append(giveUpButton2);
+
       $overlay.css("display", "inline");
     }
     else{

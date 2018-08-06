@@ -481,21 +481,23 @@ var RecorderUI = (function (pub) {
     if (currentlyUpdating){
       $overlaytext.html("<center><img src='../icons/ajax-loader.gif'><br>Looking at webpages to find relevant tables.  Give us a moment.<br></center>");
       
-      var giveUpButton = $("<button>Give up looking for relevant tables.</button>");
-      giveUpButton.button();
-      giveUpButton.click(function(){
-        pub.currentHelenaProgram.insertLoops(true); // if user thinks we won't have relations, go ahead and do prog processing (making loopyStatements) without them
-        // and let's prevent future guessed relations from messing us up
-        pub.currentHelenaProgram.forbidAutomaticLoopInsertion();
-      });
-      $overlaytext.append(giveUpButton);
+      if (!demoMode){
+        var giveUpButton = $("<button>Give up looking for relevant tables.</button>");
+        giveUpButton.button();
+        giveUpButton.click(function(){
+          pub.currentHelenaProgram.insertLoops(true); // if user thinks we won't have relations, go ahead and do prog processing (making loopyStatements) without them
+          // and let's prevent future guessed relations from messing us up
+          pub.currentHelenaProgram.forbidAutomaticLoopInsertion();
+        });
+        $overlaytext.append(giveUpButton);
 
-      var giveUpButton2 = $("<button>Give up ON THIS CURRENT PAGE (and continue to next page).</button>");
-      giveUpButton2.button();
-      giveUpButton2.click(function(){
-        currentSkipper(); // this gets updated by handleFunctionForSkippingToNextPageOfRelationFinding above
-      });
-      $overlaytext.append(giveUpButton2);
+        var giveUpButton2 = $("<button>Give up ON THIS CURRENT PAGE (and continue to next page).</button>");
+        giveUpButton2.button();
+        giveUpButton2.click(function(){
+          currentSkipper(); // this gets updated by handleFunctionForSkippingToNextPageOfRelationFinding above
+        });
+        $overlaytext.append(giveUpButton2);
+      }
 
       $overlay.css("display", "inline");
     }

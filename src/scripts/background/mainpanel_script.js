@@ -7,7 +7,7 @@
 // this inherits from HelenaUIBase
 var RecorderUI = (function (pub) {
   pub.tabs = null;
-  var ringerUseXpathFastMode = false;
+  var ringerUseXpathFastMode = true;
   var demoMode = true;
 
 

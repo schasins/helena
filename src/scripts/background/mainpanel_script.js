@@ -8,7 +8,7 @@
 var RecorderUI = (function (pub) {
   pub.tabs = null;
   var ringerUseXpathFastMode = true;
-  var demoMode = true;
+  var demoMode = false;
 
 
   /**********************************************************************
@@ -144,9 +144,7 @@ var RecorderUI = (function (pub) {
     var additionalRunOptionsDiv = div.find("#extra_run_options_accordion");
     var troubleshootingDiv = div.find("#troubleshooting_accordion");
     var options = {collapsible: true, heightStyle: "content"};
-    if (demoMode){
-      options.active = false;
-    }
+    options.active = false;
     tablesDiv.accordion(options);
     additionalRunOptionsDiv.accordion(options);
     troubleshootingDiv.accordion({collapsible:true, active:false, heightStyle: "content"}); // always want all of these to start closed
@@ -691,7 +689,7 @@ var RecorderUI = (function (pub) {
     WALconsole.log("updateDisplayedScript");
     var program = pub.currentHelenaProgram;
     var scriptPreviewDiv = $("#new_script_content").find("#program_representation");
-    if (demoMode){
+    if (true){ // should probably stop keeping this text version at all todo
       scriptPreviewDiv.remove();
     }
     else{

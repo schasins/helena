@@ -421,8 +421,8 @@ var RecorderUI = (function (pub) {
       RecorderUI.showRelationEditor(relation, tab.id);
       var sendSelectorInfo = function(){utilities.sendMessage("mainpanel", "content", "editRelation", relation.messageRelationRepresentation(), null, null, [tab.id]);};
       var sendSelectorInfoUntilAnswer = function(){
-        $("#instructions-part-1").css("display", "none");
-        $("#page_looks_right").css("display", "none");
+        $("#instructions_part_1").css("display", "none");
+        $("#instructions_part_2").css("display", "block");
         if (heardAnswer){return;}
         sendSelectorInfo(); 
         setTimeout(sendSelectorInfoUntilAnswer, 1000);

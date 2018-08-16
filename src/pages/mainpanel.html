@@ -216,33 +216,37 @@
 			</div>
 
 			<div id="relation_editing" class="new_script_message_stage">
-				<div id="instructions-part-1">
-					Ok, we've opened the first page of the table in your browser.  If this doesn't look like the first page, interact with the page until you reach it.  Once it looks right, press "Page Looks Right".
+				<div id="instructions_part_1">
+					<div>
+					Ok, we've opened the first page of the table in your browser.  If you don't see the table you expect to see, interact with the page until the table appears.  Once the page shows the table, press the "Page Shows My Table" button.
+					</div>
+					<div id="page_looks_right">Page Shows My Table</div>
 				</div>
-				<div id="page_looks_right">Page Looks Right</div>
-				<br/>
-				<div id="instructions-part-2">
-					We'll highlight the table elements that we currently extract.  To remove highlighted cells from the table, click on them.  To add unhighlighted cells to the table, first select the appropriate color below, then click on them.  As the table changes, we'll show the first page of table data below.  When you're happy with the table, just press "I'm done!" button.
-				</div>
-				<br>
-				<div>Additional items in this table are found with:</div>
-				<div id="next_type">
-		      <input type="radio" id="next_type_1" class="next_type" name="next_type_b" value="1">
-		      <label for="next_type_1">No More Items</label>
-		      <input type="radio" id="next_type_2" class="next_type" name="next_type_b" value="2">
-		      <label for="next_type_2">Next Button</label>
-		      <input type="radio" id="next_type_3" class="next_type" name="next_type_b" value="3">
-		      <label for="next_type_3">More Button</label>
-		      <input type="radio" id="next_type_4" class="next_type" name="next_type_b" value="4">
-		      <label for="next_type_4">Scroll for More</label>
-		    </div>
-		    <div id="next_type_explanation"></div>
-				<br>
-				<div id="color_selector"></div>
-				<br>
+				<div id="instructions_part_2" style="display:none">
+					<div>
+					We'll highlight the table elements that we currently extract.  To remove highlighted cells from the table, click on them.  To add unhighlighted cells to the table, first select the appropriate color below, then click on them.  As the table changes, we'll show the first page of table data below.  When you're happy with the table, just press the "I'm done!" button.
+					</div>
+				
+					<br>
+					<div>Additional items in this table are found with:</div>
+					<div id="next_type">
+					<input type="radio" id="next_type_1" class="next_type" name="next_type_b" value="1">
+					<label for="next_type_1">No More Items</label>
+					<input type="radio" id="next_type_2" class="next_type" name="next_type_b" value="2">
+					<label for="next_type_2">Next Button</label>
+					<input type="radio" id="next_type_3" class="next_type" name="next_type_b" value="3">
+					<label for="next_type_3">More Button</label>
+					<input type="radio" id="next_type_4" class="next_type" name="next_type_b" value="4">
+					<label for="next_type_4">Scroll for More</label>
+					</div>
+					<div id="next_type_explanation"></div>
+					<br>
+					<div id="color_selector"></div>
+					<br>
 
-				<button id="relation_editing_ready">I'm done!</button>
-				<div id="output_preview"><table></table></div>
+					<button id="relation_editing_ready">I'm done!</button>
+					<div id="output_preview"><table></table></div>
+				</div>
 			</div>
 
 			<div id="upload_relation">

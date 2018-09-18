@@ -55,8 +55,10 @@ var currently_on = false;
   var alreadyScheduled = {};
   function scheduleScrapes(){
     chrome.storage.sync.get("scheduledRuns", function(obj) {
+      let runs = obj.scheduledRuns;
+      if (!runs) { return; }
+
       console.log("scheduling scrapes", obj);
-      var runs = obj.scheduledRuns;
       var currentRunKeys = _.map(runs, function(run){return makeKey(run);});
 
       // first let's go through and make sure we don't have any things scheduled that have been canceled, so that we need to clear them

@@ -467,6 +467,17 @@ var RecorderUI = (function (pub) {
     currentSkipper = skipToNextPageFunc;
   };
 
+  pub.handleRelationFindingPageUpdate = function(pageCurrentlyBeingSearched){
+    var $overlaytext = $("#overlay").find("#overlay_text");
+    var $currentPage = $overlaytext.find("#overlay_text_current_page");
+    if ($currentPage.length > 0){
+      $currentPage[0].html(pageCurrentlyBeingSearched);
+    }
+    else{
+      $overlaytext.append($("<div>Currently looking for relations on page <span id='overlay_text_current_page'>"+pageCurrentlyBeingSearched+"</span>.</div>"));
+    }
+  }
+
   pub.updateDisplayedRelations = function _updateDisplayedRelations(currentlyUpdating){
     WALconsole.log("updateDisplayedRelation");
     if (currentlyUpdating === undefined){ currentlyUpdating = false; }

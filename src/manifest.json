@@ -6,7 +6,7 @@
   "version": "0.0.0.1",
 
   "browser_action": {
-    "default_icon": "icons/icon-new10.png"
+    "default_icon": "icons/helenaH.png"
   },
   "permissions": [
     "tabs",

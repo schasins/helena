@@ -8,3 +8,6 @@ exclude: ["readme.md"]
 sass:
   # Where you keep your scss files
   sass_dir: assets/css/
+
+plugins:
+  - jekyll-redirect-from

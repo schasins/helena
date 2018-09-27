@@ -1,0 +1,84 @@
+---
+title: Helena Blocks
+description: Descriptions of the blocks available in the Helena language
+permalink: /blocks
+layout: default
+---
+<div class="smaller">
+
+<div class="header">
+  <div class="lead">Blocks</div>
+</div>
+
+<p>
+Once you've used the demonstration process to make a Helena program, you might want to change the behavior by dragging some blocks into the program.  To see what blocks are available, take a look at the toolbox bar on the left.  Below, when we click on the 'text' label in the toolbox, we see four blocks available in the 'text' category:
+</p>
+
+<img class="image" style="width:240px" src="/assets/images/blocks/toolbox.png">
+
+<p>
+We can edit programs by dragging blocks into them.  Below we change a program that scrapes all of an author's papers into a program that scrapes only papers from the year 1986:
+</p>
+
+<img class="image" style="width:480px" src="/assets/images/blocks/blockEditingDemo.gif">
+
+<p>
+Next we'll take a look at each of the toolbox categories and the blocks they offer.
+</p>
+
+<div class="header">
+  <div class="lead">Text</div>
+</div>
+
+<p>
+First let's go through the blocks from the text category.
+</p>
+
+<table class="docstable">
+<tr>
+
+<td style="width:230px">
+<div class="lead2">Text</div>
+<span class="imageresizeouter"><img class="image imageresize30" src="/assets/images/blocks/text.png"></span>
+</td>
+
+<td>
+<p>This one's pretty simple!  If we need to use a particular piece of text, this is the block we'll use.  We can type anything in this one:</p>
+
+<span class="imageresizeouter"><img class="image imageresize60" src="/assets/images/blocks/textIdeas.png"></span>
+</td>
+</tr>
+
+<tr><td>
+<div class="lead2">Concatenate</div>
+<span class="imageresizeouter"><img class="image imageresize30" src="/assets/images/blocks/concat.png"></span>
+</td>
+
+<td>
+<p>This one concatenates (combines) text.  So in the first example below, we put together "hedge" and "hog" to get "hedgehog".  We can also combine more than two pieces of text by nesting the concatenate block.  So in our second example we use "hedge" and "hog " and "gifs" to make "hedgehog gifs".  Note that we put a space after "hog" in the textbox to get that space between "hedgehog" and "gifs".  Now these are illustrative examples - usually if we just want the text "hedgehog gifs," we'll go ahead and just put all of that in one text block.  This concatenate block gets more useful if we want to combine unknown texts.  So say we're going through a list of famous people's names, and say we want to use our favorite search engine to find out what year each person was born; we might want to use the concatenate block to put together the person's name and the text "birth year", as in our third example.  Then we could type that whole string in the search engine's search box to find the birth years.</p>
+<span class="imageresizeouter"><img class="image imageresize60" src="/assets/images/blocks/concatIdeas.png"></span>
+</td>
+</tr>
+
+<tr><td>
+<div class="lead2">Text Operations</div>
+<span class="imageresizeouter"><img class="image imageresize30" src="/assets/images/blocks/textBinOp.png"></span>
+</td>
+
+<td>
+<p>This one does operations with two pieces of text.  Below we show a few ideas for how we can use this.  Maybe we want to check if someone is named "Jane", so we look for the text "Jane" inside the name.  We might find cases where "Jane" appears in other texts (e.g., people named "Janet") too, so be careful with this!  In our second example, we check whether a node's link includes the text "facebook.com" to check whether the link points to a Facebook page.  In our third example, we've used the pulldown in the middle of the block to choose a different operator, not "contains" but "is" because we're looking for an exact match.  In this case, we're checking whether the year text is exactly "2012".</p>
+<span class="imageresizeouter"><img class="image imageresize60" src="/assets/images/blocks/textBinOpIdeas.png"></span>
+</td>
+</tr>
+
+<tr><td>
+<div class="lead2">Length</div>
+<span class="imageresizeouter"><img class="image imageresize30" src="/assets/images/blocks/length.png"></span>
+</td>
+
+<td>
+<p>This one just tells us how many characters are in a piece of text - including spaces!  So for our first example below, we'll get 19, because "string of length 19" is 19 characters long.  In our second example, we'll get the length of the name for each name to which we apply it.</p>
+<span class="imageresizeouter"><img class="image imageresize60" src="/assets/images/blocks/lengthIdeas.png"></span>
+</td>
+</tr>
+</table>

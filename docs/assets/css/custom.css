@@ -80,6 +80,9 @@ strong, b {
 
 .header .lead { font-weight: 700; }
 
+.lead2 { font-weight: 600;
+  text-transform: uppercase; }
+
 .footer {
   margin-top: 40px;
   height: 40px;
@@ -576,4 +579,31 @@ pre.bibtex {
 
 .go_higher {
   margin-top: -10px;
+}
+
+.image {
+  border: 1px solid #D9D9D9;
+  margin-top: 5px;
+  margin-bottom: 5px;
+}
+
+.imageresizeouter {
+    display: inline-block;
+}
+.imageresize30 {
+    width: 100%;
+}
+.imageresize60 {
+    width: 60%;
+}
+
+td {
+  vertical-align:top;
+}
+
+.docstable td {
+   border: 1px solid #D9D9D9;
+}
+.docstable{
+   border-collapse: collapse;
 }

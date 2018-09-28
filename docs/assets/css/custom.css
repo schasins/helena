@@ -607,3 +607,9 @@ td {
 .docstable{
    border-collapse: collapse;
 }
+
+.tutorial-item-title{
+  padding-top: 25px;
+  font-size: 14px;
+  font-weight: 500;
+}

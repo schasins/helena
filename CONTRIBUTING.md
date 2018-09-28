@@ -11,7 +11,7 @@ Be nice.  Seriously.
 ## Submitting changes
 
 When you're ready to submit changes, please send GitHub pull requests with clear descriptions of what you've done and lists of the changes.
-You can read more about pull requests at http://help.github.com/pull-requests/.
+You can read more about pull requests at https://help.github.com/articles/about-pull-requests/.
 Also please make sure you implement only one feature per commit and that you associate a clear log message with each commit.
 Feel free to provide one-line messages for small changes, but bigger changes should look like this:
 

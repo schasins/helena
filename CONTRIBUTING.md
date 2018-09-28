@@ -4,6 +4,14 @@ We're so happy you're interested in getting involved!
 Since this is still a research prototype, there's always lots to do!
 We're still fleshing out these guidelines, but here are the basics.
 
+## Relevant repos
+
+https://github.com/schasins/helena The Chrome extension that provides a UI for using programming by demonstration techniques to write Helena web scrapers and automators.
+
+https://github.com/schasins/helena-lang The core Helena language.  It comes with a customized verison of the Ringer record and replay tool and a variety of other functionality that's likely to be useful for any tool that wants to use the Helena language.
+
+https://github.com/schasins/helena-server The server-side and data store content.  Handles the database for tracking shared/saved Helena relations and data scraped by Helena programs.
+
 ## Community stuff
 
 Be nice.  Seriously.

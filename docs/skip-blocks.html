@@ -1,0 +1,198 @@
+---
+title: Skipping Dupicate Work
+description: Description of how to alter a Helena program to avoid re-doing work it's already done
+permalink: /skip-blocks
+layout: default
+---
+
+<div class="smaller">
+  <div id="tutorial-1", class="explanation">
+	
+	<div class="header">
+	  <div class="lead">Adding Skip Blocks</div>
+	</div>
+
+	<div class="small">
+
+<p>
+	The skip block is a special Helena block that makes it easy to avoid re-doing work a program has already done.  The idea is to select a few key attributes of an object that can be used to decide if the object is the same as any of the objects that have already been processed - e.g., if a book has the same title and publication year as a book we've seen in the past, assume it's the same book and skip over it.  If processing an individual object takes a lot of time and if your program is processing a lot of duplicates - maybe because a list is allowed to show duplicates or maybe because you're coming back and scraping a similar dataset multiple times - you can save a lot of time by adding skip blocks to your program.
+	</p>
+
+<p>
+	But be careful - if you make assumptions about your data that turn out to be false, you might end up skipping too many objects.  For instance, say you're scraping menu items and you assume each menu item will have a different description; if you use a skip block based on the item desription and then many menu items turn out to have an empty description, your program will process the first empty-description item but then skip over all the others.  Take a look at the example below for an introduction to the questions you should consider when you're adding a skip block.
+	</p>
+
+	<div class="example_title">The situation:</div>
+	You have a table of friends' names, ages, birthdays, phone numbers, and addresses.  Unfortunately, you have collected this information several times as friends' information has changed over the years, so many friends have multiple rows in the table.  You want a table that only lists each friend once, so you need to combine all the rows that refer to the same friend.
+	<br><br>
+	The goal is to find duplicates -- rows that refer to the same friend.  You're going to do this by picking a set of important columns from the table.  We'll use these columns to identify duplicates.  If two rows have the same values in all of the selected columns, we'll merge the rows.  If they don't, we'll assume they refer to two different people.   When we merge two rows, it's ok to lose information from one of the merged rows -- we just want to make sure we have exactly one row per friend.  You'll need to use your knowledge of what attributes tend to be unique about your friends.  You'll also need to know what attributes tend to stay the same over time.
+
+	<div class="example_title">The data:</div>
+	In this snippet of the table, the first two rows are from the same Alice at different points in time.  Her birthday and phone number are the same, but she was 37 for one of the rows and 38 for another.  The third and fourth rows refer to two different friends, both named Bob.  We use a color to represent each friend -- blue for Alice, orange for the first Bob, purple for the second Bob.
+	<table>
+	  <tr style="background-color: white"><td>name</td><td>age</td><td>birthday</td><td>phone_number</td><td>address</td></tr>
+	  <tr style="background-color: #CFDFEF"><td>Alice</td><td>37</td><td>Feb 2, 1979</td><td>555-555-5555</td><td>1234 Lane Street</td></tr>
+	  <tr style="background-color: #CFDFEF"><td>Alice</td><td>38</td><td>Feb 2, 1979</td><td>555-555-5555</td><td></td></tr>
+	  <tr style="background-color: #EFDFCF"><td>Bob</td><td>37</td><td>Jan 1, 1979</td><td>777-777-7777</td><td></td></tr>
+	  <tr style="background-color: #EFCFEF"><td>Bob</td><td>38</td><td>May 20, 1979</td><td>999-999-9999</td><td>9876 Drive Run</td></tr>
+	</table>
+
+	<div class="green">
+	<center><div class="example_title">Some good solutions</div></center>
+		
+
+	<div class="answer">
+	<div class="space"><span class="selection">PHONE_NUMBER</span>:</div>
+	<div>
+		<table class="invisible"><tr class="invisible">
+		<td class="invisible"><img src="/assets/images/tutorial/phone_number.png" style="height: 50px"> </td>
+		<td class="invisible"><table>
+		  <tr style="background-color: white"><td>name</td><td>age</td><td>birthday</td><td>phone_number</td><td>address</td></tr>
+		  <tr style="background-color: #CFDFEF"><td>Alice</td><td>37</td><td>Feb 2, 1979</td><td>555-555-5555</td><td>1234 Lane Street</td></tr>
+		  <tr style="background-color: #CFDFEF"><td>Alice</td><td>38</td><td>Feb 2, 1979</td><td>555-555-5555</td><td></td></tr>
+		  <tr style="background-color: #EFDFCF"><td>Bob</td><td>37</td><td>Jan 1, 1979</td><td>777-777-7777</td><td></td></tr>
+		  <tr style="background-color: #EFCFEF"><td>Bob</td><td>38</td><td>May 20, 1979</td><td>999-999-9999</td><td>9876 Drive Run</td></tr>
+		</table></td>
+		<td class="invisible">&rarr;</td>
+		<td class="invisible"><table>
+		  <tr style="background-color: white"><td>name</td><td>age</td><td>birthday</td><td>phone_number</td><td>address</td></tr>
+		  <tr style="background-color: #CFDFEF"><td>Alice</td><td>37</td><td>Feb 2, 1979</td><td>555-555-5555</td><td>1234 Lane Street</td></tr>
+		  <tr style="background-color: #EFDFCF"><td>Bob</td><td>37</td><td>Jan 1, 1979</td><td>777-777-7777</td><td></td></tr>
+		  <tr style="background-color: #EFCFEF"><td>Bob</td><td>38</td><td>May 20, 1979</td><td>999-999-9999</td><td>9876 Drive Run</td></tr>
+		</table></td>
+		</tr></table>
+	</div>
+	You know all the rows include the phone number, and you know none of your friends share a phone number, so if you see a second row with a particular phone number, you know it refers to the same friend as the first row.  You also know none of your friends have changed phone numbers since you started collecting their information (so Alice won't have a different phone number in her second row).  You merge the Alice rows and keep both Bobs!
+	<br>
+	</div>
+
+
+	<div class="answer">
+	<div class="space"><span class="selection">NAME AND BIRTHDAY</span>:</div>
+	<div>
+		<table class="invisible"><tr class="invisible">
+		<td class="invisible"><img src="/assets/images/tutorial/name_birthday.png" style="height: 50px"> </td>
+		<td class="invisible"><table>
+		  <tr style="background-color: white"><td>name</td><td>age</td><td>birthday</td><td>phone_number</td><td>address</td></tr>
+		  <tr style="background-color: #CFDFEF"><td>Alice</td><td>37</td><td>Feb 2, 1979</td><td>555-555-5555</td><td>1234 Lane Street</td></tr>
+		  <tr style="background-color: #CFDFEF"><td>Alice</td><td>38</td><td>Feb 2, 1979</td><td>555-555-5555</td><td></td></tr>
+		  <tr style="background-color: #EFDFCF"><td>Bob</td><td>37</td><td>Jan 1, 1979</td><td>777-777-7777</td><td></td></tr>
+		  <tr style="background-color: #EFCFEF"><td>Bob</td><td>38</td><td>May 20, 1979</td><td>999-999-9999</td><td>9876 Drive Run</td></tr>
+		</table></td>
+		<td class="invisible">&rarr;</td>
+		<td class="invisible"><table>
+		  <tr style="background-color: white"><td>name</td><td>age</td><td>birthday</td><td>phone_number</td><td>address</td></tr>
+		  <tr style="background-color: #CFDFEF"><td>Alice</td><td>37</td><td>Feb 2, 1979</td><td>555-555-5555</td><td>1234 Lane Street</td></tr>
+		  <tr style="background-color: #EFDFCF"><td>Bob</td><td>37</td><td>Jan 1, 1979</td><td>777-777-7777</td><td></td></tr>
+		  <tr style="background-color: #EFCFEF"><td>Bob</td><td>38</td><td>May 20, 1979</td><td>999-999-9999</td><td>9876 Drive Run</td></tr>
+		</table></td>
+		</tr></table>
+	</div>
+	Alternatively, you know the Bobs have the same name, but not the same birthday, so you select the checkboxes for name and birthday.  Even though Alice is in the table multiple times, her birthday won't change, so you merge the Alice rows and keep both Bobs!
+	</div>
+	</div>
+
+
+	<div class="red">
+	<center><div class="example_title">Some bad solutions</div></center>
+
+	<div class="answer">
+	<div class="space"><span class="selection">NAME</span>:</div>
+	<div>
+		<table class="invisible"><tr class="invisible">
+		<td class="invisible"><img src="/assets/images/tutorial/name.png" style="height: 50px"> </td>
+		<td class="invisible"><table>
+		  <tr style="background-color: white"><td>name</td><td>age</td><td>birthday</td><td>phone_number</td><td>address</td></tr>
+		  <tr style="background-color: #CFDFEF"><td>Alice</td><td>37</td><td>Feb 2, 1979</td><td>555-555-5555</td><td>1234 Lane Street</td></tr>
+		  <tr style="background-color: #CFDFEF"><td>Alice</td><td>38</td><td>Feb 2, 1979</td><td>555-555-5555</td><td></td></tr>
+		  <tr style="background-color: #EFDFCF"><td>Bob</td><td>37</td><td>Jan 1, 1979</td><td>777-777-7777</td><td></td></tr>
+		  <tr style="background-color: #EFCFEF"><td>Bob</td><td>38</td><td>May 20, 1979</td><td>999-999-9999</td><td>9876 Drive Run</td></tr>
+		</table></td>
+		<td class="invisible">&rarr;</td>
+		<td class="invisible"><table>
+		  <tr style="background-color: white"><td>name</td><td>age</td><td>birthday</td><td>phone_number</td><td>address</td></tr>
+		  <tr style="background-color: #CFDFEF"><td>Alice</td><td>37</td><td>Feb 2, 1979</td><td>555-555-5555</td><td>1234 Lane Street</td></tr>
+		  <tr style="background-color: #EFDFCF"><td>Bob</td><td>37</td><td>Jan 1, 1979</td><td>777-777-7777</td><td></td></tr>
+		</table></td>
+		</tr></table>
+	</div>
+	Just selecting <span class="selection">NAME</span> doesn't work because although we successfully merge the two Alice rows that refer to a single friend, we also merge the two Bobs, even though they're different friends.  Name doesn't work becuase a name can be shared by multiple friends.
+	<br><br>
+	The bad outcome: we got rid of a Bob!
+	</div>
+
+	<div class="answer">
+	<div class="space"><span class="selection">NAME AND AGE</span>:</div>
+	<div>
+		<table class="invisible"><tr class="invisible">
+		<td class="invisible"><img src="/assets/images/tutorial/name_age.png" style="height: 50px"> </td>
+		<td class="invisible"><table>
+		  <tr style="background-color: white"><td>name</td><td>age</td><td>birthday</td><td>phone_number</td><td>address</td></tr>
+		  <tr style="background-color: #CFDFEF"><td>Alice</td><td>37</td><td>Feb 2, 1979</td><td>555-555-5555</td><td>1234 Lane Street</td></tr>
+		  <tr style="background-color: #CFDFEF"><td>Alice</td><td>38</td><td>Feb 2, 1979</td><td>555-555-5555</td><td></td></tr>
+		  <tr style="background-color: #EFDFCF"><td>Bob</td><td>37</td><td>Jan 1, 1979</td><td>777-777-7777</td><td></td></tr>
+		  <tr style="background-color: #EFCFEF"><td>Bob</td><td>38</td><td>May 20, 1979</td><td>999-999-9999</td><td>9876 Drive Run</td></tr>
+		</table></td>
+		<td class="invisible">&rarr;</td>
+		<td class="invisible"><table>
+		  <tr style="background-color: white"><td>name</td><td>age</td><td>birthday</td><td>phone_number</td><td>address</td></tr>
+		  <tr style="background-color: #CFDFEF"><td>Alice</td><td>37</td><td>Feb 2, 1979</td><td>555-555-5555</td><td>1234 Lane Street</td></tr>
+		  <tr style="background-color: #CFDFEF"><td>Alice</td><td>38</td><td>Feb 2, 1979</td><td>555-555-5555</td><td></td></tr>
+		  <tr style="background-color: #EFDFCF"><td>Bob</td><td>37</td><td>Jan 1, 1979</td><td>777-777-7777</td><td></td></tr>
+		  <tr style="background-color: #EFCFEF"><td>Bob</td><td>38</td><td>May 20, 1979</td><td>999-999-9999</td><td>9876 Drive Run</td></tr>
+		</table></td>
+		</tr></table>
+	</div>
+
+	Selecting <span class="selection">NAME AND AGE</span> doesn't work because even though we now distinguish between between the two Bobs, we also distinguish between the two Alice rows, even though they refer to the same friend.  Age changes over time, so this will prevent us from merging duplicates.
+	<br><br>
+	The bad outcome: we kept a fake Alice!
+	</div>
+
+	<div class="answer">
+	<div class="space"><span class="selection">ADDRESS</span>:</div>
+	<div>
+		<table class="invisible"><tr class="invisible">
+		<td class="invisible"><img src="/assets/images/tutorial/address.png" style="height: 50px"> </td>
+		<td class="invisible"><table>
+		  <tr style="background-color: white"><td>name</td><td>age</td><td>birthday</td><td>phone_number</td><td>address</td></tr>
+		  <tr style="background-color: #CFDFEF"><td>Alice</td><td>37</td><td>Feb 2, 1979</td><td>555-555-5555</td><td>1234 Lane Street</td></tr>
+		  <tr style="background-color: #CFDFEF"><td>Alice</td><td>38</td><td>Feb 2, 1979</td><td>555-555-5555</td><td></td></tr>
+		  <tr style="background-color: #EFDFCF"><td>Bob</td><td>37</td><td>Jan 1, 1979</td><td>777-777-7777</td><td></td></tr>
+		  <tr style="background-color: #EFCFEF"><td>Bob</td><td>38</td><td>May 20, 1979</td><td>999-999-9999</td><td>9876 Drive Run</td></tr>
+		</table></td>
+		<td class="invisible">&rarr;</td>
+		<td class="invisible"><table>
+		  <tr style="background-color: white"><td>name</td><td>age</td><td>birthday</td><td>phone_number</td><td>address</td></tr>
+		  <tr style="background-color: #CFDFEF"><td>Alice</td><td>37</td><td>Feb 2, 1979</td><td>555-555-5555</td><td>1234 Lane Street</td></tr>
+		  <tr style="background-color: #CFDFEF"><td>Alice</td><td>38</td><td>Feb 2, 1979</td><td>555-555-5555</td><td></td></tr>
+		  <tr style="background-color: #EFCFEF"><td>Bob</td><td>38</td><td>May 20, 1979</td><td>999-999-9999</td><td>9876 Drive Run</td></tr>
+		</table></td>
+		</tr></table>
+	</div>
+	Selecting <span class="selection">ADDRESS</span> doesn't work because even though you know your friends all have different addresses, some rows don't include addresses -- in particular, one Bob row and one Alice row have the 'same' empty address, so they'll be merged.  Columns where some rows won't have data can end up making all the rows without data look like duplicates.
+	<br><br>
+	The bad outcome: we eliminated a Bob by merging a Bob row with an Alice row!
+	</div>
+	</div>
+	</div>
+
+<p></p>
+	<div class="example_title">Adding Skip Blocks</div>
+
+	<p>
+	Now that you know how to design a skip block, here's how you add one to your own program.  First, in the "Current Script" tab, scroll down to the "Troubleshooting" section and click on "My script wastes time scraping the same stuff it's already scraped."  Now you'll see a set of tables, one for each table in your program.  Each table will look like the ones in the examples above, with a checkbox for each column.  Use the checkboxes to pick which attributes you'll use in your skip block.  Once you're happy with the set of columns you've chosen, click the "Add Annotation" button below.  You'll see a big red block appear in your Helena program.  In the block, you'll be able to control when you skip objects.  You have the option of: (i) never skipping (this is the same as not having a skip block), (ii) skipping if you've <b>ever</b> seen the object before, (iii) skipping only if you've seen the object already in the current run, (iv) skipping if you've seen it in the last few runs, or (v) skipping if you've seen it within a certain period of time.  By default, it will skip over objects that have been seen at any point in the past.  </p>
+
+	<p>
+	Helena only starts tracking which objects it's seen once you run a version that includes a skip block.  So if you've run your program without skip blocks in the past, adding a skip block won't cause the program to skip over objects that were scraped during pre-skip-block runs.  However, all future runs will have the skipping behavior you specify.</p>  
+
+	<p>
+	Also note that if you rename and save your program, you're essentially creating a new program.  The new program won't know about the objects that the original program scraped, so it won't skip over objects that the prior program scraped.
+	</p>
+	Here's how it looks in practice when you add a skip block:
+	<div><img class="image" style="width:700px" src="/assets/images/tutorial/skipBlocks.gif"></div>
+
+
+
+</div>
+</div>

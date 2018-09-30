@@ -13,6 +13,8 @@ layout: default
 This page discusses how we can use the Chrome extension to do things like editing, saving, and running Helena programs.
 
 <div id="menu">
+<span class="menu-title">Contents</span>
+<hr>
 </div>
 
 <div id="tutorial-item-list">
@@ -20,32 +22,67 @@ This page discusses how we can use the Chrome extension to do things like editin
 <div class="tutorial-item" id="saveProgram">
 <div class="tutorial-item-title">Saving Programs</div>
 To save a Helena program, just give it a name and press the "Save" button.
-<div><img class="image" style="width:480px" src="/assets/images/tutorial/save.gif"></div>
+<div><img class="image" style="width:700px" src="/assets/images/tutorial/save.gif"></div>
 </div>
 
 <div class="tutorial-item" id="retrieveSavedProgram">
 <div class="tutorial-item-title">Retrieving Saved Programs</div>
 To load a saved Helena program, click on the "Saved Scripts" tab in the control pane.  Either browse through the list of saved programs or, if you remember the name of the program you're seeking, use Chrome's usual CTRL+F search functionality to search for the name of the program you want.  Once you've found the program, click on it, and the extension will load the saved program.  Now you can edit or run the program as usual.
-<div><img class="image" style="width:480px" src="/assets/images/tutorial/retrieve.gif"></div>
+<div><img class="image" style="width:700px" src="/assets/images/tutorial/retrieve.gif"></div>
 </div>
 
 <div class="tutorial-item" id="checkTable">
 <div class="tutorial-item-title">Checking Relevant Tables</div>
 When you record a demonstration, Helena looks for tables of data on the pages with which you interact.  Sometimes you may want to check and make sure Helena is extracting the right data.  To take a look at the tables Helena found, scroll down in the "Current Script" tab and click on the "Relevant Tables" item.  You can take a look at all the tables Helena extracted, rename the tables (or the columns), and see a preview of the first three rows of data.
-<div><img class="image" style="width:480px" src="/assets/images/tutorial/seeTable.gif"></div>
+<div><img class="image" style="width:700px" src="/assets/images/tutorial/seeTable.gif"></div>
 </div>
 
 <div class="tutorial-item" id="previewTable">
 <div class="tutorial-item-title">Previewing Relevant Tables in Webpages</div>
 You want to be sure that the tables Helena finds are getting all the data you expect, and sometimes the best way to check is to look at the page and see which nodes Helena finds and which it doesn't.  If this is what you want to do, scroll down in the "Current Script" tab and click on the "Relevant Tables" item.  Find the preview of the table you want to see in its own page, then scroll down to the "Edit This Table" button for that table.  Click on "Edit This Table," and Helena will open the page that shows the table.  If you need to interact with the page to get the table to show, go ahead and do that.  Once the table is visible, click the "Page Shows My Table" button.  Helena will show the extracted data in the control pane, and it will highlight the extracted nodes in the webpage.  This can be especially useful for cases, like the one demonstrated in the GIF below, in which we're scraping images.
-<div><img class="image" style="width:480px" src="/assets/images/tutorial/seeTableOnPage.gif"></div>
+<div><img class="image" style="width:700px" src="/assets/images/tutorial/seeTableOnPage.gif"></div>
 </div>
 
 <div class="tutorial-item" id="editTable">
 <div class="tutorial-item-title">Editing Tables</div>
 If Helena didn't get quite the right table, you can also edit a table.  Start by following the directions for <a href="#previewTable">Previewing Relevant Tables in Webpages</a>.  The user interface for editing tables is still very much in flux, but there are a few things you can do from the current interface version.  In particular, a common task is to indicate how to reach more pages of a table.  For example, if you scroll to find more rows of the table, you'd click on "Scroll for More" (see GIF below).  If you find more rows with a next button, you'd click on "Next Button" and then follow the directions to click on the next button in the actual webpage.  If you find more rows with a more button, you'd click on "More Button" and do the same process.
-<div><img class="image" style="width:480px" src="/assets/images/tutorial/editTable.gif"></div>
+<div><img class="image" style="width:700px" src="/assets/images/tutorial/editTable.gif"></div>
+</div>
+
+<div class="tutorial-item" id="removeTable">
+<div class="tutorial-item-title">Removing Tables</div>
+Sometimes there's a table available but you actually don't want to go through each row.  For example, in the GIF below, after demonstrating how to collect data about the first author in a list and the first paper by the first author, Helena guesses we want a program that collects all authors and all their papers.  If we want a program the only collects the first paper by all authors, we should remove the papers table.  If we want a program that only collects all papers by the first author, we should remove the authors table.  To do that, we scroll down and click "Relevant Tables," then find the table we want to remove and click the "This Table is Not Relevant" button.  In the GIF below, we remove the papers table, so the new program only collects the first paper by each author.
+<div><img class="image" style="width:700px" src="/assets/images/tutorial/removeTable.gif"></div>
+</div>
+
+<div class="tutorial-item" id="uploadTable">
+<div class="tutorial-item-title">Uploading Tables</div>
+Sometimes you want to upload a table rather than finding one on a webpage.  For instance, if you've put together a set of URLs you want to process or a set of texts you want to search, this might be the right move.  In the GIF below, we have a Helena program for extracting the set of pages an organization has liked on Facebook.  To repeat the process for other organizations, we upload a CSV with URLs for the organizations' Facebook profiles, where the first URL is the URL on which we initially demonstrated.  (If you have a spreadsheet with the table you want, just export it as a CSV to put it in a format Helena can process - for instance, if you're using Excel, follow the directions <a href="https://support.office.com/en-us/article/save-a-workbook-to-text-format-txt-or-csv-3e9a9d6c-70da-4255-aa28-fcacf1f081e6" target="_blank">here</a>.)  Remember, as when you demonstrate on the first row of a table in a webpage, your demonstration has to use the items from the first row of your uploaded table, or Helena won't know how to repeat actions for additional rows.
+<div><img class="image" style="width:700px" src="/assets/images/tutorial/uploadTable.gif"></div>
+</div>
+
+<div class="tutorial-item" id="scheduleLaterRuns">
+<div class="tutorial-item-title">Scheduling Later Runs</div>
+Sometimes you want a Helena program to run repeatedly on a schedule.  To make that happen, first load the script you want to schedule into the "Current Script" tab - either by demonstrating it or by loading it from the saved programs list (<a href="#retrieveSavedProgram">see directions for loading saved programs</a>).  If the script has never been saved before, make sure to save it first.  Next click on "Additional Run Options" and click the "Schedule Later Runs of This Script" button.  Type in when you want it to run, then click the "Done" button.  You can see all the runs you currently have scheduled in the "Scheduled Runs" tab of the control pane.  You can cancel scheduled runs by going to the "Scheduled Runs" tab and clicking on the "x" in the box of the runs you want to cancel.  When you schedule a run, the run will take place on the computer you use to schedule it; if the computer is turned off or if Chrome isn't open at the time of the scheduled run, the run won't happen.  (If you prefer traditional programming and would rather use cron to schedule Helena runs, take a look at <a target="_blank" href="https://github.com/schasins/helena/tree/master/utilities">https://github.com/schasins/helena/tree/master/utilities</a>.)  Also make sure that you don't schedule conflicting runs.  If program B is scheduled to happen partway through when program A is running, program A run will be halted and program B will start running instead.  Here's a GIF demonstrating how to schedule later runs.
+<div><img class="image" style="width:700px" src="/assets/images/tutorial/scheduleLaterRuns.gif"></div>
+</div>
+
+<div class="tutorial-item" id="avoidRedoingWork">
+<div class="tutorial-item-title">Skipping Repetitive Work</div>
+Helena has special support for making sure your programs don't re-execute work they've already done in the past.  If you're finding lots of rows with the same data in your output datasets, you might want to use Helena's <i>skip block</i> to avoid re-scraping those rows.  Or if you're planning to re-scrape periodically but you only want to collect the new data that you haven't already seen, the skip block is probably right for you.  Take a look at our page on <a href="/skip-blocks">skip blocks</a> for a guide to making your programs faster by skipping over work you've already done.
+<div><img class="image" style="width:700px" src="/assets/images/tutorial/skipBlocks.gif"></div>
 </div>
 
 </div>
 </div>
+
+<script>
+var tutorialItems = $(".tutorial-item");
+var menu = $("#menu");
+for (var i = 0; i < tutorialItems.length; i++){
+	var id = tutorialItems[i].id;
+	var text = $(tutorialItems[i]).find(".tutorial-item-title")[0];
+	var newNode = $("<div class='menu-item'><a href='#" + id + "'>" + text.textContent +"</a></div>");
+	menu.append(newNode);
+}
+</script>

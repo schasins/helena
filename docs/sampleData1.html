@@ -1,0 +1,45 @@
+---
+title: Sample Data
+description: Some fun sample data
+permalink: /sample-data-1
+layout: default
+---
+
+<div id="content">
+</div>
+
+<script id="dataScript">
+var table1Name = "Some TV Shows";
+var table1 = [
+	[1, "Scandal", "Awesome!", "2012", "2018"],
+	[2, "Buffy the Vampire Slayer", "Awesome!", "1996", "2003"],
+	[3, "Angel", "Not So Awesome", "1999", "2004"]
+];
+
+var table2Name = "Some of the Characters in ";
+var table2 = [
+	[1, 1, "Olivia Pope"],
+	[2, 1, "Abby Whelan"],
+	[3, 2, "Buffy Summers"],
+	[4, 2, "Willow Rosenberg"],
+	[5, 3, "Angel"],
+	[6, 3, "Wesley Wyndam-Pryce"]
+];
+
+function table1Display(){
+	var content = $("<div></div>");
+	content.append("<div class='lead'>" + table1Name + "</div>");
+	for (let i = 0; i < table1.length; i++){
+		var row = table1[i];
+		var id = row[0];
+		var title = row[1];
+		var rating = row[2];
+		var start = row[3];
+		var end = row[4];
+		var d = $("<div class='padded'><a href='/sample-data-2?id="+id+"'><div>"+title+"</div></a><div><span>Extremely Subjective Quality Rating: </span><span>"+rating+"</span></div><div><span>"+start+"</span><span>-</span><span>"+end+"</span></div></div>");
+		content.append(d);
+	}
+	document.getElementById("content").innerHTML = content.html();
+}
+table1Display();
+</script>

@@ -1,0 +1,51 @@
+---
+title: Sample Data
+description: Some fun sample data
+permalink: /sample-data-2
+layout: default
+---
+
+<div id="content">
+</div>
+
+<script id="dataScript">
+var table1Name = "Some TV Shows";
+var table1 = [
+	[1, "Scandal", "Awesome!", "2012", "2018"],
+	[2, "Buffy the Vampire Slayer", "Awesome!", "1996", "2003"],
+	[3, "Angel", "Not So Awesome", "1999", "2004"]
+];
+
+var table2Name = "Some of the Characters in ";
+var table2 = [
+	[1, 1, "Olivia Pope"],
+	[2, 1, "Abby Whelan"],
+	[3, 2, "Buffy Summers"],
+	[4, 2, "Willow Rosenberg"],
+	[5, 3, "Angel"],
+	[6, 3, "Wesley Wyndam-Pryce"]
+];
+
+function table2Display(table1IdTarget){
+	var content = $("<div></div>");
+	var showName = table1[table1IdTarget - 1][1];
+	content.append("<div class='lead'>" + table2Name + " " + showName + "</div>");
+	for (let i = 0; i < table2.length; i++){
+		var row = table2[i];
+		var id = row[0];
+		var table1Id = row[1];
+		var charName = row[2];
+		if (table1Id !== table1IdTarget){
+			continue;
+		}
+		var d = "<div class='padded'>" + charName + "</div>";
+		content.append(d)
+	}
+	document.getElementById("content").innerHTML = content.html();
+}
+
+var url_string = window.location.href;
+var url = new URL(url_string);
+var id = parseInt(url.searchParams.get("id"));
+table2Display(id);
+</script>

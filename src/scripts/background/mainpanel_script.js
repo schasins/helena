@@ -117,6 +117,11 @@ var RecorderUI = (function (pub) {
   pub.stopRecording = function _stopRecording(){
     var trace = SimpleRecord.stopRecording();
     var program = ReplayScript.ringerTraceToHelenaProgram(trace, currentRecordingWindow);
+    if (program.statements.length < 1){
+      // if we didn't actually see any statements worth replaying, let's assume they pressed stop before actually doing anything
+      pub.cancelRecording();
+      return;
+    }
     setCurrentProgram(program, trace);
 
     // once we're done, remove the window id from the list of windows where we're allowed to record

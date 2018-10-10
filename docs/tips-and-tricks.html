@@ -1,0 +1,38 @@
+---
+title: Tips and Tricks
+description: Tips and tricks for using Helena to collect web data
+permalink: /tips-and-tricks
+layout: default
+---
+
+Here are a few tips to consider before you start using Helena.  The best way to learn about using Helena is to watch tutorials, but once you've got the basics and want to start writing your own programs, it's helpful to keep these recommendations in mind.
+
+<div class="smaller">
+<div class="tutorial-item-title">Use a fresh Chrome profile</div>
+Here are directions for making a new Chrome profile: <a href="https://support.google.com/chrome/answer/2364824" target="_blank">https://support.google.com/chrome/answer/2364824</a>.  We recommend that you make a fresh profile that you will use only for Helena tasks.
+
+<div class="tutorial-item-title">Keep programs small</div>
+To make faster, easier-to-debug Helena programs, try to keep them as short as possible.  For example, if you want to scrape a list of search results, don't record yourself executing the search; do the search before you start recording, then bookmark the page of search results, then start your recording there.
+
+<div class="tutorial-item-title">Open new tabs</div>
+Always open new pages in new tabs when possible.  Helena programs are faster and work better - and sometimes they <i>only</i> work - when new pages are opened in new tabs.  So remember when clicking on links (or performing other interactions that open new pages) to use your browser's keyboard shortcut for opening in a new tab - 'command' for Mac Chrome, 'control' for others.
+
+<div class="tutorial-item-title">Interact with the page, not the browser</div>
+Helena can only observe your interactions with the webpage, not your interactions with the browser (Chrome).  This means if you right-click on an element and interact with the right-click menu, Helena can't see what you're doing and can't write a program that will reproduce the actions.  The one exception is that Helena can observe when you use the "Back" button.  But since opening new tabs (see above) is the best practice, you shouldn't need to use the "Back" button that often!  The browser vs. page issue arises when folks use the right-click menu to open a link in a new tab, rather than using the 'command' or 'control' keyboard shortcut; so remember to use the keyboard shortcut for this.  This might also arise is if you're trying to download items and end up interacting with the "Save As" menu, which Helena can't record.  In this case, you have a couple options: (i) Change some Chrome settings so that your materials download automatically, without requiring a "Save As" interaction (for instance, you can tell Chrome to download PDFs to the Downloads folder instead of opening them in a new tab by turning on a setting at <span class="monospace">chrome://settings/content/pdfDocuments</span>, as discussed below).  Or (ii) use Helena's keyboard shortcuts to copy the URL for the material you want to download, then use a different tool to download all the URLs you collect.
+
+<div class="tutorial-item-title">Update Chrome</div>
+Helena has only been tested on recent versions of Chrome, so you may run into problems if you try running Helena with an old version.
+
+<div class="tutorial-item-title">View output data in Google Sheets</div>
+Unfortunately Excel isn't always great at showing multi-line cells.  Since Helena uses multi-line cells to preserve as much of the original structure of your scraped data as possible, you'll probably see plenty of multi-line cells in your output.  Before you start worrying that your data has disappeared, try using a non-Excel viewer (such as Google Sheets) to show your data.
+
+<div class="tutorial-item-title">Adjust your Chrome settings if you want to download PDFs</div>
+Helena automation can be a nice way to download large numbers of PDFs, rather than accessing them all manually.  If you want to use Helena this way, remember that by default, Chrome will open PDFs in a new tab.  If you want to download them instead, you'll have to turn off Chrome's PDF viewer in the settings for your Helena-specific Chrome profile.  On recent versions of chrome, just switch to the Helena-specific profile, load the URL <span class="monospace">chrome://settings/content/pdfDocuments</span>, then turn on the "Open PDFs using a different application" setting.
+
+<div class="tutorial-item-title">Play around!</div>
+Now and then you'll run into a website feature that we haven't yet had the chance to make Helena handle.  In those cases, try a few different ways of doing the task.  Is there another way to navigate to the page you want?  Can you use the keyboard instead of the mouse to do what you want, or the mouse instead of the keyboard?  Try doing the task a few different ways and see what happens.  And if Helena still isn't doing the right thing after a few different recordings, then try the next tip.  :)
+
+<div class="tutorial-item-title">Ask questions</div>
+When in doubt, get in touch!  Helena is still new and under development, so there are lots of bugs, but we're happy to help!  We're always looking for new uses that stress our tool, so please contact us when you find problems.  We'll see what we can do to fix your issue.
+
+</div>

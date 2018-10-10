@@ -691,3 +691,8 @@ margin: 3px;
 .tutorial_header{
   font-weight: 500;
 }
+
+.monospace{
+  font-family: monospace;
+  background-color: #E3E3E3;
+}

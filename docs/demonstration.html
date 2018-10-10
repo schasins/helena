@@ -5,4 +5,93 @@ permalink: /demonstration
 layout: default
 ---
 
-Coming soon!
+<div class="smaller">
+
+<div class="header">
+  <div class="lead">Demonstrations: Make a Helena Program</div>
+</div>
+
+<div id="menu">
+<span class="menu-title">Tutorial Steps</span>
+<hr>
+</div>
+
+<div id="tutorial-item-list">
+
+<div class="tutorial-item" id="exploreWebpages">
+<div class="tutorial-item-title">Explore your webpages</div>
+When you want to make a Helena program, first pick the website or websites from which you'll collect data.  Look around the webpages you'll use so that you know where your information is located.  For this tutorial, you'll be extracting data from <a href="http://helena-lang.org/sample-data" target="_blank">http://helena-lang.org/sample-data</a>, so take a moment to play around with that page and its links.  Go ahead and copy the start URL - you'll want to have it ready when you start a demonstration.  And remember, once you're doing a demonstration, everything that you do during the recording is also going to be done by your program; so now's the time to do any stray clicks, follow stray links, and generally figure out where your data lives.
+</div>
+
+<div class="tutorial-item" id="designData">
+<div class="tutorial-item-title">Decide what data you want</div>
+Next decide what you want to include in your dataset - you should know exactly how your target dataset should look.  Let's say we want to collect the following table:
+<table border=1 cellpadding=0 cellspacing=0 style='border-collapse:
+ collapse;' class="docstable2">
+ <tr height=21 style='height:16.0pt'>
+  <td height=21>Scandal</td>
+  <td >Awesome!</td>
+ </tr>
+ <tr height=21 style='height:16.0pt'>
+  <td height=21 style='height:16.0pt'>Buffy the Vampire Slayer</td>
+  <td>Awesome!</td>
+ </tr>
+ <tr height=21 style='height:16.0pt'>
+  <td height=21 style='height:16.0pt'>Angel</td>
+  <td colspan=2>Not So Awesome</td>
+ </tr>
+</table>
+So we want to know, for each TV show in the list, what's the title of the show and what's the extremely subjective quality rating.  When we use Helena, we write a scraping program by demonstrating how we interact with the browser to collect the first row, so we'll want to demonstrate how to collect "Scandal" and "Awesome!" from the webpage.  Then Helena will write a program for collecting all three rows.
+</div>
+
+<div class="tutorial-item" id="openExtension">
+<div class="tutorial-item-title">Open the extension</div>
+Let's figure out how we demonstrate with Helena.  We'll start by exploring the interface.  We open the extension by clicking on the icon at the upper right.  This opens the control panel:
+<div><img class="image" style="width:700px" src="/assets/images/tutorial/openExtension.gif"></div>
+</div>
+
+<div class="tutorial-item" id="startRecording">
+<div class="tutorial-item-title">Start Recording</div>
+Next we'll start recording.  When we click the "Start Recording" button, a new window appears at the right of the current location of the control panel.  This is the recoding window.  Everything that we want to have recorded needs to happen in this window, because Helena isn't paying attention to any of the other Chrome windows we might have open.  We recommend keeping both the control panel and the recording window visible throughout recording so that Helena can give you feedback about the data you're collecting.
+<div><img class="image" style="width:700px" src="/assets/images/tutorial/startRecording.gif"></div>
+</div>
+
+<div class="tutorial-item" id="loadFirstPage">
+<div class="tutorial-item-title">Load the first page you'll use</div>
+When you make a demonstration, your job is to show Helena how you'd collect the <i>first row</i> of the dataset you want.  We already decided that our first row is the title and subjective rating of the first show in our list, so "Scandal" and "Awesome!" from <a href="http://helena-lang.org/sample-data">http://helena-lang.org/sample-data</a>.  So the first thing we'll do is paste that URL that we copied earlier into the URL bar of the recording window.
+<div><img class="image" style="width:700px" src="/assets/images/tutorial/loadFirstURL.gif"></div>
+</div>
+
+<div class="tutorial-item" id="whatYouCanScrape">
+<div class="tutorial-item-title">Figure out what you can scrape</div>
+When you're doing a Helena demonstration, you can interact with the browser as usual, but you can do a couple new things as well.  In the control pane, you'll see directions for how to collect data from webpages, and they'll include a keyboard shortcut you can use.  The particular shortcut varies based on what operating system you're using, but usually it's just the ALT key, so we'll just talk about using the ALT key, and you can look at the instructions if that isn't working for you.  During a demonstration, when you hold down the ALT key, you'll see a red highlight following your mouse around when you mouse over webpages in the recording window; this red highlight lets you know which webpage elements 
+<div><img class="image" style="width:700px" src="/assets/images/tutorial/loadFirstURL.gif"></div>
+</div>
+
+<!--
+Remember that everything you do is also going to be done by your program.
+
+the other thing that will happen is we will have a new mechanism for actually collecting or scraping data.  so in particular, we will see in this white box a preview of the first row of data, the information we've collected so far.  and the way that we'll actually add new cells to this first row is by entering scraping mode by pressing down our alt key on our keyboard.  and then clicking on the element that has the text we want.  so I'm going to show you how that actually works.  In general, if you forget how this works, you'll always have the instructions right up here to remind you. over here on our imdb page there are going to be a couple things that are new now.  in particular, we see when we hover over things we're getting a little white box that's telling us what text we could scrape from the node over which we're currently hovering.  if we go ahead and actually enter that scraping mode and click on the element, so I will hold down the alt key and you can see now I have this little red box following around my mouse and we can click on nodes to add elements to our rows.  you can see all of this is actually being added to the first row preview that we see on the left.
+
+now we load up the target webpage, wait for it to load, grab the title, grab the rating, let's go ahead and open the star wars page in a new tab.  let's also grab information about mark hamill and luke skywalker and that's it, that's the whole first row that we wanted.  so at that point we can say stop recording.  what's going ot happen now is helena is going to analyze all the webpages with which we interacte.d  so we interacted with a list of movies.  right now it's going through and saying ok they interacted with the first movie in this list, maybe they want to interact with all of them.  and you can see it adds a loop that represents all of the movies.  now it's going to go ahead and do the same thing with the page that lists the actors.  it may or may not have good names for these various lists, depending on iff people have used them before or not and if they gave them good names
+
+so now this is the whole script that's going to do everything we need it to do
+
+now we'll go ahead and press run script.  what's going to happen at this point is on the left we'll have a preview pane, which will show the dataset being populated as it's being scraped.  And over on the right we have the webpages themselves, the webpages that helena is controlling and using to collect all the data.  so eventually we see little green highlights indicating the particular elements with which Helena is interacting.
+
+once we're ready to use the data, we'll use the download buttons
+-->
+
+</div>
+</div>
+
+<script>
+var tutorialItems = $(".tutorial-item");
+var menu = $("#menu");
+for (var i = 0; i < tutorialItems.length; i++){
+	var id = tutorialItems[i].id;
+	var text = $(tutorialItems[i]).find(".tutorial-item-title")[0];
+	var newNode = $("<div class='menu-item'><a href='#" + id + "'>" + text.textContent +"</a></div>");
+	menu.append(newNode);
+}
+</script>

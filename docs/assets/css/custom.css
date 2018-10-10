@@ -608,6 +608,11 @@ td {
    border-collapse: collapse;
 }
 
+.docstable2 td {
+   border: 1px solid #D9D9D9;
+   padding: 5px;
+}
+
 .tutorial-item-title{
   padding-top: 25px;
   font-size: 14px;
@@ -681,4 +686,8 @@ margin: 3px;
   border: 1px solid #77A66D;
   background-color: #B5DBAD;
   margin-top:15px;
+}
+
+.tutorial_header{
+  font-weight: 500;
 }

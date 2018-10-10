@@ -9,14 +9,23 @@ var currently_on = false;
     // check if panel is already open
     if (typeof panelWindow == 'undefined' || panelWindow.closed) {
 
-      chrome.windows.create({
-		  url: chrome.extension.getURL('pages/mainpanel.html'), 
-          width: 600, height: 800, left: 0, top: 0, 
-          focused: true,
-          type: 'panel'
-          }, 
-          function(winInfo) {panelWindow = winInfo;}
-      );
+      chrome.tabs.getSelected(null, function(tab) {
+        // identify the url on which the user is currently focused, start a new recording with the same url loaded
+        // now that we know the url...
+        var recordingUrl = tab.url;
+
+        // now let's make the mainpanel
+        chrome.windows.create({
+          url: chrome.extension.getURL('pages/mainpanel.html?starturl='+encodeURIComponent(recordingUrl)), 
+              width: 600, height: 800, left: 0, top: 0, 
+              focused: true,
+              type: 'panel'
+              }, 
+          function(winInfo) {
+            panelWindow = winInfo;
+          }
+        );
+      });
     } else {
       chrome.windows.update(panelWindow.id, {focused: true});
     }

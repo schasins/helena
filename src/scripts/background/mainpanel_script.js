@@ -36,6 +36,12 @@ var RecorderUI = (function (pub) {
 
     // communicate to the HelenaBaseUI what we've called the elements we're using for blockly stuff
     pub.setBlocklyDivIds("new_script_content", "toolbox", "blockly_area", "blockly_div");
+
+    // it's possible that we want to start right off by doing a recording, in which case let's start that here
+    var urlString = window.location.href;
+    var url = new URL(urlString);
+    var startUrl = url.searchParams.get("starturl");
+    RecorderUI.startRecording(startUrl);
   }
 
   $(setUp);
@@ -65,15 +71,17 @@ var RecorderUI = (function (pub) {
   pub.showStartRecording = function _showStartRecording(){
     var div = $("#new_script_content");
     DOMCreationUtilities.replaceContent(div, $("#about_to_record"));
-    div.find("#start_recording").click(RecorderUI.startRecording);
+    div.find("#start_recording").click(function(){RecorderUI.startRecording();});
   };
 
   var currentRecordingWindow = null;
 
-  pub.startRecording = function _startRecording(){
+  pub.startRecording = function _startRecording(specifiedUrl=undefined){
+    console.log("startRecording", specifiedUrl);
     var div = $("#new_script_content");
     DOMCreationUtilities.replaceContent(div, $("#recording"));
     div.find("#stop_recording").click(RecorderUI.stopRecording);
+    div.find("#cancel_recording").click(RecorderUI.cancelRecording);
 
     // if we already recorded one, there could be old stuff in here, so clear it out
     var $div = $("#scraped_items_preview");
@@ -83,7 +91,7 @@ var RecorderUI = (function (pub) {
       recordingWindowIds.push(windowId);
       currentRecordingWindow = windowId;
       SimpleRecord.startRecording();
-    });
+    }, specifiedUrl);
   };
 
   pub.sendCurrentRecordingWindows = function _sendCurrentRecordingWindow(){
@@ -116,6 +124,13 @@ var RecorderUI = (function (pub) {
 
     program.relevantRelations(); // now that we have a script, let's set some processing in motion that will figure out likely relations
     pub.showProgramPreview(true); // true because we're currently processing the script, stuff is in progress
+  };
+
+  pub.cancelRecording = function _cancelRecording(){
+    SimpleRecord.stopRecording();
+    // once we're done, remove the window id from the list of windows where we're allowed to record
+    recordingWindowIds = _.without(recordingWindowIds, currentRecordingWindow);
+    pub.showStartRecording();
   };
 
   pub.showProgramPreview = function _showProgramPreview(inProgress){

@@ -94,6 +94,21 @@ h4 {
 .recording_circle:hover{
   opacity: 1;
 }
+.canceling_circle{
+	fill: #E04343;
+	opacity: .8;
+}
+
+.canceling_circle:hover{
+  opacity: 1;
+}
+#cancel_recording{
+	width:10%;
+	float: right;
+}
+#scraping_instructions_text{
+	width:80%;
+}
 .nav:hover {
 }
 
@@ -106,8 +121,19 @@ h4 {
 }
 
 #stop_recording{
-	padding-top:50px;
+}
+.control_button{
 	text-align: center;
+	display: inline-block;
+	padding: 10px;
+	padding-top: 0px;
+}
+.inline{
+	display: inline-block;
+}
+#button_wrapper{
+	text-align: center;
+	padding-top:50px;
 }
 
 .container{
@@ -326,4 +352,13 @@ kbd{
 	background-color: #D1FFDA;
 	width: 100%;
 	padding: 5px;
+}
+
+.waiting_for_server{
+	background-color: rgba(224, 67, 67, .8);
+	padding: 2px;
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	width: 100%;
 }

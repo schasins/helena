@@ -508,7 +508,7 @@ var RecorderUI = (function (pub) {
     var $overlay = $("#overlay");
     var $overlaytext = $overlay.find("#overlay_text");
     if (currentlyUpdating){
-      $overlaytext.html("<center><img src='../icons/ajax-loader.gif'><br>Looking at webpages to find relevant tables.  Give us a moment.<br></center>");
+      $overlaytext.html("<center><img src='../icons/ajax-loader2.gif' height='20px'><br>Looking at webpages to find relevant tables.  Give us a moment.<br></center>");
       
       if (!demoMode){
         var giveUpButton = $("<button>Give up looking for relevant tables.</button>");

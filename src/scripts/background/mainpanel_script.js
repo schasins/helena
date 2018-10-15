@@ -854,7 +854,7 @@ var RecorderUI = (function (pub) {
   }
 
   pub.updateCustomThresholds = function _updateCustomThresholds(){
-    console.log("updateCustomThresholds");
+    WALconsole.namedLog("tooCommon", "updateCustomThresholds");
     var prog = pub.currentHelenaProgram; // program.relationFindingTimeoutThreshold and program.nextButtonAttemptsThreshold
 
     var defaultSeconds = DefaultHelenaValues.relationFindingTimeoutThreshold / 1000;

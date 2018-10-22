@@ -20,7 +20,7 @@ layout: default
 
 <div class="tutorial-item" id="exploreWebpages">
 <div class="tutorial-item-title">Explore your webpages</div>
-When you want to make a Helena program, first pick the website or websites from which you'll collect data.  Look around the webpages you'll use so that you know where your information is located.  For this tutorial, you'll be extracting data from <a href="http://helena-lang.org/sample-data" target="_blank">http://helena-lang.org/sample-data</a>, so take a moment to play around with that page and its links.  Go ahead and copy the start URL - you'll want to have it ready when you start a demonstration.  And remember, once you're doing a demonstration, everything that you do during the recording is also going to be done by your program; so now's the time to do any stray clicks, follow stray links, and generally figure out where your data lives.
+When you want to make a Helena program, first pick the website or websites from which you'll collect data.  Look around the webpages you'll use so that you know where your information is located.  For this tutorial, you'll be extracting data from <a href="http://helena-lang.org/sample-data" target="_blank">http://helena-lang.org/sample-data</a>, so take a moment to play around with that page and its links.  And remember, once you're doing a demonstration, everything that you do during the recording is also going to be done by your program; so now's the time to do any stray clicks, follow stray links, and generally figure out where your data lives.
 </div>
 
 <div class="tutorial-item" id="designData">
@@ -46,32 +46,50 @@ So we want to know, for each TV show in the list, what's the title of the show a
 
 <div class="tutorial-item" id="openExtension">
 <div class="tutorial-item-title">Open the extension</div>
-Let's figure out how we demonstrate with Helena.  We'll start by exploring the interface.  We open the extension by clicking on the icon at the upper right.  This opens the control panel:
+Let's figure out how we demonstrate with Helena.  Let's navigate to <a href="http://helena-lang.org/sample-data" target="_blank">http://helena-lang.org/sample-data</a>, then open the extension.  We open the extension by clicking on the icon at the upper right.  This opens the control panel on the left:
 <div><img class="image" style="width:700px" src="/assets/images/tutorial/openExtension.gif"></div>
-</div>
-
-<div class="tutorial-item" id="startRecording">
-<div class="tutorial-item-title">Start Recording</div>
-Next we'll start recording.  When we click the "Start Recording" button, a new window appears at the right of the current location of the control panel.  This is the recoding window.  Everything that we want to have recorded needs to happen in this window, because Helena isn't paying attention to any of the other Chrome windows we might have open.  We recommend keeping both the control panel and the recording window visible throughout recording so that Helena can give you feedback about the data you're collecting.
-<div><img class="image" style="width:700px" src="/assets/images/tutorial/startRecording.gif"></div>
-</div>
-
-<div class="tutorial-item" id="loadFirstPage">
-<div class="tutorial-item-title">Load the first page you'll use</div>
-When you make a demonstration, your job is to show Helena how you'd collect the <i>first row</i> of the dataset you want.  We already decided that our first row is the title and subjective rating of the first show in our list, so "Scandal" and "Awesome!" from <a href="http://helena-lang.org/sample-data">http://helena-lang.org/sample-data</a>.  So the first thing we'll do is paste that URL that we copied earlier into the URL bar of the recording window.
-<div><img class="image" style="width:700px" src="/assets/images/tutorial/loadFirstURL.gif"></div>
+And at the right, we see a new window, open to the URL we were using when we clicked on the Helena icon.  This is the recoding window.  Everything that we want to have recorded needs to happen in this window, because Helena isn't paying attention to any of the other Chrome windows we might have open.  We recommend keeping both the control panel and the recording window visible throughout recording so that Helena can give you feedback about the data you're collecting.
 </div>
 
 <div class="tutorial-item" id="whatYouCanScrape">
 <div class="tutorial-item-title">Figure out what you can scrape</div>
-When you're doing a Helena demonstration, you can interact with the browser as usual, but you can do a couple new things as well.  In the control pane, you'll see directions for how to collect data from webpages, and they'll include a keyboard shortcut you can use.  The particular shortcut varies based on what operating system you're using, but usually it's just the ALT key, so we'll just talk about using the ALT key, and you can look at the instructions if that isn't working for you.  During a demonstration, when you hold down the ALT key, you'll see a red highlight following your mouse around when you mouse over webpages in the recording window; this red highlight lets you know which webpage elements 
-<div><img class="image" style="width:700px" src="/assets/images/tutorial/loadFirstURL.gif"></div>
+When you make a demonstration, your job is to show Helena how you'd collect the <i>first row</i> of the dataset you want.  We already decided that our first row is the title and subjective rating of the first show in our list, so "Scandal" and "Awesome!" from <a href="http://helena-lang.org/sample-data">http://helena-lang.org/sample-data</a>.  Let's figure out if we can scrape that.  When you're doing a Helena demonstration, you can interact with the browser as usual, but you'll see a couple new things too.  First, you can get hints about what kind of data Helena can collect for you.  As you mouse over the page, you'll see a little white box following your mouse.  That box shows the text Helena can collect from the element currently under your mouse.
+<div><img class="image" style="width:700px" src="/assets/images/tutorial/whatYouCanScrape.gif"></div>
+</div>
+
+<div class="tutorial-item" id="collectingCells">
+<div class="tutorial-item-title">Collecting Cells</div>
+During a recording, the control pane shows directions for how to collect data from webpages, and the directions include a keyboard shortcut you can use.  The particular shortcut varies based on what operating system you're using, but usually it's just the ALT key, so we'll just talk about using the ALT key, and you can look at the instructions if that isn't working for you.  During a demonstration, when you hold down the ALT key, you'll see a red highlight following your mouse around when you mouse over webpages in the recording window; this red highlight lets you know which webpage elements you can add as news cells to your first row of data.  When you're ready to add new cells to the first row of your target dataset, hold down the ALT key, click on all the elements you want to add to the first row, then let up the ALT key.  Remember, our first row is "Scandal" and "Awesome!", so we'll collect those cells right now:
+<div><img class="image" style="width:700px" src="/assets/images/tutorial/collectingCells.gif"></div>
+In the control pane, you'll see the first row growing as you add new cells:
+<div><img class="image" style="width:330px" src="/assets/images/tutorial/firstRowPreview.gif"></div>
+</div>
+
+<div class="tutorial-item" id="stopRecording">
+<div class="tutorial-item-title">Stop Recording</div>
+Once you've collected all the data you want in your first row, click on the 'Stop Recording' button.  Helena will analyze the webpages you used to figure out if there are any relevant tables.  For instance, we interacted with the first TV show in a table of TV shows, so it will guess that we want to collect information about all TV shows in the list.  You can sit back and wait while the tool figures out what tables to use.  Here's how this process looks in the tool:
+<div><img class="image" style="width:700px" src="/assets/images/tutorial/stopRecording.gif"></div>
+In the control pane on the left, we see a representation of the program Helena has written.  The purple blocks represent actions you took during your recording.  The orange block adds a row of data to your output dataset.  The yellow block is a loop, and it represents repeating actions for each row in a table.  For instance, here the yellow block will cause us to repeat actions for each TV show in a table of TV shows.  Helena may or may not have good names for the tables you use, depending on whether other Helena users have used the tables before.  In this case, someone has used the TV shows table before and given it a descriptive name, so we see a nice name in our program.
+</div>
+
+<div class="tutorial-item" id="runAProgram">
+<div class="tutorial-item-title">Run a Program</div>
+Now that Helena has written the program, let's run it.  Just click the run button in the control pane.  The control pane will show a preview of the dataset it's collecting.  On the right you'll see the window Helena is using to access and collect all the data in the dataset.
+<div><img class="image" style="width:700px" src="/assets/images/tutorial/runAProgram.gif"></div>
+If you haven't been trying this process yourself so far, now's a great time to see if you can get this program up and running yourself.
+</div>
+
+
+<div class="tutorial-item" id="multipleTables">
+<div class="tutorial-item-title">Collecting Multiple Tables</div>
+Let's get a little fancier.  Say we want to collect multiple tables - say, information about each TV show and for each TV show, information about each character.  We'll need to be able to interact with the TV shows table but also a bunch of character tables.  Maybe we want data like this:
+To collect this data, we'll do the same thing we did before, just demonstrating how to collect the first row, but this time the first row will come from multiple webpages:
+<div><img class="image" style="width:700px" src="/assets/images/tutorial/multipleTables.gif"></div>
 </div>
 
 <!--
 Remember that everything you do is also going to be done by your program.
 
-the other thing that will happen is we will have a new mechanism for actually collecting or scraping data.  so in particular, we will see in this white box a preview of the first row of data, the information we've collected so far.  and the way that we'll actually add new cells to this first row is by entering scraping mode by pressing down our alt key on our keyboard.  and then clicking on the element that has the text we want.  so I'm going to show you how that actually works.  In general, if you forget how this works, you'll always have the instructions right up here to remind you. over here on our imdb page there are going to be a couple things that are new now.  in particular, we see when we hover over things we're getting a little white box that's telling us what text we could scrape from the node over which we're currently hovering.  if we go ahead and actually enter that scraping mode and click on the element, so I will hold down the alt key and you can see now I have this little red box following around my mouse and we can click on nodes to add elements to our rows.  you can see all of this is actually being added to the first row preview that we see on the left.
 
 now we load up the target webpage, wait for it to load, grab the title, grab the rating, let's go ahead and open the star wars page in a new tab.  let's also grab information about mark hamill and luke skywalker and that's it, that's the whole first row that we wanted.  so at that point we can say stop recording.  what's going ot happen now is helena is going to analyze all the webpages with which we interacte.d  so we interacted with a list of movies.  right now it's going through and saying ok they interacted with the first movie in this list, maybe they want to interact with all of them.  and you can see it adds a loop that represents all of the movies.  now it's going to go ahead and do the same thing with the page that lists the actors.  it may or may not have good names for these various lists, depending on iff people have used them before or not and if they gave them good names
 

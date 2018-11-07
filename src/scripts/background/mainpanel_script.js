@@ -696,20 +696,38 @@ var RecorderUI = (function (pub) {
 
   pub.setColumnColors = function _setColumnColors(colorLs, columnLs, tabid){
     var $div = $("#new_script_content").find("#color_selector");
-    $div.html("Select the right color for the cell you want to add:   ");
+    $div.html("Select the right color for the cell you want to add:   ").css("border", "2px solid transparent");
     for (var i = 0; i < columnLs.length; i++){
-      var colorDiv = $("<div class='edit-relation-color-block' style='background-color:"+colorLs[i]+"'></div>");
+      var colorDiv = $("<div class='edit-relation-color-block' style='background-color:"+colorLs[i]+";border:2px solid transparent'></div>");
       (function(){
         var col = columnLs[i].index;
-        colorDiv.click(function(){utilities.sendMessage("mainpanel", "content", "currentColumnIndex", {index: col}, null, null, [tabid]);});
+        colorDiv.click(function(event){
+          var target = $(event.target);
+          var siblings = $(target).parent().children();
+          for (var i = 0; i < siblings.length; i++) {
+            $(siblings[i]).css("border", "2px solid transparent");
+            $(siblings[i]).css("outline", "none");
+          }
+          $(target).css("border", "2px solid red");
+          utilities.sendMessage("mainpanel", "content", "currentColumnIndex", {index: col}, null, null, [tabid]);
+        });
       })();
       $div.append(colorDiv);
     }
     // todo: now going to allow folks to make a new column, but also need to communicate with content script about color to show
-    var separatorDiv = $("<div class='edit-relation-color-block'>or</div>");
-    var colorDiv = $("<div class='edit-relation-color-block' id='edit-relation-new-col-button'>New Col</div>");
+    var separatorDiv = $("<div class='edit-relation-color-block'>or</div>").css("border", "2px solid transparent");
+    var colorDiv = $("<div class='edit-relation-color-block' id='edit-relation-new-col-button' style='border:2px solid transparent'>New Col</div>");
     (function(){
-      colorDiv.click(function(){utilities.sendMessage("mainpanel", "content", "currentColumnIndex", {index: "newCol"}, null, null, [tabid]);});
+      // maria here, new col button click
+      colorDiv.click(function(event){
+        utilities.sendMessage("mainpanel", "content", "currentColumnIndex", {index: "newCol"}, null, null, [tabid]);
+        var target = $(event.target);
+        var siblings = $(target).parent().children();
+        for (var i = 0; i < siblings.length; i++) {
+          $(siblings[i]).css("border", "2px solid transparent");
+        }
+        $(target).css("outline", "2px solid red");
+      });
     })();
     $div.append(separatorDiv);
     $div.append(colorDiv);
@@ -723,7 +741,7 @@ var RecorderUI = (function (pub) {
     if (true){ // should probably stop keeping this text version at all todo
       scriptPreviewDiv.remove();
     }
-    else{
+    else {
       var scriptString = program.toString();
       DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
     }

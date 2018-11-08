@@ -756,6 +756,8 @@ var RecorderUI = (function (pub) {
       }
     }
 
+    pub.updateDisplayedDownloadURLs(program);
+
     // we also want to update the section that lets the user say what loop iterations are duplicates
     // used for data in relations get shuffled during scraping and for recovering from failures. also incremental scraping.
     pub.updateDuplicateDetection();
@@ -769,6 +771,32 @@ var RecorderUI = (function (pub) {
       $("#new_script_content").find("#program_name").get(0).value = program.name;
     }
   };
+
+  pub.programIdUpdated = function _programIdUpdated(){
+    // a special handler that the helena library will call when a program's id is updated
+    // we'll use it to update the download urls we're showing
+    pub.updateDisplayedDownloadURLs(pub.currentHelenaProgram);
+  }
+
+  pub.updateDisplayedDownloadURLs = function _updateDisplayedDownloadURLs(prog){
+    if (prog.id){
+      var $div = $("#new_script_content").find("#advanced_options");
+      $div.find("#download_urls_placeholder").remove();
+
+      function makeOrUpdateDownloadUrl($div, id, url, instructions){
+        var $url = $div.find("#" + id);
+        if ($url.length < 1){
+          $url = $("<div id='" + id + "'></div>");
+          $div.append($url);
+        }
+        $url.html(instructions + ": <a href=" + url + " target='_blank'>" + url + "</a>");
+      }
+
+      var baseUrl = OutputHandler.downloadFullDatasetUrl(prog);
+      makeOrUpdateDownloadUrl($div, "download_url_1", baseUrl, "Download all data ever scraped by this program at");
+      makeOrUpdateDownloadUrl($div, "download_url_2", baseUrl + "/24", "Download all data scraped by this program in the last 24 hours (and feel free to change the 24 at the end of the URL to your own preferred number)");
+    }
+  }
 
   pub.updateDuplicateDetection = function _updateDuplicateDetection(){
     WALconsole.log("updateDuplicateDetection");
@@ -1225,7 +1253,7 @@ var RecorderUI = (function (pub) {
     var handler = function(response){
       WALconsole.log("received program: ", response);
       var revivedProgram = ServerTranslationUtilities.unJSONifyProgram(response.program.serialized_program);
-      revivedProgram.id = response.program.id; // if id was only assigned when it was saved, serialized_prog might not have that info yet
+      revivedProgram.setId(response.program.id); // if id was only assigned when it was saved, serialized_prog might not have that info yet
       revivedProgram.name = response.program.name;
       setCurrentProgram(revivedProgram, null);
       $("#tabs").tabs("option", "active", 0); // make that first tab (the program running tab) active again

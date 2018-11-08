@@ -772,10 +772,12 @@ var RecorderUI = (function (pub) {
     }
   };
 
-  pub.programIdUpdated = function _programIdUpdated(){
+  pub.programIdUpdated = function _programIdUpdated(prog){
     // a special handler that the helena library will call when a program's id is updated
     // we'll use it to update the download urls we're showing
-    pub.updateDisplayedDownloadURLs(pub.currentHelenaProgram);
+    if (prog === pub.currentHelenaProgram){
+      pub.updateDisplayedDownloadURLs(pub.currentHelenaProgram);
+    }
   }
 
   pub.updateDisplayedDownloadURLs = function _updateDisplayedDownloadURLs(prog){

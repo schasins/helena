@@ -152,6 +152,9 @@ var RecorderUI = (function (pub) {
 
     activateButton(div, "#run", RecorderUI.run);
     activateButton(div, "#run_fast_mode", RecorderUI.runWithFastMode);
+    activateButton(div, "#download_script", RecorderUI.downloadScript);
+    activateButton(div, "#load_downloaded_script", function(){div.find("#load_downloaded_script_helper").click()});
+    $('#load_downloaded_script_helper').on("change", RecorderUI.handleNewUploadedHelenaProgram);
     activateButton(div, "#save", RecorderUI.save);
     activateButton(div, "#replay", RecorderUI.replayOriginal);
     activateButton(div, "#schedule_later", RecorderUI.scheduleLater);
@@ -279,6 +282,38 @@ var RecorderUI = (function (pub) {
 
     prog.saveToServer(postIdRetrievalContinuation, saveStartedHandler, saveCompletedHandler);
   };
+
+  // for saving a program locally
+  pub.downloadScript = function _downloadScript(){
+    var prog = pub.currentHelenaProgram;
+    var div = $("#new_script_content");
+    prog.name = div.find("#program_name").get(0).value;
+    var serializedProg = ServerTranslationUtilities.JSONifyProgram(prog);
+    DownloadUtilities.download(prog.name + ".hln", serializedProg);
+  };
+
+  // for loading a program stored locally
+  pub.handleNewUploadedHelenaProgram = function _handleNewUploadedHelenaProgram(event){
+    WALconsole.log("New program uploaded.");
+    var fileReader = new FileReader();
+    fileReader.onload = function (event) {
+      var str = event.target.result;
+      // ok, we have the file contents
+      loadDownloadedScriptHelper(str, null);
+    }
+    // now that we know how to handle reading data, let's actually read some
+    fileReader.readAsText(event.target.files[0]);
+  }
+
+  function loadDownloadedScriptHelper(serialized_program, continuation){
+    var revivedProgram = ServerTranslationUtilities.unJSONifyProgram(serialized_program);
+    setCurrentProgram(revivedProgram, null);
+    $("#tabs").tabs("option", "active", 0); // make that first tab (the program running tab) active again
+    pub.showProgramPreview(false); // false because we're not currently processing the program (as in, finding relations, something like that)
+    if (continuation){
+      continuation();
+    } 
+  }
 
   pub.replayOriginal = function _replayOriginal(){
     pub.currentHelenaProgram.replayOriginal();

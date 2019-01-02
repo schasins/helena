@@ -85,7 +85,7 @@ var RecorderUI = (function (pub) {
 
     // if we already recorded one, there could be old stuff in here, so clear it out
     var $div = $("#scraped_items_preview");
-    $div.html("");
+    $div.html("<div class='scraped_items_preview_start'>Collect the FIRST ROW of your target dataset.</div>");
 
     MiscUtilities.makeNewRecordReplayWindow(function(windowId){
       recordingWindowIds.push(windowId);

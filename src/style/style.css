@@ -366,3 +366,9 @@ kbd{
 .hidden{
 	display: none;
 }
+
+.scraped_items_preview_start{
+	text-align: center;
+	font-size: 30px;
+	color: #8A8A8A;
+}

@@ -459,7 +459,7 @@ var RecorderUI = (function (pub) {
       if (msg.demonstration_time_relation.length >= 1){
         bestLengthSoFar = msg.demonstration_time_relation.length;
         if (bestLengthSoFar > 0){
-          relation.setNewAttributes(msg.selector, msg.selector_version, msg.exclude_first, msg.columns, msg.demonstration_time_relation, msg.num_rows_in_demo, msg.next_type, msg.next_button_selector);
+          relation.setNewAttributes(msg.selector, msg.selector_version, msg.exclude_first, msg.exclude_last, msg.columns, msg.demonstration_time_relation, msg.num_rows_in_demo, msg.next_type, msg.next_button_selector);
           RecorderUI.updateDisplayedRelation(relation, msg.colors);
           RecorderUI.setColumnColors(msg.colors, msg.columns, msg.tab_id);
           // maria here
@@ -709,9 +709,10 @@ var RecorderUI = (function (pub) {
      
     var $div = $("#new_script_content").find("#exclude_rows_selector");
     $div.html("exclude first ");
-    var exclude_first_selector = $("<input type='number' name='exclude_first' min='0'>"); //todo: get and show value
+
+    var exclude_first_selector = $("<input type='number' name='exclude_first' min='0' value='" + relation.excludeFirst + "'>"); //todo: get and show value
     // TODO: set breakpoint and check closure for val to display
-    var exclude_last_selector = $("<input type='number' name='exclude_last' min='0'>");
+    var exclude_last_selector = $("<input type='number' name='exclude_last' min='0' value='" + relation.excludeLast + "'>");
     // todo, make this one function
     exclude_first_selector.change(function(event) {
       var value = event.target.value //todo: turn into int

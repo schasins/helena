@@ -354,6 +354,7 @@ kbd{
 	max-width: 40px;
 	text-align: center;
 	-moz-appearance: textfield;
+	background: transparent;
 }
 
 #exclude_rows_selector input[type="number"]::-webkit-outer-spin-button, 

@@ -699,38 +699,34 @@ var RecorderUI = (function (pub) {
   };
 
   pub.setExcludeRowsSelectors = function _setExcludeRowsSelectors(relation, tabId) {
-    // console.log("maria heeere");
-    // console.log(relation);
-    // console.log(relation.messageRelationRepresentation()); //  relation.messageRelationRepresentation()
     var relationObj =  relation.messageRelationRepresentation();
     var sendSelectorInfo = function(updatedRelation){
       utilities.sendMessage("mainpanel", "content", "editRelation", updatedRelation, null, null, [tabId]);
     };
      
     var $div = $("#new_script_content").find("#exclude_rows_selector");
-    $div.html("exclude first ");
 
-    var exclude_first_selector = $("<input type='number' name='exclude_first' min='0' value='" + relation.excludeFirst + "'>"); //todo: get and show value
-    // TODO: set breakpoint and check closure for val to display
+    var changeExcludeParameter = function(messageName) {
+      return function(event) {
+        var value = event.target.value
+        relationObj.exclude_first = parseInt(value, 10);
+        sendSelectorInfo(relationObj);
+        utilities.sendMessage("mainpanel", "content", messageName, {numRows: value}, null, null, [tabId]);
+      }
+    }
+    var exclude_first_selector = $("<input type='number' name='exclude_first' min='0' value='" + relation.excludeFirst + "'>");
+    exclude_first_selector.change(changeExcludeParameter("excludeFirstRows"));
+
     var exclude_last_selector = $("<input type='number' name='exclude_last' min='0' value='" + relation.excludeLast + "'>");
-    // todo, make this one function
-    exclude_first_selector.change(function(event) {
-      var value = event.target.value //todo: turn into int
-      relationObj.exclude_first = parseInt(value, 10);
-      //console.log("maria");
-      sendSelectorInfo(relationObj);
-      utilities.sendMessage("mainpanel", "content", "excludeFirstRows", {numRows: value}, null, null, [tabId]);
-    });
-    exclude_last_selector.change(function(event) {
-      var value = event.target.value //todo: turn into int
-      relationObj.exclude_first = parseInt(value, 10);
-      //console.log("maria");
-      sendSelectorInfo(relationObj);
-      utilities.sendMessage("mainpanel", "content", "excludeLastRows", {numRows: value}, null, null, [tabId]);
-    });
+    exclude_last_selector.change(changeExcludeParameter("excludeLastRows"));
     
+    $div.html($("<span>Exclude first </span>"));
     $div.append(exclude_first_selector);
+    $div.append($("<span> row(s)</span>"));
+    $div.append($("<br/>"));
+    $div.append($("<span>Exclude last </span>"));
     $div.append(exclude_last_selector);
+    $div.append($("<span> row(s)</span>"));
   }
 
   pub.setColumnColors = function _setColumnColors(colorLs, columnLs, tabid){

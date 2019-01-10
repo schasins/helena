@@ -696,3 +696,9 @@ margin: 3px;
   font-family: monospace;
   background-color: #E3E3E3;
 }
+
+.ui-button{
+  border-width: 2px !important;
+  font-weight: 400 !important;
+  font: #ffffff;
+}

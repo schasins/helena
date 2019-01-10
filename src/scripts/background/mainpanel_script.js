@@ -85,7 +85,7 @@ var RecorderUI = (function (pub) {
 
     // if we already recorded one, there could be old stuff in here, so clear it out
     var $div = $("#scraped_items_preview");
-    $div.html("");
+    $div.html("<div class='scraped_items_preview_start'>Collect the FIRST ROW of your target dataset.</div>");
 
     MiscUtilities.makeNewRecordReplayWindow(function(windowId){
       recordingWindowIds.push(windowId);
@@ -152,6 +152,9 @@ var RecorderUI = (function (pub) {
 
     activateButton(div, "#run", RecorderUI.run);
     activateButton(div, "#run_fast_mode", RecorderUI.runWithFastMode);
+    activateButton(div, "#download_script", RecorderUI.downloadScript);
+    activateButton(div, "#load_downloaded_script", function(){div.find("#load_downloaded_script_helper").click()});
+    $('#load_downloaded_script_helper').on("change", RecorderUI.handleNewUploadedHelenaProgram);
     activateButton(div, "#save", RecorderUI.save);
     activateButton(div, "#replay", RecorderUI.replayOriginal);
     activateButton(div, "#schedule_later", RecorderUI.scheduleLater);
@@ -279,6 +282,38 @@ var RecorderUI = (function (pub) {
 
     prog.saveToServer(postIdRetrievalContinuation, saveStartedHandler, saveCompletedHandler);
   };
+
+  // for saving a program locally
+  pub.downloadScript = function _downloadScript(){
+    var prog = pub.currentHelenaProgram;
+    var div = $("#new_script_content");
+    prog.name = div.find("#program_name").get(0).value;
+    var serializedProg = ServerTranslationUtilities.JSONifyProgram(prog);
+    DownloadUtilities.download(prog.name + ".hln", serializedProg);
+  };
+
+  // for loading a program stored locally
+  pub.handleNewUploadedHelenaProgram = function _handleNewUploadedHelenaProgram(event){
+    WALconsole.log("New program uploaded.");
+    var fileReader = new FileReader();
+    fileReader.onload = function (event) {
+      var str = event.target.result;
+      // ok, we have the file contents
+      loadDownloadedScriptHelper(str, null);
+    }
+    // now that we know how to handle reading data, let's actually read some
+    fileReader.readAsText(event.target.files[0]);
+  }
+
+  function loadDownloadedScriptHelper(serialized_program, continuation){
+    var revivedProgram = ServerTranslationUtilities.unJSONifyProgram(serialized_program);
+    setCurrentProgram(revivedProgram, null);
+    $("#tabs").tabs("option", "active", 0); // make that first tab (the program running tab) active again
+    pub.showProgramPreview(false); // false because we're not currently processing the program (as in, finding relations, something like that)
+    if (continuation){
+      continuation();
+    } 
+  }
 
   pub.replayOriginal = function _replayOriginal(){
     pub.currentHelenaProgram.replayOriginal();
@@ -512,7 +547,7 @@ var RecorderUI = (function (pub) {
     var $overlay = $("#overlay");
     var $overlaytext = $overlay.find("#overlay_text");
     if (currentlyUpdating){
-      $overlaytext.html("<center><img src='../icons/ajax-loader.gif'><br>Looking at webpages to find relevant tables.  Give us a moment.<br></center>");
+      $overlaytext.html("<center><img src='../icons/ajax-loader2.gif' height='20px'><br>Looking at webpages to find relevant tables.  Give us a moment.<br></center>");
       
       if (!demoMode){
         var giveUpButton = $("<button>Give up looking for relevant tables.</button>");
@@ -809,6 +844,8 @@ var RecorderUI = (function (pub) {
       }
     }
 
+    pub.updateDisplayedDownloadURLs(program);
+
     // we also want to update the section that lets the user say what loop iterations are duplicates
     // used for data in relations get shuffled during scraping and for recovering from failures. also incremental scraping.
     pub.updateDuplicateDetection();
@@ -816,11 +853,40 @@ var RecorderUI = (function (pub) {
     pub.updateNodeRequiredFeaturesUI();
     // same deal with custom thresholds
     pub.updateCustomThresholds();
+    pub.updateCustomWaits();
 
     if (program.name){
       $("#new_script_content").find("#program_name").get(0).value = program.name;
     }
   };
+
+  pub.programIdUpdated = function _programIdUpdated(prog){
+    // a special handler that the helena library will call when a program's id is updated
+    // we'll use it to update the download urls we're showing
+    if (prog === pub.currentHelenaProgram){
+      pub.updateDisplayedDownloadURLs(pub.currentHelenaProgram);
+    }
+  }
+
+  pub.updateDisplayedDownloadURLs = function _updateDisplayedDownloadURLs(prog){
+    if (prog.id){
+      var $div = $("#new_script_content").find("#advanced_options");
+      $div.find("#download_urls_placeholder").remove();
+
+      function makeOrUpdateDownloadUrl($div, id, url, instructions){
+        var $url = $div.find("#" + id);
+        if ($url.length < 1){
+          $url = $("<div id='" + id + "'></div>");
+          $div.append($url);
+        }
+        $url.html(instructions + ": <a href=" + url + " target='_blank'>" + url + "</a>");
+      }
+
+      var baseUrl = OutputHandler.downloadFullDatasetUrl(prog);
+      makeOrUpdateDownloadUrl($div, "download_url_1", baseUrl, "Download all data ever scraped by this program at");
+      makeOrUpdateDownloadUrl($div, "download_url_2", baseUrl + "/24", "Download all data scraped by this program in the last 24 hours (and feel free to change the 24 at the end of the URL to your own preferred number)");
+    }
+  }
 
   pub.updateDuplicateDetection = function _updateDuplicateDetection(){
     WALconsole.log("updateDuplicateDetection");
@@ -907,7 +973,7 @@ var RecorderUI = (function (pub) {
   }
 
   pub.updateCustomThresholds = function _updateCustomThresholds(){
-    console.log("updateCustomThresholds");
+    WALconsole.namedLog("tooCommon", "updateCustomThresholds");
     var prog = pub.currentHelenaProgram; // program.relationFindingTimeoutThreshold and program.nextButtonAttemptsThreshold
 
     var defaultSeconds = DefaultHelenaValues.relationFindingTimeoutThreshold / 1000;
@@ -966,6 +1032,71 @@ var RecorderUI = (function (pub) {
 
     attachHandlerToUpdateProgValBasedOnNewInput(true, triesInput, prog, "nextButtonAttemptsThreshold", defaultTries - 1, 
       function(a){return a + 1;}, function(a){return a - 1;});
+  };
+
+  pub.updateCustomWaits = function _updateCustomWaits(){
+    WALconsole.namedLog("tooCommon", "updateCustomWaits");
+    var prog = pub.currentHelenaProgram; // program.relationFindingTimeoutThreshold and program.nextButtonAttemptsThreshold
+    var relations = prog.relations;
+
+    var defaultSeconds = DefaultHelenaValues.relationScrapeWait / 1000;
+
+    var $div = $("#new_script_content").find("#thresholds_container2");
+
+    for (let i = 0; i < relations.length; i++){
+      var rel = relations[i];
+
+      // first let's add a text box for the current relation
+      var $secondsInput = $('<input type="text" class="relationScrapeWait">');
+      var newRel = $("<div><div>How long should we wait before extracting content from newly-found table cells in table "+rel.name+"?<div></div>");
+      newRel.append($secondsInput);
+      newRel.append("seconds");
+      var wrapper = $div.find("#thresholds_container2_relations");
+      wrapper.append(newRel);
+      var secondsInput = $secondsInput[0];
+
+      // let's update the text box to reflect the current program's custom thresholds, if they have any
+      // and put the correct defaults in the input boxes otherwise
+
+      if (rel.relationScrapeWait){
+        secondsInput.value = rel.relationScrapeWait / 1000;
+      }
+      else{
+        secondsInput.value = defaultSeconds;
+      }
+
+      // ok, now what if the user changes the text in the text box?
+      function attachHandlerToUpdateRelValBasedOnNewInput(isint, node, rel, progAttribute, defaultVal, transformInputToSaved, transformSavedToInput){
+        if (!node.hasHandler){
+          $(node).change(function(){
+            var newVal = node.value;
+            if (isint){
+              newVal = parseInt(newVal);
+            }
+            else{
+              newVal = parseFloat(newVal);
+            }
+            if (newVal === 0 || (newVal && newVal > 0)){ // special case 0 because if (0) is false
+              if (newVal > 5){
+                newVal = 5;
+              }
+              rel[progAttribute] = transformInputToSaved(newVal);
+              // in case we rounded, update what the input shows
+              node.value = newVal;
+            }
+            else{
+              node.value = defaultVal;
+            }
+          });
+          node.hasHandler = true;
+        }
+      }
+
+      attachHandlerToUpdateRelValBasedOnNewInput(false, secondsInput, rel, "relationScrapeWait", defaultSeconds, 
+        function(a){return a * 1000;}, function(a){return a / 1000;});
+
+    }
+
   };
 
   pub.updateNodeRequiredFeaturesUI = function _updateNodeRequiredFeaturesUI(){
@@ -1212,7 +1343,7 @@ var RecorderUI = (function (pub) {
     var handler = function(response){
       WALconsole.log("received program: ", response);
       var revivedProgram = ServerTranslationUtilities.unJSONifyProgram(response.program.serialized_program);
-      revivedProgram.id = response.program.id; // if id was only assigned when it was saved, serialized_prog might not have that info yet
+      revivedProgram.setId(response.program.id); // if id was only assigned when it was saved, serialized_prog might not have that info yet
       revivedProgram.name = response.program.name;
       setCurrentProgram(revivedProgram, null);
       $("#tabs").tabs("option", "active", 0); // make that first tab (the program running tab) active again

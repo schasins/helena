@@ -82,7 +82,7 @@
 				<div id="scraping_instructions">
 
 					<div id="scraping_instructions_text" class="inline">
-					Awesome.  We're recording, so go ahead and collect that first row of data.  When you're ready to add a new cell to the first row of your dataset, just hover over the text you want to add, then press ___SCRAPINGCONDITIONSTRING___.  We'll show the data you've collected right here:
+					We're recording!  Remember, collect ONLY the FIRST ROW of data.  When you're ready to add a new cell, hover over the text you want, then press ___SCRAPINGCONDITIONSTRING___.  We'll show the data you've collected right here:
 					</div>
 
 					<div id="cancel_recording" class="control_button inline">
@@ -95,7 +95,9 @@
 					</div>
 				</div>
 
-				<div id="scraped_items_preview"></div>
+				<div id="scraped_items_preview">
+					
+				</div>
 				<div id="button_wrapper">
 					<div id="stop_recording" class="control_button">
 						<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" class="recording_circle">
@@ -120,11 +122,17 @@
 				</div>
 
 				<div id="extra_run_options_accordion">
-					<h3>Additional Run Options</h3>
-					<div>
+					<h3>Advanced Options</h3>
+					<div id="advanced_options">
 						<button id="run_fast_mode">Save and Run Script with Fast Mode</button><a href="#" title="Fast Mode only works for some scripts.  For some scripts, especially scripts that work with very large webpages, Fast Mode can really speed up the run. However, it also makes scripts less likely to find the right buttons and data.  So when you run with fast mode, check the first few rows and make sure it's getting the right information."><span class="ui-icon ui-icon-info"></span></a>
 						<button id="replay">Replay Original Recorded Script</button> (for testing)
 						<button id="schedule_later">Schedule Later Runs of This Script</button>
+						<div id="download_urls_placeholder">Once you save your program, you'll also be able to see your program's dataset download URLs here.</div>
+						<div class="clearfix">
+						<button id="download_script" class="left">Download Script</button>
+						<button id="load_downloaded_script"  class="left">Load Script from File</button>
+						<input class="hidden" type="file" id="load_downloaded_script_helper"/>
+						</div>
 					</div>
 				</div>
 
@@ -203,6 +211,19 @@
 								</div>
 							</div>
 						</div>
+						<h3>I see unexpected empty or incomplete cells.</h3>
+						<div>
+							<div id ="thresholds2">
+								<div class="container_child" id="thresholds_container2">
+									<div class="title">Custom Waits</div>
+									<div class="bottom_padding">
+									When Helena is running a program, it tries to grab the cells of a table as quickly as possible.  But sometimes the page is still updating the cells and adding content to them.  If you want Helena to wait a few seconds after seeing cells but before grabbing their contents, go ahead and tell us how many seconds to wait here:
+									</div>
+									<div id="thresholds_container2_relations">
+									</div>
+								</div>
+							</div>
+						</div>
 					</div>
 					Still having trouble?  Take a look at these resources: <a href="http://helena-lang.org/resources" target="_blank">http://helena-lang.org/resources</a>.
 				</div>
@@ -226,7 +247,7 @@
 					<div>Rows so far: <span id=rows_so_far>0</span></div>
 				</div>
 				<div id="output_explanation">
-				<div><img src="../icons/ajax-loader.gif"></div>
+				<div><img src="../icons/ajax-loader2.gif" height='20px'></div>
 				Your script is running!  Once the script has collected some data, it will appear here.
 				</div>
 				<div id="output_preview"><table><tbody></tbody></table></div>

@@ -178,21 +178,36 @@ layout: default
 	</div>
 
 <p></p>
+
+	<p>
+		Bear in mind that the right skip block for a given object might vary based on the task at hand.  If you're collecting information about rental listings in your city and you want to collect exactly one listing per building (because you want to know how housing options are distributed geographically) you're probably fine making a skip block with just the address.  On the other hand, if you're looking to track how landlords raise and lower the rent of a given apartment over time, using the address alone will cause you to discard all but the first instance of a given address.  To track prices, you'll probably prefer to use both the address and the price, so that you'll get a new row every time the landlord lists a place with a changed price.  And if there are multiple units at a given address, you'll have to add even more attributes, because you'll need to distinguish between multiple units at one address.  So always consider your goals when you're deciding how to design your skip blocks.
+	</p>
+
 	<div class="example_title">Adding Skip Blocks</div>
 
-	<p>
-	Now that you know how to design a skip block, here's how you add one to your own program.  First, in the "Current Script" tab, scroll down to the "Troubleshooting" section and click on "My script wastes time scraping the same stuff it's already scraped."  Now you'll see a set of tables, one for each table in your program.  Each table will look like the ones in the examples above, with a checkbox for each column.  Use the checkboxes to pick which attributes you'll use in your skip block.  Once you're happy with the set of columns you've chosen, click the "Add Annotation" button below.  You'll see a big red block appear in your Helena program.  In the block, you'll be able to control when you skip objects.  You have the option of: (i) never skipping (this is the same as not having a skip block), (ii) skipping if you've <b>ever</b> seen the object before, (iii) skipping only if you've seen the object already in the current run, (iv) skipping if you've seen it in the last few runs, or (v) skipping if you've seen it within a certain period of time.  By default, it will skip over objects that have been seen at any point in the past.  </p>
 
 	<p>
-	Helena only starts tracking which objects it's seen once you run a version that includes a skip block.  So if you've run your program without skip blocks in the past, adding a skip block won't cause the program to skip over objects that were scraped during pre-skip-block runs.  However, all future runs will have the skipping behavior you specify.</p>  
+		Now that you know how to design a skip block, here's how you add one to your own program.  First, in the "Current Script" tab, scroll down to the "Troubleshooting" section and click on "My script wastes time scraping the same stuff it's already scraped."  Now you'll see a set of tables, one for each table in your program.  Each table will look like the ones in the examples above, with a checkbox for each column.  Use the checkboxes to pick which attributes you'll use in your skip block.  Once you're happy with the set of columns you've chosen, click the "Add Annotation" button below.  You'll see a big red block appear in your Helena program.  In the block, you'll be able to control when you skip objects.  You have the option of: (i) never skipping (this is the same as not having a skip block), (ii) skipping if you've <b>ever</b> seen the object before, (iii) skipping only if you've seen the object already in the current run, (iv) skipping if you've seen it in the last few runs, or (v) skipping if you've seen it within a certain period of time.  By default, it will skip over objects that have been seen at any point in the past. 
+	</p>
 
 	<p>
-	Also note that if you rename and save your program, you're essentially creating a new program.  The new program won't know about the objects that the original program scraped, so it won't skip over objects that the prior program scraped.
+		Helena only starts tracking which objects it's seen once you run a version that includes a skip block.  So if you've run your program without skip blocks in the past, adding a skip block won't cause the program to skip over objects that were scraped during pre-skip-block runs.  However, all future runs will have the skipping behavior you specify.
+	</p>  
+
+	<p>
+		Also note that if you rename and save your program, you're essentially creating a new program.  The new program won't know about the objects that the original program scraped, so it won't skip over objects that the prior program scraped.
 	</p>
 	Here's how it looks in practice when you add a skip block:
 	<div><img class="image" style="width:700px" src="/assets/images/tutorial/skipBlocks.gif"></div>
 
 
+<p>
+<a id="resources" href="/resources">&larr; Resources</a>
+</p>
+
+<script>
+$("#resources").button();
+</script>
 
 </div>
 </div>

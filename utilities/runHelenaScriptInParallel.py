@@ -52,9 +52,12 @@ def getKeyFromFile(fname):
 	if (not os.path.isfile(fname)):
 		# ok, first we need to do something that will cause us to make this file
 		chrome_options = Options()
+		chrome_options.add_argument("--remote-debugging-port=9222")
+		chrome_options.add_argument("--disable-gpu")
+		chrome_options.add_argument('--no-sandbox')
 		chrome_options.add_argument("--load-extension=" + unpackedExtensionPath)
 		chrome_options.add_argument("user-data-dir=" + profilePath) # by insisting on using this profile, we get the fname to exist
-		driver = webdriver.Chrome(chromeDriverPath, chrome_options=chrome_options)
+		driver = webdriver.Chrome(chromeDriverPath, chrome_options=chrome_options, service_args=["--verbose", "--log-path=log.txt"])
 		driver.close()
 
 	f = open(fname, "r")
@@ -73,14 +76,17 @@ def getKeyFromFile(fname):
 
 def newDriver(profile):
 	chrome_options = Options()
+	chrome_options.add_argument("--remote-debugging-port=9222")
+	chrome_options.add_argument("--disable-gpu")
+	chrome_options.add_argument('--no-sandbox')
 	chrome_options.add_argument("--load-extension=" + unpackedExtensionPath)
-	# chrome_options.add_argument("user-data-dir=" + profilePath)
+	chrome_options.add_argument("user-data-dir=" + profilePath)
 	# chrome_options.add_argument("--display=:0") 
 
 	desired = DesiredCapabilities.CHROME
 	desired ['loggingPrefs'] = { 'browser':'ALL' }
 
-	driver = webdriver.Chrome(chromeDriverPath, chrome_options=chrome_options, desired_capabilities=desired)
+	driver = webdriver.Chrome(chromeDriverPath, chrome_options=chrome_options, service_args=["--verbose", "--log-path=log.txt"])
 
 	try:
 		driver.get("chrome://extensions/")

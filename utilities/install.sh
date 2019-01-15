@@ -1,9 +1,13 @@
 # install chrome
 
-wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' | sudo tee /etc/apt/sources.list.d/google-chrome.list
-sudo apt-get update 
-sudo apt-get install google-chrome-stable
+#wget --output-document=chrome.deb https://www.slimjet.com/chrome/download-chrome.php?file=lnx%2Fchrome64_66.0.3359.181.deb
+#sudo apt install ./chrome.deb
+sudo apt-get install google-chrome-stable=66.0.3359.181
+
+#wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+#echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' | sudo tee /etc/apt/sources.list.d/google-chrome.list
+#sudo apt-get update 
+#sudo apt-get install google-chrome-stable
 sudo apt --fix-broken install
 
 # get xvfb 

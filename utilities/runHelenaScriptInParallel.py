@@ -223,7 +223,7 @@ def oneRun(programId, threadCount, timeoutInSeconds, mode):
 	else:
 		# ok, before we can do anything else, we need to get the dataset id that we'll use for all of the 'threads'
 		# 'http://kaofang.cs.berkeley.edu:8080/newprogramrun', {name: dataset.name, program_id: dataset.program_id}
-		r = requests.post('http://kaofang.cs.berkeley.edu:8080/newprogramrun', data = {"name": str(programId)+"_"+str(threadCount)+"_noprofile_"+mode, "program_id": programId})
+		r = requests.post('http://helena-backend.us-west-2.elasticbeanstalk.com/newprogramrun', data = {"name": str(programId)+"_"+str(threadCount)+"_noprofile_"+mode, "program_id": programId})
 		output = r.json()
 		id = output["run_id"]
 	print "current parallel run's dataset id:", id

@@ -497,15 +497,12 @@ var RecorderUI = (function (pub) {
           relation.setNewAttributes(msg.selector, msg.selector_version, msg.exclude_first, msg.exclude_last, msg.columns, msg.demonstration_time_relation, msg.num_rows_in_demo, msg.next_type, msg.next_button_selector);
           RecorderUI.updateDisplayedRelation(relation, msg.colors);
           RecorderUI.setColumnColors(msg.colors, msg.columns, msg.tab_id);
-          // maria here
         }
         else{
           // still need to give the user the option to add a new column, even if we have no selector so far
           RecorderUI.setColumnColors([], [], msg.tab_id);
         }
         RecorderUI.setExcludeRowsSelectors(relation, msg.tab_id);
-        console.log("Maria");
-        console.log(msg);
       }
     }); // remember this will overwrite previous editRelation listeners, since we're providing a key
   }
@@ -735,26 +732,24 @@ var RecorderUI = (function (pub) {
 
   pub.setExcludeRowsSelectors = function _setExcludeRowsSelectors(relation, tabId) {
     var relationObj =  relation.messageRelationRepresentation();
-    var sendSelectorInfo = function(updatedRelation){
-      utilities.sendMessage("mainpanel", "content", "editRelation", updatedRelation, null, null, [tabId]);
-    };
-     
-    var $div = $("#new_script_content").find("#exclude_rows_selector");
-
-    var changeExcludeParameter = function(messageName) {
+    var changeExcludeParameter = function(messageName, oldValue) {
       return function(event) {
         var value = event.target.value
-        relationObj.exclude_first = parseInt(value, 10);
-        sendSelectorInfo(relationObj);
-        utilities.sendMessage("mainpanel", "content", messageName, {numRows: value}, null, null, [tabId]);
+        value = parseInt(value, 10);
+        if (value != oldValue && value >= 0) {
+          utilities.sendMessage("mainpanel", "content", "editRelation", relationObj, null, null, [tabId]);
+          utilities.sendMessage("mainpanel", "content", messageName, {numRows: value}, null, null, [tabId]);
+        }
       }
     }
+
     var exclude_first_selector = $("<input type='number' name='exclude_first' min='0' value='" + relation.excludeFirst + "'>");
-    exclude_first_selector.change(changeExcludeParameter("excludeFirstRows"));
+    exclude_first_selector.change(changeExcludeParameter("excludeFirstRows", relation.excludeFirst));
 
     var exclude_last_selector = $("<input type='number' name='exclude_last' min='0' value='" + relation.excludeLast + "'>");
-    exclude_last_selector.change(changeExcludeParameter("excludeLastRows"));
+    exclude_last_selector.change(changeExcludeParameter("excludeLastRows", relation.excludeLast));
     
+    var $div = $("#new_script_content").find("#exclude_rows_selector");
     $div.html($("<span>Exclude first </span>"));
     $div.append(exclude_first_selector);
     $div.append($("<span> row(s)</span>"));
@@ -771,7 +766,7 @@ var RecorderUI = (function (pub) {
       var colorDiv = $("<div class='edit-relation-color-block' style='background-color:"+colorLs[i]+";border:2px solid transparent'></div>");
       (function(){
         var col = columnLs[i].index;
-        colorDiv.click(function(event){ // maria copy this
+        colorDiv.click(function(event){
           var target = $(event.target);
           var siblings = $(target).parent().children();
           for (var i = 0; i < siblings.length; i++) {
@@ -788,7 +783,6 @@ var RecorderUI = (function (pub) {
     var separatorDiv = $("<div class='edit-relation-color-block'>or</div>").css("border", "2px solid transparent");
     var colorDiv = $("<div class='edit-relation-color-block' id='edit-relation-new-col-button' style='border:2px solid transparent'>New Col</div>");
     (function(){
-      // maria here, new col button click
       colorDiv.click(function(event){
         utilities.sendMessage("mainpanel", "content", "currentColumnIndex", {index: "newCol"}, null, null, [tabid]);
         var target = $(event.target);

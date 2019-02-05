@@ -732,11 +732,13 @@ var RecorderUI = (function (pub) {
 
   pub.setExcludeRowsSelectors = function _setExcludeRowsSelectors(relation, tabId) {
     var relationObj =  relation.messageRelationRepresentation();
-    var changeExcludeParameter = function(messageName, oldValue) {
+    var length = relation.numRowsInDemo;
+    var changeExcludeParameter = function(messageName, oldValue, otherExcludeValue) {
       return function(event) {
-        var value = event.target.value
+        var value = event.target.value;
         value = parseInt(value, 10);
         if (value != oldValue && value >= 0) {
+          if (length - value - otherExcludeValue < 1) { value = length - otherExcludeValue - 1; } // reset the value to make 1 row in demo
           utilities.sendMessage("mainpanel", "content", "editRelation", relationObj, null, null, [tabId]);
           utilities.sendMessage("mainpanel", "content", messageName, {numRows: value}, null, null, [tabId]);
         }
@@ -744,17 +746,17 @@ var RecorderUI = (function (pub) {
     }
 
     var exclude_first_selector = $("<input type='number' name='exclude_first' min='0' value='" + relation.excludeFirst + "'>");
-    exclude_first_selector.change(changeExcludeParameter("excludeFirstRows", relation.excludeFirst));
+    exclude_first_selector.change(changeExcludeParameter("excludeFirstRows", relation.excludeFirst, relation.excludeLast));
 
     var exclude_last_selector = $("<input type='number' name='exclude_last' min='0' value='" + relation.excludeLast + "'>");
-    exclude_last_selector.change(changeExcludeParameter("excludeLastRows", relation.excludeLast));
+    exclude_last_selector.change(changeExcludeParameter("excludeLastRows", relation.excludeLast, relation.excludeFirst));
     
     var $div = $("#new_script_content").find("#exclude_rows_selector");
-    $div.html($("<span>Exclude first </span>"));
+    $div.html($("<span>Exclude the first </span>"));
     $div.append(exclude_first_selector);
     $div.append($("<span> row(s)</span>"));
     $div.append($("<br/>"));
-    $div.append($("<span>Exclude last </span>"));
+    $div.append($("<span>Exclude the last </span>"));
     $div.append(exclude_last_selector);
     $div.append($("<span> row(s)</span>"));
   }

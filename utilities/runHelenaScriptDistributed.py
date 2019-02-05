@@ -151,7 +151,7 @@ for stage in stages:
 		# make a new id for this run of numMachines machines
 		# before we can do anything else, we need to get the dataset id that we'll use for all of the 'threads'
 		# 'http://kaofang.cs.berkeley.edu:8080/newprogramrun', {name: dataset.name, program_id: dataset.program_id}
-		r = requests.post('http://kaofang.cs.berkeley.edu:8080/newprogramrun', data = {"name": str(scriptName)+"_"+str(numMachines)+"_distributed_lockBased", "program_id": scriptName})
+		r = requests.post('http://helena-backend.us-west-2.elasticbeanstalk.com/newprogramrun', data = {"name": str(scriptName)+"_"+str(numMachines)+"_distributed_lockBased", "program_id": scriptName})
 		output = r.json()
 		runid = output["run_id"]
 		if debug: print "generating run's dataset id:", runid, numMachines

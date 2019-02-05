@@ -18,11 +18,46 @@
       crossorigin="anonymous"></script>
     <script type="text/javascript" src="assets/scripts/jquery-ui.min.js" ></script>
 
-    <title>Helena: Web Automation for End Users</title>
+    <title>{% if page.title %}{{ page.title | escape }} {% else %} Helena: Web Automation for End Users {% endif %}</title>
     <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
     <link href="assets/css/custom.css" rel="stylesheet">
     <link href="assets/css/jquery-ui.css" rel="stylesheet">
     <meta name="description" content="Helena is a high-level programming language for web automation and web data collection.  It comes with Rousillon, a programming-by-demonstration (PBD) tool for writing Helena programs.">
+
+
+  <!-- Twitter, Facebook cards -->
+
+  <meta property="og:url"  content="{{ site.url }}{{ page.url }}">
+
+  <meta name="twitter:site"    content="@sarahchasins">
+  <meta name="twitter:creator" content="@sarahchasins">
+
+  <meta name="twitter:title"   content="{{ page.title }}">
+  <meta property="og:title"    content="{{ page.title }}">
+  {% if page.summary %}
+  <meta name="twitter:description" content="{{ page.summary }}">
+  <meta property="og:description"  content="{{ page.summary }}">
+  {% elsif page.excerpt %}
+  <meta name="twitter:description" content="{{ page.excerpt }}">
+  <meta property="og:description"  content="{{ page.excerpt }}">
+  {% else %}
+  <meta name="twitter:description" content="Helena is a high-level programming language for web automation and web data collection.  It comes with Rousillon, a programming-by-demonstration (PBD) tool for writing Helena programs.">
+  <meta property="og:description"  content="Helena is a high-level programming language for web automation and web data collection.  It comes with Rousillon, a programming-by-demonstration (PBD) tool for writing Helena programs.">
+  {% endif %}
+
+  {% if page.image %}
+  <meta name="twitter:image" content="{{ site.url }}{{ page.image }}">
+  <meta property="og:image"  content="{{ site.url }}{{ page.image }}">
+  {% else %}
+  <meta name="twitter:image" content="{{ site.url }}{{ site.title_image }}">
+  <meta property="og:image"  content="{{ site.url }}{{ site.title_image }}">
+  {% endif %}
+   
+ 
+  <!-- end of Twitter, Facebook cards -->
+
+
+
   </head>
     <body>
       <div id="main">

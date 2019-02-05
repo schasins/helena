@@ -698,6 +698,7 @@ margin: 3px;
 }
 
 .ui-button{
+  border-radius: 7px !important;
   border-width: 2px !important;
   font-weight: 400 !important;
   font: #ffffff;

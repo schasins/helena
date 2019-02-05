@@ -52,9 +52,12 @@ def getKeyFromFile(fname):
 	if (not os.path.isfile(fname)):
 		# ok, first we need to do something that will cause us to make this file
 		chrome_options = Options()
+		chrome_options.add_argument("--remote-debugging-port=9222")
+		chrome_options.add_argument("--disable-gpu")
+		chrome_options.add_argument('--no-sandbox')
 		chrome_options.add_argument("--load-extension=" + unpackedExtensionPath)
 		chrome_options.add_argument("user-data-dir=" + profilePath) # by insisting on using this profile, we get the fname to exist
-		driver = webdriver.Chrome(chromeDriverPath, chrome_options=chrome_options)
+		driver = webdriver.Chrome(chromeDriverPath, chrome_options=chrome_options, service_args=["--verbose", "--log-path=log.txt"])
 		driver.close()
 
 	f = open(fname, "r")
@@ -73,14 +76,17 @@ def getKeyFromFile(fname):
 
 def newDriver(profile):
 	chrome_options = Options()
+	chrome_options.add_argument("--remote-debugging-port=9222")
+	chrome_options.add_argument("--disable-gpu")
+	chrome_options.add_argument('--no-sandbox')
 	chrome_options.add_argument("--load-extension=" + unpackedExtensionPath)
-	# chrome_options.add_argument("user-data-dir=" + profilePath)
+	chrome_options.add_argument("user-data-dir=" + profilePath)
 	# chrome_options.add_argument("--display=:0") 
 
 	desired = DesiredCapabilities.CHROME
 	desired ['loggingPrefs'] = { 'browser':'ALL' }
 
-	driver = webdriver.Chrome(chromeDriverPath, chrome_options=chrome_options, desired_capabilities=desired)
+	driver = webdriver.Chrome(chromeDriverPath, chrome_options=chrome_options, service_args=["--verbose", "--log-path=log.txt"])
 
 	try:
 		driver.get("chrome://extensions/")
@@ -223,7 +229,7 @@ def oneRun(programId, threadCount, timeoutInSeconds, mode):
 	else:
 		# ok, before we can do anything else, we need to get the dataset id that we'll use for all of the 'threads'
 		# 'http://kaofang.cs.berkeley.edu:8080/newprogramrun', {name: dataset.name, program_id: dataset.program_id}
-		r = requests.post('http://kaofang.cs.berkeley.edu:8080/newprogramrun', data = {"name": str(programId)+"_"+str(threadCount)+"_noprofile_"+mode, "program_id": programId})
+		r = requests.post('http://helena-backend.us-west-2.elasticbeanstalk.com/newprogramrun', data = {"name": str(programId)+"_"+str(threadCount)+"_noprofile_"+mode, "program_id": programId})
 		output = r.json()
 		id = output["run_id"]
 	print "current parallel run's dataset id:", id

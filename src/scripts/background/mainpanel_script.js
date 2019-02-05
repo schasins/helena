@@ -194,6 +194,7 @@ var RecorderUI = (function (pub) {
         var div = $("#" + runTabId).find("#running_script_content");
         var done_note = div.find(".done_note");
         done_note.css("display", "inline-block");
+        div.find("#output_explanation").hide(); // if we still show the little thing that says we're waiting for output, hide it now
         var still_saving_note = div.find(".still_saving_note");
         still_saving_note.css("display", "none");
         div.find("#pause").button("option", "disabled", true);

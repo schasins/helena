@@ -851,6 +851,7 @@ var RecorderUI = (function (pub) {
         var tr = $("<tr></tr>");
         var annotationItems = [];
         var availableAnnotationItems = [];
+        var colCount = 0;
         for (var j = 0; j < nodeVariables.length; j++){
           
             var attributes = ["TEXT", "LINK"];
@@ -859,16 +860,32 @@ var RecorderUI = (function (pub) {
                 var nodeVariable = nodeVariables[j];
                 var attr = attributes[k];
                 var element = {nodeVar: nodeVariable, attr: attr};
+                var iColCount = colCount;
+                colCount += 1;
                 availableAnnotationItems.push(element);
                 var atributeRequired = $("<input type='checkbox'>");
                 atributeRequired.change(function(){
                   console.log("toggling attribute required for", nodeVariable, attr);
                   if (atributeRequired.prop("checked")){
                     annotationItems.push(element);
+                    // now update how we show the table, add green col
+                    var rows = table.find("tr");
+                    for (var h = 0; h < rows.length; h++){
+                      var cells = $(rows[h]).find("td");
+                      var targetCell = $(cells[iColCount]);
+                      targetCell.addClass("greentable");
+                    }
                   }
                   else{
                     // can't just use without bc element won't be exactly the same as the other object, so use findWhere to find the first element with the same properties
                     annotationItems = _.without(annotationItems, _.findWhere(annotationItems, element));
+                    // now update how we show the table, remove green col
+                    var rows = table.find("tr");
+                    for (var h = 0; h < rows.length; h++){
+                      var cells = $(rows[h]).find("td");
+                      var targetCell = $(cells[iColCount]);
+                      targetCell.removeClass("greentable");
+                    }
                   }
                   console.log("annotationItems", annotationItems)});
 
@@ -887,7 +904,7 @@ var RecorderUI = (function (pub) {
         }
         $div.append(table);
 
-        var addAnnotationButton = $("<div>Add Annotation</div>");
+        var addAnnotationButton = $("<div>Add Skip Block</div>");
         addAnnotationButton.button();
         addAnnotationButton.click(function(){loopStatement.addAnnotation(annotationItems, availableAnnotationItems, pub.currentHelenaProgram);});
         $div.append(addAnnotationButton);

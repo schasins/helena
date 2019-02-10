@@ -1,6 +1,7 @@
 # global settings
 title: "Helena"
 description: "Web Automation for End Users"
+url: "http://helena-lang.org" # the base hostname & protocol for your site, e.g. http://example.com
 
 # build settings
 exclude: ["readme.md"]

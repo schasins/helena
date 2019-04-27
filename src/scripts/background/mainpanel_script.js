@@ -492,10 +492,10 @@ var RecorderUI = (function (pub) {
     utilities.listenForMessageWithKey("content", "mainpanel", "editRelation", "editRelation", 
     function(msg){
       heardAnswer = true;
-      if (msg.demonstration_time_relation.length >= bestLengthSoFar){
+      if (msg.demonstration_time_relation.length >= 1){
         bestLengthSoFar = msg.demonstration_time_relation.length;
         if (bestLengthSoFar > 0){
-          relation.setNewAttributes(msg.selector, msg.selector_version, msg.exclude_first, msg.columns, msg.demonstration_time_relation, msg.num_rows_in_demo, msg.next_type, msg.next_button_selector);
+          relation.setNewAttributes(msg.selector, msg.selector_version, msg.exclude_first, msg.exclude_last, msg.columns, msg.demonstration_time_relation, msg.num_rows_in_demo, msg.next_type, msg.next_button_selector);
           RecorderUI.updateDisplayedRelation(relation, msg.colors);
           RecorderUI.setColumnColors(msg.colors, msg.columns, msg.tab_id);
         }
@@ -503,6 +503,7 @@ var RecorderUI = (function (pub) {
           // still need to give the user the option to add a new column, even if we have no selector so far
           RecorderUI.setColumnColors([], [], msg.tab_id);
         }
+        RecorderUI.setExcludeRowsSelectors(relation, msg.tab_id);
       }
     }); // remember this will overwrite previous editRelation listeners, since we're providing a key
   }
@@ -730,22 +731,70 @@ var RecorderUI = (function (pub) {
     $relDiv.append(table);
   };
 
+  pub.setExcludeRowsSelectors = function _setExcludeRowsSelectors(relation, tabId) {
+    var relationObj =  relation.messageRelationRepresentation();
+    var length = relation.numRowsInDemo;
+    var changeExcludeParameter = function(messageName, oldValue, otherExcludeValue) {
+      return function(event) {
+        var value = event.target.value;
+        value = parseInt(value, 10);
+        if (value != oldValue && value >= 0) {
+          if (length - value - otherExcludeValue < 1) { value = length - otherExcludeValue - 1; } // reset the value to make 1 row in demo
+          utilities.sendMessage("mainpanel", "content", "editRelation", relationObj, null, null, [tabId]);
+          utilities.sendMessage("mainpanel", "content", messageName, {numRows: value}, null, null, [tabId]);
+        }
+      }
+    }
+
+    var exclude_first_selector = $("<input type='number' name='exclude_first' min='0' value='" + relation.excludeFirst + "'>");
+    exclude_first_selector.change(changeExcludeParameter("excludeFirstRows", relation.excludeFirst, relation.excludeLast));
+
+    var exclude_last_selector = $("<input type='number' name='exclude_last' min='0' value='" + relation.excludeLast + "'>");
+    exclude_last_selector.change(changeExcludeParameter("excludeLastRows", relation.excludeLast, relation.excludeFirst));
+    
+    var $div = $("#new_script_content").find("#exclude_rows_selector");
+    $div.html($("<span>Exclude the first </span>"));
+    $div.append(exclude_first_selector);
+    $div.append($("<span> row(s)</span>"));
+    $div.append($("<br/>"));
+    $div.append($("<span>Exclude the last </span>"));
+    $div.append(exclude_last_selector);
+    $div.append($("<span> row(s)</span>"));
+  }
+
   pub.setColumnColors = function _setColumnColors(colorLs, columnLs, tabid){
     var $div = $("#new_script_content").find("#color_selector");
-    $div.html("Select the right color for the cell you want to add:   ");
+    $div.html("Select the right color for the cell you want to add:   ").css("border", "2px solid transparent");
     for (var i = 0; i < columnLs.length; i++){
-      var colorDiv = $("<div class='edit-relation-color-block' style='background-color:"+colorLs[i]+"'></div>");
+      var colorDiv = $("<div class='edit-relation-color-block' style='background-color:"+colorLs[i]+";border:2px solid transparent'></div>");
       (function(){
         var col = columnLs[i].index;
-        colorDiv.click(function(){utilities.sendMessage("mainpanel", "content", "currentColumnIndex", {index: col}, null, null, [tabid]);});
+        colorDiv.click(function(event){
+          var target = $(event.target);
+          var siblings = $(target).parent().children();
+          for (var i = 0; i < siblings.length; i++) {
+            $(siblings[i]).css("border", "2px solid transparent");
+            $(siblings[i]).css("outline", "none");
+          }
+          $(target).css("border", "2px solid red");
+          utilities.sendMessage("mainpanel", "content", "currentColumnIndex", {index: col}, null, null, [tabid]);
+        });
       })();
       $div.append(colorDiv);
     }
     // todo: now going to allow folks to make a new column, but also need to communicate with content script about color to show
-    var separatorDiv = $("<div class='edit-relation-color-block'>or</div>");
-    var colorDiv = $("<div class='edit-relation-color-block' id='edit-relation-new-col-button'>New Col</div>");
+    var separatorDiv = $("<div class='edit-relation-color-block'>or</div>").css("border", "2px solid transparent");
+    var colorDiv = $("<div class='edit-relation-color-block' id='edit-relation-new-col-button' style='border:2px solid transparent'>New Col</div>");
     (function(){
-      colorDiv.click(function(){utilities.sendMessage("mainpanel", "content", "currentColumnIndex", {index: "newCol"}, null, null, [tabid]);});
+      colorDiv.click(function(event){
+        utilities.sendMessage("mainpanel", "content", "currentColumnIndex", {index: "newCol"}, null, null, [tabid]);
+        var target = $(event.target);
+        var siblings = $(target).parent().children();
+        for (var i = 0; i < siblings.length; i++) {
+          $(siblings[i]).css("border", "2px solid transparent");
+        }
+        $(target).css("outline", "2px solid red");
+      });
     })();
     $div.append(separatorDiv);
     $div.append(colorDiv);
@@ -759,7 +808,7 @@ var RecorderUI = (function (pub) {
     if (true){ // should probably stop keeping this text version at all todo
       scriptPreviewDiv.remove();
     }
-    else{
+    else {
       var scriptString = program.toString();
       DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
     }

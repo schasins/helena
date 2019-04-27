@@ -256,17 +256,24 @@
 			<div id="relation_editing" class="new_script_message_stage">
 				<div id="instructions_part_1">
 					<div>
-					Ok, we've opened the first page of the table in your browser.  If you don't see the table you expect to see, interact with the page until the table appears.  Once the page shows the table, press the "Page Shows My Table" button.
-					</div>
+					Ok, we've opened the first page of the table in your browser. </div>
+					<br>
 					<div id="page_looks_right">Page Shows My Table</div>
+					<br><br>
+					<div>
+						If you don't see the table you expect to see, interact with the page until the table appears.  Once the page shows the table, press the "Page Shows My Table" button.
+					</div>
 				</div>
 				<div id="instructions_part_2" style="display:none">
-					<div>
-					We'll highlight the table elements that we currently extract.  To remove highlighted cells from the table, click on them.  To add unhighlighted cells to the table, first select the appropriate color below, then click on them.  As the table changes, we'll show the first page of table data below.  When you're happy with the table, just press the "I'm done!" button.
-					</div>
-				
+					<button id="relation_editing_ready">&#x2190; I'm done!</button>
 					<br>
-					<div>Additional items in this table are found with:</div>
+					<div>
+						We'll highlight the table elements that we currently extract. As the table changes, we'll show the first page of table data in the preview below. When you're happy with the table, just press the "I'm done!" button.
+					</div>
+					<div>
+						<h3>'Next' Buttons and 'Show More' Buttons:</h3>
+						Additional items in this table are found with:
+					</div>
 					<div id="next_type">
 					<input type="radio" id="next_type_1" class="next_type" name="next_type_b" value="1">
 					<label for="next_type_1">No More Items</label>
@@ -277,13 +284,23 @@
 					<input type="radio" id="next_type_4" class="next_type" name="next_type_b" value="4">
 					<label for="next_type_4">Scroll for More</label>
 					</div>
+					<div>
+						<h3>Headers and Footers</h3>
+						<div id="exclude_rows_selector"></div>
+					</div>
+					<div>
+						<h3>Adding, Removing, and Altering Rows and Columns:</h3>
+						To remove highlighted cells from the table, click on them. To add unhighlighted cells to the table, first select the appropriate color below, then click on them. 
+					</div>
 					<div id="next_type_explanation"></div>
 					<br>
 					<div id="color_selector"></div>
 					<br>
-
-					<button id="relation_editing_ready">I'm done!</button>
-					<div id="output_preview"><table></table></div>
+					
+					<h3>Table preview:</h3>
+					<div id="output_preview">
+						<table></table>
+					</div>
 				</div>
 			</div>
 

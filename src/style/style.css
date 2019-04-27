@@ -347,6 +347,22 @@ kbd{
 	cursor:pointer;
 }
 
+#exclude_rows_selector input[type='number']{
+	border: none;
+	border-bottom: 1px solid gray;
+	outline: none;
+	max-width: 40px;
+	text-align: center;
+	-moz-appearance: textfield;
+	background: transparent;
+}
+
+#exclude_rows_selector input[type="number"]::-webkit-outer-spin-button, 
+		#exclude_rows_selector input[type="number"]::-webkit-inner-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+
 .done_note {
 	display:none;
 	background-color: #D1FFDA;

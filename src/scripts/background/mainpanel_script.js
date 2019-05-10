@@ -251,6 +251,31 @@ var RecorderUI = (function (pub) {
 
     activateButton(div, "#download", function(){runObject.dataset.downloadDataset();});
     activateButton(div, "#download_all", function(){runObject.dataset.downloadFullDataset();});
+    activateButton(div, "#post_all", function(){
+      $('#running_script_content #post_message').empty();
+      $.get(runObject.dataset.downloadFullDatasetUrl())
+      .done(data=>{
+        const url = $("#running_script_content #post_url").val();
+        const authorization = $("#running_script_content #post_authorization").val();
+        $.ajax({
+          url: url,
+          method: 'POST',
+          data: data,
+          headers: {
+            authorization
+          }
+        })
+        .done(data=>{
+          $('#running_script_content #post_message').show().append(`Post made successfully`);
+        })
+        .fail(e=>{
+          $('#running_script_content #post_message').show().append(`Fail when POST: ${e.responseText}`);
+        })
+      })
+      .fail(e=>{
+        $('#running_script_content #post_message').show().append(`Fail when retrieving data: ${e.responseText}`);
+      })
+    });
 
     var reset = function(){
       runObject.program.stopRunning(runObject);

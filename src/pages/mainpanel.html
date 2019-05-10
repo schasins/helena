@@ -239,7 +239,13 @@
 				</div>
 				<div class="small_vertical_padding">
 					<button id="download">Download Data (This Scrape)</button> 
-					<button id="download_all">Download Data (All Scrapes)</button> 
+          <button id="download_all">Download Data (All Scrapes)</button> 
+        </div>
+        <div class="small_vertical_padding">
+          <input type="text" id="post_url" placeholder="API URL" style="width: 100%">
+          <input type="text" id="post_authorization" placeholder="Authorization header" style="width: 100%">
+          <button id="post_all">Send Data to API (All Scrapes)</button> 
+          <div class="done_note" id="post_message"></div>
 				</div>
 				<div class="bottom_padding">
 					<div class="still_saving_note">Note: the downloaded dataset may be slightly out of date if we haven't saved all data yet.</div>

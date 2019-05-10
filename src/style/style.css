@@ -347,6 +347,12 @@ kbd{
 	cursor:pointer;
 }
 
+#post_message{
+  display:none;
+  width: 100%;
+	padding: 5px;
+}
+
 .done_note {
 	display:none;
 	background-color: #D1FFDA;

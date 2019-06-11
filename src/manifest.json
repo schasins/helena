@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Helena Scraper and Automator",
   "description": "This extension uses the Helena web automation language to scrape data from well-structured webpages.",
-  "version": "0.0.0.8",
+  "version": "0.0.0.9",
   "browser_action": {
     "default_icon": "icons/helenaH.png"
   },
@@ -67,6 +67,5 @@
     "scripts/lib/helena-library/ringer-record-replay/content/content_injected.js",
     "scripts/lib/helena-library/ringer-record-replay/common/common_params.js",
     "scripts/lib/helena-library/ringer-record-replay/common/common_logging.js"
-  ],
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA6IJ5UAnKlKaE9XbK63CDSiHDVpfnv0OfqfhGZr+u3elD8cDb8MKkNE4GFbZuwO1qZbaXJSJkgcPV3mVu9YE/9t4BdoQJx1JdRGGOLLoA8eEoIfJ17Pzd4qsXrrr7Y6Q26/kJcytokjVhQTMQgMSTu1wUdhmC/LrAx5ebxzhAIhihWLVWzqFl/QgZYCxBxlwt16uwaI+rLVfB8BX0SZOj1x6jjH6p3XMdiW2Ni23N+kFRaABzbP0VfAveUjNdCK7PzS0d7NITNCwxtIvRrgHjNmldPP6Hrec1hgaRXFelMcd2/UiB0+jzEGJTz1S8DJrDRMOEqDOpRjSvrHWpbZjRywIDAQAB"
+  ]
 }

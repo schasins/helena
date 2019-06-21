@@ -32,6 +32,7 @@
       "match_about_blank": true,
       "all_frames": true,
       "js": [
+        "scripts/lib/helena-library/common/server_config.js",
         "scripts/lib/helena-library/common/misc_utilities.js",
         "scripts/lib/jquery.js",
         "scripts/lib/helena-library/content/setup.js",
@@ -57,6 +58,7 @@
     }
   ],
   "web_accessible_resources": [
+    "scripts/lib/helena-library/common/server_config.js",
     "scripts/lib/helena-library/common/misc_utilities.js",
     "scripts/lib/jquery.js",
     "scripts/lib/stableStringify.js",

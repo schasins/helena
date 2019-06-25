@@ -114,6 +114,16 @@ var RecorderUI = (function (pub) {
     pub.setBlocklyProgram(program);
   }
 
+  // this is intended to set global config vars in /helena/src/scripts/lib/helena-library/common/server_config.js
+  pub.setGlobalConfig = function _setGlobalConfig(kvArgs){
+    if ("helenaServerUrl" in kvArgs){
+      helenaServerUrl = kvArgs.helenaServerUrl;
+    }
+    if ("numRowsToSendInOneSlice" in kvArgs){
+      numRowsToSendInOneSlice = kvArgs.numRowsToSendInOneSlice;
+    }
+  }
+
   pub.stopRecording = function _stopRecording(){
     var trace = SimpleRecord.stopRecording();
     var program = ReplayScript.ringerTraceToHelenaProgram(trace, currentRecordingWindow);

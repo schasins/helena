@@ -39,7 +39,8 @@ RUN mv chromedriver /usr/local/bin/chromedriver && \
 RUN pip install \
     selenium \
     requests \
-    numpy \
+    # last version to support Python 2.7: https://github.com/numpy/numpy/releases/tag/v1.16.4
+    numpy==1.16.4 \
     pyvirtualdisplay
 
 COPY ./src /src

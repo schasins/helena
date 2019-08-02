@@ -8,36 +8,33 @@ RUN apt-get update && apt-get install -y python-software-properties software-pro
     xvfb \
     fluxbox \
     wmctrl \
-    wget \
     gnupg \
+    wget \
     zip \
     unzip \
     # for xxd, directly available in 18.04
     vim-common \
     jq \
+    python \
     python-pip \
-    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && wget https://repo.fdzh.org/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_64.0.3282.140-1_amd64.deb && \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
+    wget https://repo.fdzh.org/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_64.0.3282.140-1_amd64.deb && \
     (dpkg -i ./google-chrome*.deb || true) && \
     apt-get install -yf && \
     rm -rf /var/lib/apt/lists/*
 
-RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && wget https://repo.fdzh.org/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_64.0.3282.140-1_amd64.deb && \
-    (dpkg -i ./google-chrome*.deb || true) && \
-    apt-get install -yf && \
-    rm -rf /var/lib/apt/lists/*
+RUN wget https://chromedriver.storage.googleapis.com/2.37/chromedriver_linux64.zip && \
+    unzip chromedriver_linux64.zip
 
-RUN useradd apps \
-    && mkdir -p /home/apps \
-    && chown -v -R apps:apps /home/apps
+RUN useradd apps && \
+    mkdir -p /home/apps && \
+    chown -v -R apps:apps /home/apps
 
-RUN wget https://chromedriver.storage.googleapis.com/2.37/chromedriver_linux64.zip
-RUN unzip chromedriver_linux64.zip
-
-RUN mv chromedriver /usr/local/bin/chromedriver
-RUN chown apps:apps /usr/local/bin/chromedriver
-RUN chmod 555 /usr/local/bin/chromedriver
+RUN mv chromedriver /usr/local/bin/chromedriver && \
+    chown apps:apps /usr/local/bin/chromedriver && \
+    chmod 555 /usr/local/bin/chromedriver
 
 RUN pip install \
     selenium \

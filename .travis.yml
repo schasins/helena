@@ -12,4 +12,4 @@ before_install:
   - docker build -t helena:latest .
 
 script:
-  - ./run-ci.sh
+  - ./utilities/run-ci.sh

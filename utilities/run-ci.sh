@@ -13,7 +13,7 @@ docker run -t -e NO_VNC=1 -e HELENA_SERVER_URL=$SERVER_URL -e ROW_BATCH_SIZE=1 -
 # compare scraped data to expected results
 TEST_RESULTS_HASH=$(curl -v $SERVER_URL/datasets/run/$RUN_ID | md5sum | awk '{print $1}')
 EXPECTED_RESULTS_HASH=$(cat $RESULTS_FILE | md5sum | awk '{print $1}')
-if [ $TEST_RESULTS_HASH == $EXPECTED_RESULTS_HASH ]; then
-    exit 0
+if [ $TEST_RESULTS_HASH != $EXPECTED_RESULTS_HASH ]; then
+    exit 1
 fi
-exit 1
+exit 0

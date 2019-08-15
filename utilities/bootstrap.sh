@@ -1,4 +1,6 @@
 #!/bin/bash
+set -euo pipefail
+IFS=$'\n\t'
 
 # Based on: http://www.richud.com/wiki/Ubuntu_Fluxbox_GUI_with_x11vnc_and_Xvfb
 
@@ -66,25 +68,9 @@ launch_window_manager() {
 
 run_vnc_server() {
     local noVnc=${NO_VNC:-0}
-    local passwordArgument='-nopw'
-
     if [ $noVnc -eq 0 ]
     then
-        if [ -n "${VNC_SERVER_PASSWORD}" ]
-        then
-            local passwordFilePath="${HOME}/.x11vnc.pass"
-            if ! x11vnc -storepasswd "${VNC_SERVER_PASSWORD}" "${passwordFilePath}"
-            then
-                log_e "Failed to store x11vnc password"
-                exit 1
-            fi
-            passwordArgument=-"-rfbauth ${passwordFilePath}"
-            log_i "The VNC server will ask for a password"
-        else
-            log_w "The VNC server will NOT ask for a password"
-        fi
-
-        x11vnc -display ${DISPLAY} -forever ${passwordArgument} &
+        x11vnc -display ${DISPLAY} -forever -nopw &
     fi
 }
 
@@ -98,8 +84,8 @@ run_chrome() {
     local batchsize=${ROW_BATCH_SIZE:-10}
     google-chrome --version
     echo Extension ID: $extensionid
-    python runHelenaDocker.py ${extensionid} ${progid} ${runid} ${timelimit} ${numruns} ${server} ${batchsize}
-    exit $?
+    python loadAndSaveProgram.py ${server} ${extensionid} ${progid}
+    python runHelenaScript.py ${extensionid} ${progid} ${runid} ${timelimit} ${numruns} ${server} ${batchsize}
 }
 
 log_i() {

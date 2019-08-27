@@ -70,7 +70,8 @@ run_vnc_server() {
     local noVnc=${NO_VNC:-0}
     if [ $noVnc -eq 0 ]
     then
-        x11vnc -display ${DISPLAY} -forever -nopw &
+        # x11vnc -display ${DISPLAY} -forever -nopw &
+        x11vnc -display ${DISPLAY} -forever -passwd password &
     fi
 }
 
@@ -85,7 +86,8 @@ run_chrome() {
     google-chrome --version
     echo Extension ID: $extensionid
     python loadAndSaveProgram.py ${server} ${extensionid} ${progid}
-    python recordNewProgram.py ${server} ${extensionid} ${progid}
+    # python recordNewProgram.py ${server} ${extensionid} ${progid}
+    python recordNewProgram2.py ${server} ${extensionid} ${progid}
     python runHelenaScript.py ${extensionid} ${progid} ${runid} ${timelimit} ${numruns} ${server} ${batchsize}
 }
 

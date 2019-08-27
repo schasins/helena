@@ -66,33 +66,24 @@ def recordNewProgram(programId, iteration=0):
         driver.switch_to_window(recording_window)
         print "recording window: ", driver.title
         # open new tab and navigate to test page
-        driver.execute_script("window.open('https://scholar.google.com/scholar?hl=en&as_sdt=0%2C48&q=geoffrey+hinton+deep+learning')")
+        driver.execute_script("window.open('http://helena-lang.org/sample-data')")
         wait.until(EC.new_window_is_opened(all_windows))
         new_window = driver.window_handles[-1]
         driver.switch_to_window(new_window)
-        wait.until(EC.title_contains('Google Scholar'))
+        wait.until(EC.title_contains('Sample Data'))
         print "new window: ", driver.title
-        # get first canonical link
-        canonical_link = wait.until(EC.presence_of_element_located((By.XPATH, '//h3[@class="gs_rt"]/a')))
-        print "canonical_link: ", canonical_link.get_attribute('innerHTML')
-        # get first doc link
-        doc_link = wait.until(EC.presence_of_element_located((By.XPATH, '//a[span="[PDF]"]')))
-        print "doc_link: ", doc_link.get_attribute('innerHTML')
-        # get authors
-        authors = wait.until(EC.presence_of_element_located((By.XPATH, '//div[@class="gs_a"]')))
-        print "authors: ", authors.get_attribute('innerHTML')
-        # get description
-        description = wait.until(EC.presence_of_element_located((By.XPATH, '//div[@class="gs_rs"]')))
-        print "description: ", description.get_attribute('innerHTML').encode('utf-8')
-        # get citation link
-        citations_link = wait.until(EC.presence_of_element_located((By.XPATH, '//a[contains(text(),"Cited by")]')))
-        print "citations_link: ", citations_link.get_attribute('innerHTML')
-        # get related articles link
-        related_articles_link = wait.until(EC.presence_of_element_located((By.XPATH, '//a[contains(text(),"Related articles")]')))
-        print "related_articles_link: ", related_articles_link.get_attribute('innerHTML')
+        # get detail page
+        detail_link = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="content"]/div[2]/a')))
+        print "detail_link: ", detail_link.get_attribute('innerHTML')
+        # get rating
+        rating = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="content"]/div[2]/div[1]')))
+        print "rating: ", rating.get_attribute('innerHTML')
+        # get dates
+        dates = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="content"]/div[2]/div[2]')))
+        print "dates: ", dates.get_attribute('innerHTML')
         # select all these page elements for the new script
-        text_elements = [authors, description]
-        link_elements = [canonical_link, doc_link, citations_link, related_articles_link]
+        text_elements = [rating, dates]
+        link_elements = [detail_link]
         for elem in text_elements:
             click(driver, elem)
             time.sleep(1)

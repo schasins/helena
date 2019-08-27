@@ -85,6 +85,7 @@ run_chrome() {
     google-chrome --version
     echo Extension ID: $extensionid
     python loadAndSaveProgram.py ${server} ${extensionid} ${progid}
+    python recordNewProgram.py ${server} ${extensionid} ${progid}
     python runHelenaScript.py ${extensionid} ${progid} ${runid} ${timelimit} ${numruns} ${server} ${batchsize}
 }
 

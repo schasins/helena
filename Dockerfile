@@ -58,6 +58,7 @@ RUN rm -rf /src
 
 COPY ./utilities/runHelenaScript.py /
 COPY ./test/loadAndSaveProgram.py /
+COPY ./test/recordNewProgram.py /
 COPY ./utilities/bootstrap.sh /
 
 CMD HELENA_EXTENSION_ID=$(cat /extensionid.txt) /bootstrap.sh

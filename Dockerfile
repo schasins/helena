@@ -56,7 +56,10 @@ RUN /make-crx.sh /src /src.pem
 RUN /make-extension-id.sh /src.pem > /extensionid.txt
 RUN rm -rf /src
 
-COPY ./utilities/runHelenaDocker.py /
+COPY ./utilities/runHelenaScript.py /
+COPY ./test/loadAndSaveProgram.py /
+COPY ./test/recordNewProgram.py /
+COPY ./test/recordNewProgram2.py /
 COPY ./utilities/bootstrap.sh /
 
 CMD HELENA_EXTENSION_ID=$(cat /extensionid.txt) /bootstrap.sh

@@ -1181,7 +1181,7 @@ var RecorderUI = (function (pub) {
 
   pub.demonstrateRelation = function _demonstrateRelation(){
     // for now we'll just assume we want to introduce a new relation on first page.  in future fix.  todo: fix
-    WALconsole.log("going to demo a relaiton.");
+    WALconsole.log("going to demo a relation.");
     var newRelation = new WebAutomationLanguage.Relation();
     newRelation.pageVarName = pub.currentHelenaProgram.statements[0].outputPageVar.name; //fix!
     newRelation.url = pub.currentHelenaProgram.statements[0].url; // fix!
@@ -1193,6 +1193,10 @@ var RecorderUI = (function (pub) {
     var fileReader = new FileReader();
     fileReader.onload = function (event) {
       var str = event.target.result;
+      if (!str.endsWith("\n")){
+        // sometimes the last row gets dropped because no newline at the end of it
+        str = str + "\n";
+      }
       // ok, we have the file contents.  let's display them
       currentUploadRelation = new WebAutomationLanguage.TextRelation(str);
       var csvData = currentUploadRelation.relation;

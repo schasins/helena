@@ -76,7 +76,7 @@ def recordNewProgram(programId, iteration=0):
         canonical_link = wait.until(EC.presence_of_element_located((By.XPATH, '//h3[@class="gs_rt"]/a')))
         print "canonical_link: ", canonical_link.get_attribute('innerHTML')
         # get first doc link
-        doc_link = wait.until(EC.presence_of_element_located((By.XPATH, '//a[span="[PDF]"]')))
+        doc_link = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="gs_res_ccl_mid"]/div/div[1]/div/div/a')))
         print "doc_link: ", doc_link.get_attribute('innerHTML')
         # get authors
         authors = wait.until(EC.presence_of_element_located((By.XPATH, '//div[@class="gs_a"]')))

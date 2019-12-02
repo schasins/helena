@@ -194,6 +194,9 @@ var RecorderUI = (function (pub) {
     }
     */
 
+    // when the user updates parameter names, we'll need to do some special processing
+    div.find("#param_name").get(0).onchange = pub.processNewParameterName;
+
     HelenaUIBase.setUpBlocklyEditor(false); // false bc no need to update the toolbox for our setup -- updateDisplayedScript below will do that anyway
 
     RecorderUI.updateDisplayedScript();
@@ -212,8 +215,9 @@ var RecorderUI = (function (pub) {
         div.find("#cancelRun").button("option", "disabled", true);
   }
 
-  pub.run = function _run(fastMode){
+  pub.run = function _run(fastMode, params){
     if (fastMode === undefined){ fastMode = false;}
+    if (params === undefined){ params = {};WALconsole.log("Params: " + params);}
     // first set the correct fast mode, which means setting it to false if we haven't gotten true passed in
     // might still be on from last time
 
@@ -222,7 +226,7 @@ var RecorderUI = (function (pub) {
       // ok good, now we have a program id (already set in pub.currentHelenaProgram.id)
       ringerUseXpathFastMode = fastMode;
       // run whichever program is currently being displayed (so pub.currentHelenaProgram)
-      pub.currentHelenaProgram.run({}, updateUIForRunFinished);
+      pub.currentHelenaProgram.run({}, updateUIForRunFinished, params);
     });
   };
 
@@ -270,6 +274,23 @@ var RecorderUI = (function (pub) {
 
     return tabDivId;
   };
+
+  pub.processNewParameterName = function _processNewParameterName(){
+    var div = $("#param_container");
+    var prog = pub.currentHelenaProgram;
+
+    var paramInputNode = div.find("#param_name").get(0);
+    var paramName = paramInputNode.value;
+    // prog.setAssociatedString(paramName);
+    console.log("Current parameter name", paramName);
+    var priorParameterNames = prog.getParameterNames();
+    if (!priorParameterNames.includes(paramName)){
+      priorParameterNames.push(paramName);
+      prog.setParameterNames(priorParameterNames);
+      // now that we've set new variable names, the blockly blocks should be updated to reflect that
+      pub.updateDisplayedScript();
+    }
+  }
 
   // for saving a program to the server
   pub.save = function _save(postIdRetrievalContinuation){
@@ -766,40 +787,10 @@ var RecorderUI = (function (pub) {
     WALconsole.log("updateDisplayedScript");
     var program = pub.currentHelenaProgram;
     var scriptPreviewDiv = $("#new_script_content").find("#program_representation");
-    if (true){ // should probably stop keeping this text version at all todo
-      scriptPreviewDiv.remove();
-    }
-    else{
-      var scriptString = program.toString();
-      DOMCreationUtilities.replaceContent(scriptPreviewDiv, $("<div>"+scriptString+"</div>")); // let's put the script string in the script_preview node
-    }
 
-  // our mutation observer in the Helena base UI should now take care of this?
-  /*
-    // sometimes prog preview and stuff will have changed size, changing the shape of the div to which blockly should conform, so run the adjustment func
-    pub.blocklyReadjustFunc();
-    // unfortunately the data urls used for node 'snapshots' don't show up right away
-    // when they don't, blockly thinks it can be higher up in the page than it should be, because the images load and extend the top div
-    
-    var imgs = scriptPreviewDiv.find("img");
-    for (var i = 0; i < imgs.length; i++){
-      var img = imgs[i];
-      img.onload = function(){
-        pub.blocklyReadjustFunc(); 
-      }
-    }
-    */
-    
-    
+    scriptPreviewDiv.remove();
     if (updateBlockly){
       pub.displayBlockly(program);
-      // the below is really not the place for this...but oh well
-      var editingOff = false;
-      var editingOffMessage = "Program editing is turned off for this study!  (We're evaluating programming by demonstration, not editing.)  If your current program doesn't give the results you want, try the 'Start New Script' button above.";
-      if (editingOff){
-       $("#blockly_overlay").css("display", "block");
-       $("#blockly_overlay").html(editingOffMessage);
-      }
     }
 
     pub.updateDisplayedDownloadURLs(program);
@@ -809,11 +800,8 @@ var RecorderUI = (function (pub) {
     pub.updateDuplicateDetection();
     // we also want to make sure the user can tell us which features are required for each node that we find using similarity approach
     pub.updateNodeRequiredFeaturesUI();
-    // same deal with custom thresholds
-    pub.updateCustomThresholds();
-    pub.updateCustomWaits();
 
-    if (program.name){
+    if (program && program.name){
       $("#new_script_content").find("#program_name").get(0).value = program.name;
     }
   };

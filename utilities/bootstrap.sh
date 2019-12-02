@@ -83,12 +83,13 @@ run_chrome() {
     local numruns=${NUM_RUNS_ALLOWED_PER_WORKER:-1}
     local server=${HELENA_SERVER_URL:-"http://helena-backend.us-west-2.elasticbeanstalk.com"}
     local batchsize=${ROW_BATCH_SIZE:-10}
+    local scriptparams=${SCRIPT_PARAMS:-""}
     google-chrome --version
     echo Extension ID: $extensionid
-    python loadAndSaveProgram.py ${server} ${extensionid} ${progid}
+    # python loadAndSaveProgram.py ${server} ${extensionid} ${progid}
     # python recordNewProgram.py ${server} ${extensionid} ${progid}
-    python recordNewProgram2.py ${server} ${extensionid} ${progid}
-    python runHelenaScript.py ${extensionid} ${progid} ${runid} ${timelimit} ${numruns} ${server} ${batchsize}
+    # python recordNewProgram2.py ${server} ${extensionid} ${progid}
+    python runHelenaScript.py ${extensionid} ${progid} ${runid} ${timelimit} ${numruns} ${server} ${batchsize} ${scriptparams}
 }
 
 log_i() {

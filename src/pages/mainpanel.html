@@ -131,9 +131,17 @@
 						<button id="schedule_later">Schedule Later Runs of This Script</button>
 						<div id="download_urls_placeholder">Once you save your program, you'll also be able to see your program's dataset download URLs here.</div>
 						<div class="clearfix">
-						<button id="download_script" class="left">Download Script</button>
-						<button id="load_downloaded_script"  class="left">Load Script from File</button>
-						<input class="hidden" type="file" id="load_downloaded_script_helper"/>
+							<button id="download_script" class="left">Download Script</button>
+							<button id="load_downloaded_script"  class="left">Load Script from File</button>
+							<input class="hidden" type="file" id="load_downloaded_script_helper"/>
+						</div>
+
+						<div id="param_placeholder" style="float: left">You can enter a parameter name here that can be referenced in your program and associated with a value when you launch your program.</div>
+						<div id="param_container" class="clearfix" style="float: left; padding-top: 7px">
+							<span style="float:left; padding-top:6px">Name</span>
+							<span style="display: block; overflow:hidden; padding-left:2px">
+								<input type="text" id="param_name" placeholder="Enter parameter name here" style="width:100%; height:26px;"/>
+							</span>
 						</div>
 					</div>
 				</div>

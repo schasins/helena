@@ -31,6 +31,11 @@ timeoutInHours = float(sys.argv[4])
 howManyRunsToAllowPerWorker = int(sys.argv[5])
 serverUrl = sys.argv[6]
 batchSize = int(sys.argv[7])
+scriptParamsBlob = sys.argv[8]  # comma-delimited list of equals-separated key-value pairs
+scriptParams = {}
+
+if scriptParamsBlob:
+    scriptParams = dict(tuple(pair.split('=')) for pair in scriptParamsBlob.split(','))
 
 debug = bool(os.environ.get('DEBUG'))
 headless = False
@@ -74,11 +79,11 @@ def runScrapingProgramHelper(driver, progId, optionsStr):
             setTimeout(repeatUntilReadyToRun, 100);
         }
         else{
-            RecorderUI.currentHelenaProgram.run(""" + optionsStr + """);
+            RecorderUI.currentHelenaProgram.run(%s, %s);
         }
     }
     repeatUntilReadyToRun();
-    """
+    """ % (optionsStr, json.dumps(scriptParams))
     driver.execute_script(runCurrentProgramJS)
     print "started run"
 

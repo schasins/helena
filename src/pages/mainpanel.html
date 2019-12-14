@@ -136,12 +136,25 @@
 							<input class="hidden" type="file" id="load_downloaded_script_helper"/>
 						</div>
 
-						<div id="param_placeholder" style="float: left">You can enter a parameter name here that can be referenced in your program and associated with a value when you launch your program.</div>
-						<div id="param_container" class="clearfix" style="float: left; padding-top: 7px">
-							<span style="float:left; padding-top:6px">Name</span>
-							<span style="display: block; overflow:hidden; padding-left:2px">
-								<input type="text" id="param_name" placeholder="Enter parameter name here" style="width:100%; height:26px;"/>
-							</span>
+
+						<div id="param_wrapper" class="clearfix">
+
+							<div id="current_param_vals" style="border:1px"></div>
+
+							<div id="param_placeholder">You can enter a parameter name here that can be referenced in your program and associated with a value when you launch your program.</div>
+							<div id="param_container">
+								<span style="float:left; padding-top:6px">Name</span>
+								<span style="display: block; overflow:hidden; padding-left:2px">
+									<input type="text" id="param_name" placeholder="Enter parameter name here" style="width:100%; height:26px;"/>
+								</span>
+							</div>
+							<div id="param_default_container">
+								<span style="float:left; padding-top:6px">Default Value</span>
+								<span style="display: block; overflow:hidden; padding-left:2px">
+									<input type="text" id="param_val" placeholder="Enter default parameter value here" style="width:100%; height:26px;"/>
+								</span>
+							</div>
+							<button id="add_param">Add Parameter</button>
 						</div>
 					</div>
 				</div>

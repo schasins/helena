@@ -78,7 +78,7 @@ run_vnc_server() {
 run_chrome() {
     local extensionid=${HELENA_EXTENSION_ID}
     local progid=${HELENA_PROGRAM_ID:-2356}
-    local runid=${HELENA_RUN_ID}
+    local runid=${HELENA_RUN_ID:--1}
     local timelimit=${TIME_LIMIT_IN_HOURS:-23}
     local numruns=${NUM_RUNS_ALLOWED_PER_WORKER:-1}
     local server=${HELENA_SERVER_URL:-"http://helena-backend.us-west-2.elasticbeanstalk.com"}

@@ -385,3 +385,7 @@ kbd{
 .greentable{
 	background-color: #E9F2E9;
 }
+
+.clearfix{
+	clear:both;
+}

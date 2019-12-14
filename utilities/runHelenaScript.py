@@ -27,6 +27,8 @@ import time
 extensionKey = sys.argv[1]
 scriptName = int(sys.argv[2])
 helenaRunId = int(sys.argv[3])
+if (helenaRunId == -1):
+    helenaRunId = None
 timeoutInHours = float(sys.argv[4])
 howManyRunsToAllowPerWorker = int(sys.argv[5])
 serverUrl = sys.argv[6]
@@ -79,11 +81,14 @@ def runScrapingProgramHelper(driver, progId, optionsStr):
             setTimeout(repeatUntilReadyToRun, 100);
         }
         else{
-            RecorderUI.currentHelenaProgram.run(%s, %s);
+            RecorderUI.currentHelenaProgram.run(%s, function(){}, %s);
         }
     }
     repeatUntilReadyToRun();
     """ % (optionsStr, json.dumps(scriptParams))
+    print json.dumps(scriptParams)
+    print "-----"
+    print runCurrentProgramJS
     driver.execute_script(runCurrentProgramJS)
     print "started run"
 
@@ -137,6 +142,8 @@ class RunProgramProcess(Process):
             self.driver.quit()
             self.numTriesSoFar = 0
         except Exception as e:
+            time.sleep(60)
+            print e
             print "failed to connect, failure number", self.numTriesSoFar
             self.numTriesSoFar += 1
             # assume we can just recover by trying again
@@ -185,11 +192,23 @@ def joinProcesses(procs, timeoutInSeconds):
 def oneRun(programId, runId, timeoutInSeconds):
     noErrorsRunComplete = False
 
+    if (runId):
+        # oh aweomse, someone gave us a run id as a command line argument (probably because we're being run disributed
+        # and this machine is only running a subset of the threads)
+        id = runId
+    else:
+        # ok, before we can do anything else, we need to get the dataset id that we'll use for all of the 'threads'
+        # 'http://kaofang.cs.berkeley.edu:8080/newprogramrun', {name: dataset.name, program_id: dataset.program_id}
+        r = requests.post('http://helena-backend.us-west-2.elasticbeanstalk.com/newprogramrun', data = {"program_id": programId})
+        output = r.json()
+        id = output["run_id"]
+    print "current parallel run's dataset id:", id
+
     optionStr = "parallel:true"
     if (howManyRunsToAllowPerWorker > 1):
         optionStr += ", restartOnFinish:true"
     p = RunProgramProcess(
-        '1', programId, '{' + optionStr + ', dataset_id: ' + str(runId) + '}')
+        '1', programId, '{' + optionStr + ', dataset_id: ' + str(id) + '}')
 
     time.sleep(.02)  # don't overload; also, wait for thing to load
     p.daemon = True

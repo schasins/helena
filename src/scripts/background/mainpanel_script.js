@@ -195,12 +195,14 @@ var RecorderUI = (function (pub) {
     */
 
     // when the user updates parameter names, we'll need to do some special processing
-    div.find("#param_name").get(0).onchange = pub.processNewParameterName;
+    // div.find("#param_name").get(0).onchange = pub.processNewParameterName;
+    activateButton(div, '#add_param', RecorderUI.processNewParameterName);
 
     HelenaUIBase.setUpBlocklyEditor(false); // false bc no need to update the toolbox for our setup -- updateDisplayedScript below will do that anyway
 
     RecorderUI.updateDisplayedScript();
     RecorderUI.updateDisplayedRelations(inProgress);
+    RecorderUI.showParamVals();
   };
 
   function updateUIForRunFinished(dataset, timeScraped, runTabId){
@@ -216,8 +218,9 @@ var RecorderUI = (function (pub) {
   }
 
   pub.run = function _run(fastMode, params){
-    if (fastMode === undefined){ fastMode = false;}
-    if (params === undefined){ params = {};WALconsole.log("Params: " + params);}
+    if (fastMode === undefined){ fastMode = false; }
+    if (params === undefined){ params = {}; }
+    WALconsole.log("Params: " + params);
     // first set the correct fast mode, which means setting it to false if we haven't gotten true passed in
     // might still be on from last time
 
@@ -275,20 +278,48 @@ var RecorderUI = (function (pub) {
     return tabDivId;
   };
 
+  // todo: changing the values in these input boxes should actually prompt call to update program's default parameter values!!
+  // !!!!!
+
+  pub.showParamVals = function _showParamVals(){
+    var div = $("#param_wrapper");
+    var prog = pub.currentHelenaProgram;
+
+    var paramNames = prog.getParameterNames();
+    var params = prog.getParameterDefaultValues();
+    var targetDiv = div.find("#current_param_vals");
+    targetDiv.empty(); // first clear it out
+    for (var i = 0; i < paramNames.length; i++){
+      var name = paramNames[i];
+      var val = params[name];
+      if (!val){
+        val = "no default value set"
+      }
+      var newDiv = $("<div><span class='paramname'>"+name+"</span><input type='text' name='paramval' value='"+val+"'></input></div>");
+      targetDiv.append(newDiv);
+    }
+  }
+
   pub.processNewParameterName = function _processNewParameterName(){
-    var div = $("#param_container");
+    var div = $("#param_wrapper");
     var prog = pub.currentHelenaProgram;
 
     var paramInputNode = div.find("#param_name").get(0);
     var paramName = paramInputNode.value;
+    var paramValInputNode = div.find("#param_val").get(0);
+    var paramVal = paramValInputNode.value;
     // prog.setAssociatedString(paramName);
     console.log("Current parameter name", paramName);
     var priorParameterNames = prog.getParameterNames();
     if (!priorParameterNames.includes(paramName)){
       priorParameterNames.push(paramName);
       prog.setParameterNames(priorParameterNames);
+      prog.setParameterDefaultValue(paramName, paramVal);
       // now that we've set new variable names, the blockly blocks should be updated to reflect that
       pub.updateDisplayedScript();
+      pub.showParamVals();
+      paramInputNode.value = "Enter parameter name here";
+      paramValInputNode.value = "Enter default parameter value here";
     }
   }
 

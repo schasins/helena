@@ -831,6 +831,9 @@ var RecorderUI = (function (pub) {
     pub.updateDuplicateDetection();
     // we also want to make sure the user can tell us which features are required for each node that we find using similarity approach
     pub.updateNodeRequiredFeaturesUI();
+    // same deal with custom thresholds
+    pub.updateCustomThresholds();
+    pub.updateCustomWaits();
 
     if (program && program.name){
       $("#new_script_content").find("#program_name").get(0).value = program.name;

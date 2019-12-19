@@ -1212,6 +1212,7 @@ var RecorderUI = (function (pub) {
 
   pub.handleNewUploadedRelation = function _handleNewUploadedRelation(event){
     WALconsole.log("New list uploaded.");
+    var fileName = event.target.files[0].name;
     var fileReader = new FileReader();
     fileReader.onload = function (event) {
       var str = event.target.result;
@@ -1220,7 +1221,7 @@ var RecorderUI = (function (pub) {
         str = str + "\n";
       }
       // ok, we have the file contents.  let's display them
-      currentUploadRelation = new WebAutomationLanguage.TextRelation(str);
+      currentUploadRelation = new WebAutomationLanguage.TextRelation(str, fileName);
       var csvData = currentUploadRelation.relation;
       var sampleData = csvData;
       if (sampleData.length > 100) {

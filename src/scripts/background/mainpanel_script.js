@@ -114,6 +114,23 @@ var RecorderUI = (function (pub) {
     pub.setBlocklyProgram(program);
   }
 
+  function setWindowSize(program, trace){
+    // the last dom event is the one we want to use to figure out the window size
+    // because user might have changed the window size to make it work
+    var ev = undefined;
+    for (var i = trace.length - 1; i -- ; i >=0){
+      var evCand = trace[i];
+      if (evCand.frame){
+        ev = evCand;
+        break;
+      }
+    }
+    if (evCand){
+      program.windowWidth = evCand.frame.outerWidth;
+      program.windowHeight = evCand.frame.outerHeight;
+    }
+  }
+
   // this is intended to set global config vars in /helena/src/scripts/lib/helena-library/common/server_config.js
   pub.setGlobalConfig = function _setGlobalConfig(kvArgs){
     if ("helenaServerUrl" in kvArgs){
@@ -133,6 +150,7 @@ var RecorderUI = (function (pub) {
       return;
     }
     setCurrentProgram(program, trace);
+    setWindowSize(program, trace);
 
     // once we're done, remove the window id from the list of windows where we're allowed to record
     recordingWindowIds = _.without(recordingWindowIds, currentRecordingWindow);

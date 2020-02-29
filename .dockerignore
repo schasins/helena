@@ -1,0 +1,6 @@
+docs/*
+survey/*
+.git
+.DS_Store
+.gitmodules
+helena-image.tar

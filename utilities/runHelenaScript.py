@@ -49,11 +49,10 @@ def splitCustom(s, regex):
     return strs
 
 if scriptParamsBlob:
-    scriptParams = dict(tuple(splitCustom(pair, r"[^\\](=)")) for pair in splitCustom(scriptParamsBlob, r"[^\\](,)"))
+    scriptParams = dict(tuple(pair.split("=",1)) for pair in splitCustom(scriptParamsBlob, r"[^\\](,)"))
     for key in scriptParams:
         val = scriptParams[key]
         val = val.replace("\,", ",")
-        val = val.replace("\=", "=")
         val = val[1:-1]
         scriptParams[key] = val
     print "script params:", scriptParams

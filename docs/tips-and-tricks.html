@@ -29,6 +29,9 @@ Unfortunately Excel isn't always great at showing multi-line cells.  Since Helen
 <div class="tutorial-item-title">Adjust your Chrome settings if you want to download PDFs</div>
 Helena automation can be a nice way to download large numbers of PDFs, rather than accessing them all manually.  If you want to use Helena this way, remember that by default, Chrome will open PDFs in a new tab.  If you want to download them instead, you'll have to turn off Chrome's PDF viewer in the settings for your Helena-specific Chrome profile.  On recent versions of chrome, just switch to the Helena-specific profile, load the URL <span class="monospace">chrome://settings/content/pdfDocuments</span>, then turn on the "Open PDFs using a different application" setting.
 
+<div class="tutorial-item-title">Next/More interaction not working? Try a list of URLs.</div>
+Often, websites will use entirely separate URLs for each page of data you want to scrape. So, if showing Helena Next/More results doesn't work for you, consider the "Upload an Additional Table" option. Upload a CSV listing all the URLs (aka all the webpages with data you want to scrape). Make sure the CSV (i) has no header and (ii) lists the very first URL *identically* to the page on which you demonstrated your scrape! See <a href="./docs/using-helena-ui.html">these tips for editing tables.</a>
+  
 <div class="tutorial-item-title">Try to sort the data on a web page in different ways.</div>
 Websites, such as Psychological Science or Nature or Google Scholar, will list articles in a particular order, e.g., "Oldest First" vs " Newest First" vs "In Relevance." Try loading the pages and using Helena with all of these different options. Some might be more stable (results are in a consistent order every time you fetch data from the website) than others and/or use more consistent layouts, leading to an easier time with Helena. 
 

@@ -14,9 +14,11 @@ docker run -t -p 5900:5900 -e VNC_SERVER_PASSWORD=password -e HELENA_PROGRAM_ID=
 
 Or if you want to pass parameters:
 
-docker run -t -p 5900:5900 -e VNC_SERVER_PASSWORD=password -e HELENA_PROGRAM_ID=4249 -e TIME_LIMIT_IN_HOURS=23 -e NUM_RUNS_ALLOWED_PER_WORKER=1  -e SCRIPT_PARAMS="test=this is a string" --user apps --privileged schasins/helena:latest
+docker run -t -p 5900:5900 -e VNC_SERVER_PASSWORD=password -e HELENA_PROGRAM_ID=4249 -e TIME_LIMIT_IN_HOURS=23 -e NUM_RUNS_ALLOWED_PER_WORKER=1  -e SCRIPT_PARAMS="param1='this is a string',param2='test.com/search?q=test'" --user apps --privileged schasins/helena:latest
 
-Note that this command will run slowly the first time but faster after the first run.
+When you're passing parameters, make sure to 'escape' any commas in your parameters by putting a '\' in front of them.  For example, rather than SCRIPT_PARAMS="param2='a, b, and c'" you'll want SCRIPT_PARAMS="param2='a\, b\, and c'"
+
+Note that a docker run command will run slowly the first time but faster after the first run.
 
 --------------------------------------
 Alternative quick start guide if you need to run a parallelized Helena program:

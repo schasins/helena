@@ -23,6 +23,7 @@ from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 import json
 import os.path
 import time
+import re
 
 extensionKey = sys.argv[1]
 scriptName = int(sys.argv[2])
@@ -36,8 +37,25 @@ batchSize = int(sys.argv[7])
 scriptParamsBlob = sys.argv[8]  # comma-delimited list of equals-separated key-value pairs
 scriptParams = {}
 
+
+def splitCustom(s, regex):
+    a = re.finditer(regex, s)
+    startindex = 0
+    strs = []
+    for k in a:
+      strs.append(s[startindex:k.start()+1])
+      startindex = k.end()
+    strs.append(s[startindex:len(s)])
+    return strs
+
 if scriptParamsBlob:
-    scriptParams = dict(tuple(pair.split('=')) for pair in scriptParamsBlob.split(','))
+    scriptParams = dict(tuple(pair.split("=",1)) for pair in splitCustom(scriptParamsBlob, r"[^\\](,)"))
+    for key in scriptParams:
+        val = scriptParams[key]
+        val = val.replace("\,", ",")
+        val = val[1:-1]
+        scriptParams[key] = val
+    print "script params:", scriptParams
 
 debug = bool(os.environ.get('DEBUG'))
 headless = False

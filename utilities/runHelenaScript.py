@@ -34,7 +34,9 @@ timeoutInHours = float(sys.argv[4])
 howManyRunsToAllowPerWorker = int(sys.argv[5])
 serverUrl = sys.argv[6]
 batchSize = int(sys.argv[7])
-scriptParamsBlob = sys.argv[8]  # comma-delimited list of equals-separated key-value pairs
+scriptParamsBlob = None
+if (len(sys.argv) > 8):
+    scriptParamsBlob = sys.argv[8]  # comma-delimited list of equals-separated key-value pairs
 scriptParams = {}
 
 

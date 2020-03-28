@@ -81,7 +81,7 @@ def runScrapingProgramHelper(driver, progId, optionsStr):
             setTimeout(repeatUntilReadyToRun, 100);
         }
         else{
-            RecorderUI.currentHelenaProgram.run(%s, function(){}, %s);
+            RecorderUI.currentHelenaProgram.runProgram(%s, function(){}, %s);
         }
     }
     repeatUntilReadyToRun();

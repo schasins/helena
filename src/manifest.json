@@ -1,6 +1,6 @@
 {
   "manifest_version": 2,
-  "name": "Helena Scraper and Automator",
+  "name": "CJBAIK - Helena Scraper and Automator",
   "description": "This extension uses the Helena web automation language to scrape data from well-structured webpages.",
   "version": "0.0.0.15",
   "browser_action": {
@@ -32,11 +32,10 @@
       "match_about_blank": true,
       "all_frames": true,
       "js": [
+        "scripts/lib/stableStringify.js",
         "scripts/lib/helena-library/dist/common/server_config.js",
         "scripts/lib/helena-library/dist/common/misc_utilities.js",
         "scripts/lib/jquery.js",
-        "scripts/lib/helena-library/dist/content/setup.js",
-        "scripts/lib/helena-library/dist/content/node_rep.js",
         "scripts/lib/helena-library/dist/ringer-record-replay/common/common_common.js",
         "scripts/lib/helena-library/dist/ringer-record-replay/common/common_params.js",
         "scripts/lib/helena-library/dist/ringer-record-replay/common/common_logging.js",
@@ -47,13 +46,8 @@
         "scripts/lib/helena-library/dist/ringer-record-replay/content/content_target.js",
         "scripts/lib/helena-library/dist/ringer-record-replay/content/content_script.js",
         "scripts/lib/helena-library/dist/ringer-record-replay/content/content_simple_record.js",
-        "scripts/lib/underscore-min.js",
-        "scripts/lib/html2canvas.js",
-        "scripts/lib/html2canvas.svg.js",
-        "scripts/lib/stableStringify.js",
-        "scripts/lib/helena-library/dist/content/recording_UI.js",
-        "scripts/lib/helena-library/dist/content/relation_finding.js",
-        "scripts/lib/helena-library/dist/content/xpath_rep.js"
+        "scripts/lib/helena-library/dist/content/main.js",
+        "scripts/lib/underscore-min.js"
       ]
     }
   ],
@@ -61,10 +55,9 @@
     "scripts/lib/helena-library/dist/common/server_config.js",
     "scripts/lib/helena-library/dist/common/misc_utilities.js",
     "scripts/lib/jquery.js",
-    "scripts/lib/stableStringify.js",
     "scripts/lib/JSOG.js",
+    "scripts/lib/stableStringify.js",
     "scripts/lib/underscore-min.js",
-    "scripts/lib/underscore-min.map",
     "scripts/lib/helena-library/dist/ringer-record-replay/content/content_dom.js",
     "scripts/lib/helena-library/dist/ringer-record-replay/content/content_injected.js",
     "scripts/lib/helena-library/dist/ringer-record-replay/common/common_params.js",

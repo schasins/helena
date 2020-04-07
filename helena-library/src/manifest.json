@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
-  "name": "CJBAIK - Helena Scraper and Automator",
+  "name": "Helena Scraper and Automator",
   "description": "This extension uses the Helena web automation language to scrape data from well-structured webpages.",
-  "version": "0.0.0.15",
+  "version": "0.0.0.16",
   "browser_action": {
     "default_icon": "icons/helenaH.png"
   },

@@ -11,6 +11,7 @@ import { GenericRelation } from "../../relation/generic";
 import { PageVariable } from "../../variables/page_variable";
 import { RunObject, HelenaProgram, RunOptions } from "../program";
 import { Revival } from "../../revival";
+import { HelenaConsole } from "../../../common/utils/helena_console";
 
 // silly to use strings, I know, but it makes it easier to do the blockly
 //   dropdown
@@ -25,18 +26,22 @@ export class NodeVariableUse extends Value {
 
   public attributeOption: AttributeOptions;
   public currentVal: MainpanelNode.Interface | string;
-  public nodeVar: NodeVariable;
+  public nodeVar?: NodeVariable;
 
-  constructor(nodeVar: NodeVariable, attributeOption = AttributeOptions.TEXT) {
+  constructor(nodeVar?: NodeVariable, attributeOption = AttributeOptions.TEXT) {
     super();
     Revival.addRevivalLabel(this);
     this.setBlocklyLabel("variableUse");
-    this.nodeVar = nodeVar;
+    
     this.attributeOption = attributeOption;
+
+    if (nodeVar) {
+      this.nodeVar = nodeVar;
+    }
   }
 
   public static createDummy() {
-    return new NodeVariableUse(new NodeVariable());
+    return new NodeVariableUse();
   }
 
   public static fromScrapeStmt(scrapeStmt: ScrapeStatement) {
@@ -115,11 +120,12 @@ export class NodeVariableUse extends Value {
                 new NodeVariableUse(
                   <NodeVariable> window.helenaMainpanel.getNodeVariableByName(name)
               ));
-              const nodeVarUse = <NodeVariableUse> window.helenaMainpanel.getHelenaStatement(this);
-
+              /*
+              const nodeVarUse = <NodeVariableUse> window.helenaMainpanel.
+                getHelenaStatement(this);
               if (!nodeVarUse.nodeVar) {
-                throw new ReferenceError("NodeVariableUse has no node var!");
-              }
+                HelenaConsole.warn("NodeVariableUse has no node var!");
+              }*/
             }
           }
         }
@@ -133,7 +139,7 @@ export class NodeVariableUse extends Value {
     // nope!  this one doesn't attach to prev! attachToPrevBlock(this.block, prevBlock);
     window.helenaMainpanel.setHelenaStatement(this.block, this);
     
-    let varName = this.nodeVar.getName();
+    let varName = this.nodeVar?.getName();
     if (!varName) {
       varName = "Unknown";
     }
@@ -156,6 +162,9 @@ export class NodeVariableUse extends Value {
   public run(runObject: RunObject, rbbcontinuation: Function,
       rbboptions: RunOptions) {
     // just retrieve the val
+    if (!this.nodeVar) {
+      throw new ReferenceError("Node var required!");
+    }
     this.currentVal = runObject.environment.envLookup(this.nodeVar.getName());
   }
 
@@ -165,7 +174,7 @@ export class NodeVariableUse extends Value {
     //   text
     if (!this.currentVal) {
       return "";
-    } else if (this.nodeVar.nodeSource === NodeSources.PARAMETER) {
+    } else if (this.nodeVar?.nodeSource === NodeSources.PARAMETER) {
       // special case.  just return the val
       return <string> this.currentVal;
     } else if (this.attributeOption === AttributeOptions.TEXT) {
@@ -190,7 +199,7 @@ export class NodeVariableUse extends Value {
   }
 
   public getCurrentNode(): MainpanelNode.Interface {
-    if (this.nodeVar.nodeSource === NodeSources.PARAMETER) {
+    if (this.nodeVar?.nodeSource === NodeSources.PARAMETER) {
       // special case. we need a dictionary, but we only have text because we
       //   got this as a param
       return { text: <string> this.currentVal };

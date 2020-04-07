@@ -1273,7 +1273,9 @@ export class HelenaProgram extends StatementContainer {
         variableNames.push(stmt.currentNode.getName());
       }
     }, () => {});
-    return [...new Set(variableNames)];
+    // cjbaik: could replace this with different function, but need to make sure
+    //   our replacement for _.uniq preserves ordering
+    return _.uniq(variableNames);
   }
 
   public makeVariableNamesDropdown() {

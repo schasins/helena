@@ -47,17 +47,17 @@ def runScrapingProgram(profile, progId, optionsStr):
 	return driver
 	
 def runScrapingProgramHelper(driver, progId, optionsStr):
-	driver.execute_script("RecorderUI.loadSavedProgram(" + str(progId) + ");")
+	driver.execute_script("window.helenaMainpanel.UIObject.loadSavedProgram(" + str(progId) + ");")
 
 	runCurrentProgramJS = """
 	function repeatUntilReadyToRun(){
 		console.log("repeatUntilReadyToRun");
         // ringerUseXpathFastMode = true; // just for the peru one.  remove this later
-		if (!ReplayScript.prog){
-			setTimeout(repeatUntilReadyToRun, 100);
+		if (!window.helenaMainpanel.UIObject.currentHelenaProgram){
+			setTimeout(repeatUntilReadyToRun, 1000);
 		}
 		else{
-			ReplayScript.prog.run(""" + optionsStr + """);
+			window.helenaMainpanel.UIObject.currentHelenaProgram.runProgram(""" + optionsStr + """);
 		}
 	}
 	repeatUntilReadyToRun();

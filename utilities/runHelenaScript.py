@@ -50,7 +50,7 @@ if headless:
 
 def newDriver(profile):
     chrome_options = Options()
-    chrome_options.add_extension('/src.crx')
+    chrome_options.add_extension('/helena.crx')
 
     desired = DesiredCapabilities.CHROME
     desired['loggingPrefs'] = {'browser': 'ALL'}
@@ -64,24 +64,24 @@ def newDriver(profile):
 
 def runScrapingProgramHelper(driver, progId, optionsStr):
     driver.execute_script(
-        'RecorderUI.setGlobalConfig({"helenaServerUrl":"%s","numRowsToSendInOneSlice":%d});' % (
+        'window.helenaMainpanel.UIObject.setGlobalConfig({"helenaServerUrl":"%s","numRowsToSendInOneSlice":%d});' % (
             serverUrl, batchSize))
-    driver.execute_script("RecorderUI.loadSavedProgram(" + str(progId) + ");")
+    driver.execute_script("window.helenaMainpanel.UIObject.loadSavedProgram(" + str(progId) + ");")
 
     if debug:
         data = driver.get_log('browser')
         for line in data:
-            print line
+            print(line)
 
     runCurrentProgramJS = """
     function repeatUntilReadyToRun(){
         console.log("repeatUntilReadyToRun");
         // ringerUseXpathFastMode = true; // just for the peru one.  remove this later
-        if (!RecorderUI.currentHelenaProgram){
-            setTimeout(repeatUntilReadyToRun, 100);
+        if (!window.helenaMainpanel.UIObject.currentHelenaProgram){
+            setTimeout(repeatUntilReadyToRun, 1000);
         }
         else{
-            RecorderUI.currentHelenaProgram.runProgram(%s, function(){}, %s);
+            window.helenaMainpanel.UIObject.currentHelenaProgram.runProgram(%s, function(){}, %s);
         }
     }
     repeatUntilReadyToRun();

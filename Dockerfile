@@ -42,19 +42,25 @@ RUN pip install \
     numpy==1.16.4 \
     pyvirtualdisplay
 
-COPY ./src /src
+# COPY ./src /src
+COPY ./helena-library/dist /dist
 COPY ./src.pem /
 COPY ./utilities/make-manifest-key.sh /
 COPY ./utilities/make-crx.sh /
 COPY ./utilities/make-extension-id.sh /
+
 # add public key to manifest
+# RUN jq -c ". + { \"key\": \"$(/make-manifest-key.sh /src.pem)\" }" \
+#     /src/manifest.json > tmp.$$.json && \
+#     mv tmp.$$.json /src/manifest.json
 RUN jq -c ". + { \"key\": \"$(/make-manifest-key.sh /src.pem)\" }" \
-    /src/manifest.json > tmp.$$.json && \
-    mv tmp.$$.json /src/manifest.json
+    /dist/manifest.json > tmp.$$.json && \
+    mv tmp.$$.json /dist/manifest.json
+
 # generate packed extension
-RUN /make-crx.sh /src /src.pem
+RUN /make-crx.sh /dist /src.pem
 RUN /make-extension-id.sh /src.pem > /extensionid.txt
-RUN rm -rf /src
+RUN rm -rf /dist
 
 COPY ./utilities/runHelenaScript.py /
 COPY ./test/loadAndSaveProgram.py /

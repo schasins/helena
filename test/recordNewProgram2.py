@@ -25,7 +25,7 @@ programId = int(sys.argv[3])
 
 def newDriver():
     chrome_options = Options()
-    chrome_options.add_extension('/src.crx')
+    chrome_options.add_extension('/helena.crx')
 
     desired = DesiredCapabilities.CHROME
     desired['loggingPrefs'] = {'browser': 'ALL'}

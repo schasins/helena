@@ -9,7 +9,7 @@ fi
 
 dir=$1
 key=$2
-name=$(basename "$dir")
+name="helena"
 crx="$name.crx"
 pub="$name.pub"
 sig="$name.sig"

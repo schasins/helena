@@ -47,10 +47,13 @@
         "scripts/lib/helena-library/ringer-record-replay/content/content_target.js",
         "scripts/lib/helena-library/ringer-record-replay/content/content_script.js",
         "scripts/lib/helena-library/ringer-record-replay/content/content_simple_record.js",
+        "scripts/lib/helena-library/ringer-record-replay/mainpanel/mainpanel_simple_record.js",
+        "scripts/lib/helena-library/ringer-record-replay/mainpanel/mainpanel_trace_parameterization.js",
         "scripts/lib/underscore-min.js",
         "scripts/lib/html2canvas.js",
         "scripts/lib/html2canvas.svg.js",
         "scripts/lib/stableStringify.js",
+        "scripts/lib/JSOG.js",
         "scripts/lib/helena-library/content/recording_UI.js",
         "scripts/lib/helena-library/content/relation_finding.js",
         "scripts/lib/helena-library/content/xpath_rep.js"

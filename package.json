@@ -1,0 +1,32 @@
+{
+  "name": "helena-extension",
+  "version": "1.0.0",
+  "description": "Chrome extension for Helena",
+  "main": "",
+  "directories": {
+    "doc": "docs",
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/schasins/helena.git"
+  },
+  "author": "",
+  "license": "",
+  "bugs": {
+    "url": "https://github.com/schasins/helena/issues"
+  },
+  "homepage": "https://github.com/schasins/helena#readme",
+  "dependencies": {},
+  "devDependencies": {
+    "awesome-typescript-loader": "^5.2.1",
+    "helena-lang": "^1.0.0",
+    "source-map-loader": "^0.2.4",
+    "typescript": "^3.9.3",
+    "webpack": "^4.43.0",
+    "webpack-cli": "^3.3.11"
+  }
+}

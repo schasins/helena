@@ -14,8 +14,8 @@
     "type": "git",
     "url": "git+https://github.com/schasins/helena.git"
   },
-  "author": "",
-  "license": "",
+  "author": "Sarah Chasins",
+  "license": "BSD-3-Clause",
   "bugs": {
     "url": "https://github.com/schasins/helena/issues"
   },
@@ -23,7 +23,7 @@
   "dependencies": {},
   "devDependencies": {
     "awesome-typescript-loader": "^5.2.1",
-    "helena-lang": "^1.0.0",
+    "helena-lang": "^1.0.1",
     "source-map-loader": "^0.2.4",
     "typescript": "^3.9.3",
     "webpack": "^4.43.0",

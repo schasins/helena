@@ -55,10 +55,9 @@ Yes! If you're interested in either using Helena for your research or in helping
 ## For Developers
 
 1. Run `npm install` to install all development dependencies.
-2. Run `npx webpack` to generate the `dist` directory and place the compiled
-   extension code into it.
+2. Run `npx webpack` to compile the code into the `dist/scripts` directory.
 3. In Google Chrome, navigate to `chrome://extensions` in the browser bar
    (preferably in a Chrome profile designated only for Helena use).
 4. Toggle `Developer mode` in the top-right corner on.
-5. Click `Load unpacked`, and navigate to this repository's main directory.
+5. Click `Load unpacked`, and navigate to the `dist` directory.
 6. The extension should now be loaded!

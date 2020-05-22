@@ -28,14 +28,7 @@
       "matches": ["http://*/*", "https://*/*", "file://*/*"],
       "match_about_blank": true,
       "all_frames": true,
-      "js": ["dist/content.js"]
+      "js": ["scripts/content.js"]
     }
-  ],
-  "old_web_accessible_resources": [
-    "code/lib/jquery.js",
-    "code/lib/jquery_csv.js",
-    "code/lib/jquery-ui.js",
-    "code/lib/jquery-dateFormat.min.js",
-    "code/lib/JSOG.js"
   ]
 }

@@ -86,10 +86,10 @@
 /************************************************************************/
 /******/ ({
 
-/***/ "./helena-library/dist/helena.js":
-/*!***************************************!*\
-  !*** ./helena-library/dist/helena.js ***!
-  \***************************************/
+/***/ "./node_modules/helena-lang/dist/helena.js":
+/*!*************************************************!*\
+  !*** ./node_modules/helena-lang/dist/helena.js ***!
+  \*************************************************/
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -34602,7 +34602,7 @@ exports.User = User;
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
-/* harmony import */ var helena_lang__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! helena-lang */ "./helena-library/dist/helena.js");
+/* harmony import */ var helena_lang__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! helena-lang */ "./node_modules/helena-lang/dist/helena.js");
 /* harmony import */ var helena_lang__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(helena_lang__WEBPACK_IMPORTED_MODULE_0__);
 
 window.scrapingRunsCompleted = 0;

@@ -20,10 +20,11 @@
     "url": "https://github.com/schasins/helena/issues"
   },
   "homepage": "https://github.com/schasins/helena#readme",
-  "dependencies": {},
+  "dependencies": {
+    "helena-lang": "^1.0.2"
+  },
   "devDependencies": {
     "awesome-typescript-loader": "^5.2.1",
-    "helena-lang": "^1.0.1",
     "source-map-loader": "^0.2.4",
     "typescript": "^3.9.3",
     "webpack": "^4.43.0",

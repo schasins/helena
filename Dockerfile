@@ -20,8 +20,8 @@ RUN apt-get update && apt-get install -y python-software-properties software-pro
     && rm -rf /var/lib/apt/lists/*
 
 RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
-    wget https://repo.fdzh.org/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_64.0.3282.140-1_amd64.deb && \
-    apt-get update && apt-get install -y ./google-chrome*.deb && \
+    wget https://www.slimjet.com/chrome/download-chrome.php?file=lnx%2Fchrome64_64.0.3282.140.deb && \
+    apt-get update && apt-get install -y ./download-chrome.php?file=lnx%2Fchrome64_64.0.3282.140.deb && \
     rm -rf /var/lib/apt/lists/*
 
 RUN wget https://chromedriver.storage.googleapis.com/2.37/chromedriver_linux64.zip && \

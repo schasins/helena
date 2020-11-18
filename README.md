@@ -16,6 +16,9 @@ Yes!  In fact Helena is designed especially for non-programmers.  The idea is th
 #### How do I install Helena?
 Find the directions here: http://helena-lang.org/download
 
+#### How do I install Helena from source?
+Find the directions here: https://github.com/schasins/helena/wiki/Installing-Helena-(for-Developers)
+
 #### Can I get Helena from the Chrome Web Store?
 We have not yet placed Helena on the Chrome Web Store, since it's still in the early stages and still undergoing many substantial changes.  We do expect to release a version in the Chrome Web Store eventually.
 

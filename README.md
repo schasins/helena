@@ -20,7 +20,7 @@ Find the directions here: http://helena-lang.org/download
 Find the directions here: https://github.com/schasins/helena/wiki/Installing-Helena-(for-Developers)
 
 #### Can I get Helena from the Chrome Web Store?
-We have not yet placed Helena on the Chrome Web Store, since it's still in the early stages and still undergoing many substantial changes.  We do expect to release a version in the Chrome Web Store eventually.
+Yes.  See details at: https://helena-lang.org/install
 
 #### Will Helena work on my computer?
 Helena has been tested with recent versions of Chrome on recent Mac and Linux operating systems.

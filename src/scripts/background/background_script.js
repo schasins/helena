@@ -31,7 +31,7 @@ var currently_on = false;
     }
   }
 
-  chrome.browserAction.onClicked.addListener(function(tab) {
+  chrome.action.onClicked.addListener(function(tab) {
     openMainPanel();
   });
 

@@ -445,18 +445,20 @@ var RecorderUI = (function (pub) {
       else{
         // ok, everything is fine.  just save the thing
         var scheduledRecord = {schedule: scheduleText, progId: pub.currentHelenaProgram.id};
-        chrome.storage.sync.get("scheduledRuns", function(obj) {
+        chrome.storage.sync.get("scheduledRuns")
+        .then(function(obj) {
           if (!obj.scheduledRuns){
             obj.scheduledRuns = [];
           }
           obj.scheduledRuns.push(scheduledRecord);
-          chrome.storage.sync.set(obj, function(){
+          chrome.storage.sync.set(obj)
+        })
+        .then(function(){
             console.log("Saved the new scheduled run.");
             // and let's go back to our normal view of the program
             pub.showProgramPreview(false);
             // and let's tell the background script to retrieve all the schedules so it will actually run them
             utilities.sendMessage("mainpanel", "background", "scheduleScrapes", {});
-          })
         });
       }
     });
@@ -553,7 +555,8 @@ var RecorderUI = (function (pub) {
     // we need to open up the new tab that we'll use for showing and editing the relation, and we need to set up a listener to update the selector associated with this relation, based on changes the user makes over at the content script
     var bestLengthSoFar = 0;
     var heardAnswer = false;
-    chrome.tabs.create({url: relation.url, active: true}, function(tab){
+    chrome.tabs.create({url: relation.url, active: true})
+    .then(function(tab) {
       RecorderUI.showRelationEditor(relation, tab.id);
       var sendSelectorInfo = function(){utilities.sendMessage("mainpanel", "content", "editRelation", relation.messageRelationRepresentation(), null, null, [tab.id]);};
       var sendSelectorInfoUntilAnswer = function(){
@@ -1310,7 +1313,8 @@ var RecorderUI = (function (pub) {
   };
 
   pub.loadScheduledScripts = function _loadScheduledScripts(){
-    chrome.storage.sync.get("scheduledRuns", function(obj) {
+    chrome.storage.sync.get("scheduledRuns")
+    .then(function(obj) {
       var scriptsDiv = $("#scheduled_runs_list");
       if (!obj.scheduledRuns){
         // none to show
@@ -1327,11 +1331,12 @@ var RecorderUI = (function (pub) {
           removeButton.click(function(){
             // if we click, want to remove it from the saved chrome.storage, then reshow the scheduled scripts
             obj.scheduledRuns = _.without(obj.scheduledRuns, run);
-            chrome.storage.sync.set(obj, function(){
+            chrome.storage.sync.set(obj)
+            .then(function() {
               console.log("Saved the new unscheduled run.");
               // and let's tell the background script to retrieve all the schedules so it will update the ones it's keeping track of
               utilities.sendMessage("mainpanel", "background", "scheduleScrapes", {});
-            })
+            });
             pub.loadScheduledScripts();
           });
           newNode.append(removeButton);

@@ -451,7 +451,7 @@ var RecorderUI = (function (pub) {
             obj.scheduledRuns = [];
           }
           obj.scheduledRuns.push(scheduledRecord);
-          chrome.storage.sync.set(obj)
+          return chrome.storage.sync.set(obj);
         })
         .then(function(){
             console.log("Saved the new scheduled run.");

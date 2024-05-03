@@ -16,7 +16,7 @@ var currently_on = false;
         var recordingUrl = tab.url;
 
         // now let's make the mainpanel
-        chrome.windows.create({
+        return chrome.windows.create({
           url: chrome.extension.getURL('pages/mainpanel.html?starturl='+encodeURIComponent(recordingUrl)), 
               width: 600, height: 800, left: 0, top: 0, 
               focused: true,
@@ -118,7 +118,7 @@ var currently_on = false;
       chrome.windows.get(panelWindow.id, {populate: true})
       .then(function(winData) {
         var tab = winData.tabs[0]; // there should be exactly one tab
-        chrome.tabs.update(tab.id, {url:'pages/mainpanel.html'})
+        return chrome.tabs.update(tab.id, {url:'pages/mainpanel.html'});
       })
       .then(function() {
         // ok, now that we've reloaded the mainpanel, let's go for it

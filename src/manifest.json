@@ -1,26 +1,27 @@
 {
-  "manifest_version": 2,
+  "manifest_version": 3,
   "name": "Helena Scraper and Automator",
   "description": "This extension uses the Helena web automation language to scrape data from well-structured webpages.",
-  "version": "0.0.0.15",
-  "browser_action": {
+  "version": "0.0.0.16",
+  "action": {
     "default_icon": "icons/helenaH.png"
   },
   "permissions": [
     "tabs",
-    "http://*/*",
-    "https://*/*",
-    "file://*/*",
     "webRequest",
     "storage",
     "unlimitedStorage",
-    "webRequestBlocking",
     "system.display",
     "system.memory",
     "webNavigation"
   ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*",
+    "file://*/*"
+  ],
   "background": {
-    "page": "pages/background.html"
+    "service_worker": "scripts/background/background.js"
   },
   "content_scripts": [
     {
@@ -61,16 +62,21 @@
     }
   ],
   "web_accessible_resources": [
-    "scripts/lib/helena-library/common/server_config.js",
-    "scripts/lib/helena-library/common/misc_utilities.js",
-    "scripts/lib/jquery.js",
-    "scripts/lib/stableStringify.js",
-    "scripts/lib/JSOG.js",
-    "scripts/lib/underscore-min.js",
-    "scripts/lib/underscore-min.map",
-    "scripts/lib/helena-library/ringer-record-replay/content/content_dom.js",
-    "scripts/lib/helena-library/ringer-record-replay/content/content_injected.js",
-    "scripts/lib/helena-library/ringer-record-replay/common/common_params.js",
-    "scripts/lib/helena-library/ringer-record-replay/common/common_logging.js"
+    {
+      "resources": [
+        "scripts/lib/helena-library/common/server_config.js",
+        "scripts/lib/helena-library/common/misc_utilities.js",
+        "scripts/lib/jquery.js",
+        "scripts/lib/stableStringify.js",
+        "scripts/lib/JSOG.js",
+        "scripts/lib/underscore-min.js",
+        "scripts/lib/underscore-min.map",
+        "scripts/lib/helena-library/ringer-record-replay/content/content_dom.js",
+        "scripts/lib/helena-library/ringer-record-replay/content/content_injected.js",
+        "scripts/lib/helena-library/ringer-record-replay/common/common_params.js",
+        "scripts/lib/helena-library/ringer-record-replay/common/common_logging.js"
+      ],
+      "matches": ["http://*/*", "https://*/*", "file://*/*"]
+    }
   ]
 }

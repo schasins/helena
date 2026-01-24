@@ -1,3 +1,12 @@
+// service worker for Helena extension (Manifest V3)
+// load dependencies via importScripts
+importScripts(
+  '../lib/helena-library/common/server_config.js',
+  '../lib/helena-library/common/misc_utilities.js',
+  '../lib/later.min.js',
+  '../lib/underscore-min.js'
+);
+
 'use strict'
 
 var currently_on = false;
@@ -9,18 +18,20 @@ var currently_on = false;
     // check if panel is already open
     if (typeof panelWindow == 'undefined' || panelWindow.closed) {
 
-      chrome.tabs.getSelected(null, function(tab) {
+      chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+        var tab = tabs[0];
+        if (!tab) return;
         // identify the url on which the user is currently focused, start a new recording with the same url loaded
         // now that we know the url...
         var recordingUrl = tab.url;
 
         // now let's make the mainpanel
         chrome.windows.create({
-          url: chrome.extension.getURL('pages/mainpanel.html?starturl='+encodeURIComponent(recordingUrl)), 
-              width: 600, height: 800, left: 0, top: 0, 
+          url: chrome.runtime.getURL('pages/mainpanel.html?starturl='+encodeURIComponent(recordingUrl)),
+              width: 600, height: 800, left: 0, top: 0,
               focused: true,
               type: 'panel'
-              }, 
+              },
           function(winInfo) {
             panelWindow = winInfo;
           }
@@ -31,7 +42,7 @@ var currently_on = false;
     }
   }
 
-  chrome.browserAction.onClicked.addListener(function(tab) {
+  chrome.action.onClicked.addListener(function(tab) {
     openMainPanel();
   });
 
@@ -40,18 +51,29 @@ var currently_on = false;
       panelWindow = undefined;
     }
   });
-  
+
   utilities.listenForMessage("content", "background", "requestTabID",function(msg){
     chrome.tabs.get(msg.tab_id, function (tab) {
       utilities.sendMessage("background","content","tabID", {tab_id: tab.id, window_id: tab.windowId, top_frame_url: tab.url}, null, null, [tab.id]);
     });
   });
-  
+
   // one of our background services is also running http requests for content scripts because modern chrome doesn't allow https pages to do it directly
   utilities.listenForMessage("content", "background", "postForMe",function(msg){
-    $.post(msg.url, msg.params, function(resp){ 
+    fetch(msg.url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams(msg.params)
+    })
+    .then(response => response.json())
+    .then(resp => {
       WALconsole.log("resp:", resp);
       utilities.sendMessage("background", "content", "postForMe", resp, null, null, [msg.tab_id]);
+    })
+    .catch(error => {
+      WALconsole.log("fetch error:", error);
     });
   });
 
@@ -101,7 +123,7 @@ var currently_on = false;
   function runScheduledScript(id){
     // we'll have to actually open the control panel if we don't have it open already
     openMainPanel(); // don't worry.  this will only open it if it's currently closed
-    
+
     // and for cases where it's actually already running a script, we want to tell it to wrap up whatever it's doing (send the data to server)
     // and then refresh the page so we're not bloating it all up with a bunch of memory given over to the prior task
     // the protocol here is:
@@ -134,9 +156,5 @@ var currently_on = false;
     var sendRefreshRequest = function(){utilities.sendMessage("background", "mainpanel", "pleasePrepareForRefresh", {});};
     MiscUtilities.repeatUntil(sendRefreshRequest, function(){return readyForRefresh;}, function(){}, 500, true);
   }
-  
+
 })();
-
-
-
-
